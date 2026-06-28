@@ -610,7 +610,7 @@ td span {
 .quick-cash-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
 .quick-cash-button {
@@ -619,6 +619,7 @@ td span {
   color: #285f45;
   min-height: 38px;
   padding: 8px 6px;
+  white-space: nowrap;
 }
 
 .quick-cash-button:hover,
