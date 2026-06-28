@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import { buildSeedProductImage, grocerySeedProducts } from "./product-seed-images.js";
+
+describe("grocery product seed images", () => {
+  it("defines ten grocery products with image sources", () => {
+    expect(grocerySeedProducts).toHaveLength(10);
+    expect(grocerySeedProducts.every((product) => product.imageSourceUrl.startsWith("https://"))).toBe(true);
+  });
+
+  it("builds Cloudinary image metadata for seeded products", () => {
+    const image = buildSeedProductImage(grocerySeedProducts[0], "pos-demo");
+
+    expect(image).toEqual(
+      expect.objectContaining({
+        provider: "cloudinary",
+        publicId: "pos-grocery/products/seed/rice-5kg",
+        altText: "Jasmine Rice 5kg",
+        format: "jpg",
+      }),
+    );
+    expect(image.secureUrl).toContain("https://res.cloudinary.com/pos-demo/image/fetch/");
+    expect(image.secureUrl).toContain("f_auto,q_auto,w_640");
+    expect(image.thumbnailUrl).toContain("c_fill,h_240,w_240");
+  });
+});
