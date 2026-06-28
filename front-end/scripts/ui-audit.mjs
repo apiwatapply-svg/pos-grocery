@@ -31,6 +31,7 @@ const routeCases = [
 
 const screenshotRoutes = [
   { path: '/dashboard', role: 'owner', name: 'dashboard-desktop' },
+  { path: '/dashboard', role: 'owner', name: 'dashboard-sidebar-collapsed', collapseSidebar: true },
   { path: '/pos', role: 'cashier', name: 'pos-desktop' },
   { path: '/settings/users', role: 'owner', name: 'users-desktop' },
   { path: '/products', role: 'stock', name: 'products-mobile', width: 390, height: 900 },
@@ -198,10 +199,11 @@ async function evaluate(cdp, expression) {
 async function setSession(cdp, role) {
   const session = JSON.stringify(sessionForRole(role)).replaceAll('\\', '\\\\').replaceAll("'", "\\'")
   await navigate(cdp, `${appUrl}/login`)
-  await evaluate(
-    cdp,
-    `localStorage.setItem('pos-grocery:session', '${session}'); undefined`,
-  )
+  await evaluate(cdp, `
+    localStorage.setItem('pos-grocery:session', '${session}');
+    localStorage.removeItem('pos-grocery:sidebar-collapsed');
+    undefined
+  `)
 }
 
 async function auditCurrentPage(cdp) {
@@ -263,6 +265,32 @@ async function captureScreenshot(cdp, item) {
   })
   await setSession(cdp, item.role)
   await navigate(cdp, `${appUrl}${item.path}`)
+  if (item.collapseSidebar) {
+    const interaction = await evaluate(
+      cdp,
+      `(async () => {
+        document.querySelector('[aria-label="หุบ sidebar"]')?.click();
+        await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+        const layout = document.querySelector('.app-layout');
+        return {
+          collapsed: layout?.getAttribute('data-sidebar-collapsed'),
+          stored: localStorage.getItem('pos-grocery:sidebar-collapsed'),
+        };
+      })()`,
+    )
+    if (interaction.collapsed !== 'true' || interaction.stored !== 'true') {
+      throw new Error('Sidebar did not collapse or persist after clicking the collapse button.')
+    }
+
+    await navigate(cdp, `${appUrl}${item.path}`)
+    const persisted = await evaluate(
+      cdp,
+      `document.querySelector('.app-layout')?.getAttribute('data-sidebar-collapsed')`,
+    )
+    if (persisted !== 'true') {
+      throw new Error('Sidebar collapsed preference was not restored after reload.')
+    }
+  }
   const layout = await evaluate(
     cdp,
     `(() => {

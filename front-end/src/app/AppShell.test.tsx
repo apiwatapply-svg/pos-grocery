@@ -31,7 +31,7 @@ afterEach(() => {
 
 function renderShell(session = cashierSession) {
   saveSession(session)
-  render(
+  return render(
     <MemoryRouter>
       <AppShell>
         <h1>Page Content</h1>
@@ -80,5 +80,25 @@ describe('AppShell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'ปิดเมนู' }))
     expect(navigation).toHaveAttribute('data-open', 'false')
+  })
+
+  it('collapses the desktop sidebar and remembers the preference', () => {
+    const { unmount } = renderShell()
+
+    const layout = screen.getByRole('navigation', { name: 'เมนูหลัก' }).closest('.app-layout')
+    expect(layout).toHaveAttribute('data-sidebar-collapsed', 'false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'หุบ sidebar' }))
+    expect(layout).toHaveAttribute('data-sidebar-collapsed', 'true')
+    expect(localStorage.getItem('pos-grocery:sidebar-collapsed')).toBe('true')
+
+    unmount()
+    renderShell()
+
+    expect(screen.getByRole('navigation', { name: 'เมนูหลัก' }).closest('.app-layout')).toHaveAttribute(
+      'data-sidebar-collapsed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'ขยาย sidebar' })).toBeInTheDocument()
   })
 })
