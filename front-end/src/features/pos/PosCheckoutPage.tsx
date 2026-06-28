@@ -1,4 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
+import { readSession } from '../../lib/auth/session'
 import { baht, writeCustomerDisplayPayload } from './customerDisplay'
 
 type Product = {
@@ -23,6 +26,8 @@ type Sale = {
   items: CartItem[]
   total: number
   changeDue: number
+  status: 'completed' | 'cancelled'
+  cancelledBy?: string
 }
 
 const initialProducts: Product[] = [
@@ -57,6 +62,7 @@ function Field(props: {
 }
 
 export function PosCheckoutPage() {
+  const session = readSession()
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
@@ -67,6 +73,8 @@ export function PosCheckoutPage() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const activeProducts = products.filter((product) => product.status === 'active')
+  const canCancelReceipt =
+    session?.user.role === 'owner' || session?.user.role === 'admin'
 
   useEffect(() => {
     writeCustomerDisplayPayload({
@@ -161,10 +169,51 @@ export function PosCheckoutPage() {
       items: cart,
       total: cartTotal,
       changeDue: cashReceived - cartTotal,
+      status: 'completed',
     }
     setLastSale(sale)
     setCart([])
     setNotice('ขายสำเร็จ')
+  }
+
+  async function cancelSale(sale: Sale) {
+    if (!canCancelReceipt) {
+      setNotice('ไม่มีสิทธิ์ยกเลิกบิล')
+      return
+    }
+    if (sale.status === 'cancelled') {
+      return
+    }
+
+    const result = await Swal.fire({
+      cancelButtonText: 'ไม่ยกเลิก',
+      confirmButtonColor: '#b42318',
+      confirmButtonText: 'ยืนยันยกเลิก',
+      icon: 'warning',
+      showCancelButton: true,
+      text: `บิล ${sale.receiptNumber} จะถูกยกเลิกและคืน stock กลับเข้าคลัง`,
+      title: 'ยืนยันยกเลิกบิล',
+    })
+
+    if (!result.isConfirmed) {
+      return
+    }
+
+    const cancelledSale: Sale = {
+      ...sale,
+      status: 'cancelled',
+      cancelledBy: session?.user.displayName,
+    }
+
+    setProducts((current) =>
+      current.map((product) => {
+        const item = sale.items.find((line) => line.productId === product.id)
+        return item ? { ...product, stockQuantity: product.stockQuantity + item.quantity } : product
+      }),
+    )
+    setLastSale(cancelledSale)
+    setSelectedSale(cancelledSale)
+    setNotice('ยกเลิกบิลแล้ว')
   }
 
   return (
@@ -252,7 +301,7 @@ export function PosCheckoutPage() {
                 >
                   <span>{lastSale.receiptNumber}</span>
                   <strong>ยอดรวม {baht(lastSale.total)} บาท</strong>
-                  <small>ดูรายละเอียดบิล</small>
+                  <small>{lastSale.status === 'cancelled' ? 'ยกเลิกแล้ว' : 'ดูรายละเอียดบิล'}</small>
                 </button>
               ) : (
                 <p className="empty-hint">ยังไม่มีบิลล่าสุด</p>
@@ -290,6 +339,7 @@ export function PosCheckoutPage() {
             <div className="receipt-paper">
               <strong>POS Grocery</strong>
               <span>{selectedSale.receiptNumber}</span>
+              <span>{selectedSale.status === 'cancelled' ? 'ยกเลิกแล้ว' : 'ขายสำเร็จ'}</span>
               {selectedSale.items.map((item) => (
                 <span key={item.productId}>
                   {item.productName} x{item.quantity} = {baht(item.quantity * item.unitPrice)}
@@ -297,10 +347,22 @@ export function PosCheckoutPage() {
               ))}
               <strong>ยอดรวม {baht(selectedSale.total)} บาท</strong>
               <strong>เงินทอน {baht(selectedSale.changeDue)} บาท</strong>
+              {selectedSale.cancelledBy ? <span>ยกเลิกโดย {selectedSale.cancelledBy}</span> : null}
             </div>
-            <button className="info-button" type="button" onClick={() => window.print()}>
-              Print receipt
-            </button>
+            <div className="modal-actions">
+              <button className="info-button compact" type="button" onClick={() => window.print()}>
+                Print receipt
+              </button>
+              {canCancelReceipt && selectedSale.status === 'completed' ? (
+                <button
+                  className="danger-button compact"
+                  type="button"
+                  onClick={() => void cancelSale(selectedSale)}
+                >
+                  ยกเลิกบิล
+                </button>
+              ) : null}
+            </div>
           </section>
         </div>
       ) : null}
