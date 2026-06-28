@@ -36,6 +36,6 @@ describe('StoreSettingsPage', () => {
     expect(await screen.findByText('SQL Grocery Store')).toBeInTheDocument()
     expect(screen.getByText('0891112222')).toBeInTheDocument()
     expect(screen.queryByText('POS Grocery')).not.toBeInTheDocument()
-    expect(mockedApiGet).toHaveBeenCalledWith('/stores/current')
+    expect(mockedApiGet).toHaveBeenCalledWith('/store/current')
   })
 })

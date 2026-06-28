@@ -17,7 +17,7 @@ export function StoreSettingsPage() {
   useEffect(() => {
     let active = true
 
-    apiGet<Store>('/stores/current')
+    apiGet<Store>('/store/current')
       .then((nextStore) => {
         if (active) {
           setStore(nextStore)
