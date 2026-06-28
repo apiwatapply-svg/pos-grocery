@@ -12,7 +12,8 @@ dashboard analytics, and styled Excel exports.
 - ORM: Prisma ORM v6
 - Product images: Cloudinary Free
 - Tests: Vitest
-- CI/CD: GitHub Actions
+- CI: GitHub Actions
+- Production deploy: manual only while the project is in local-first development
 
 ## Project Structure
 
@@ -38,7 +39,23 @@ npm test
 npm run build
 ```
 
+Run locally:
+
+```powershell
+npm run dev:back-end
+npm run dev:front-end
+```
+
+Local URLs:
+
+- Frontend: `http://127.0.0.1:5173`
+- Backend health: `http://127.0.0.1:8787/api/health`
+
 ## Deployment
+
+Production deployment is intentionally manual for now. Pushes to `main` run CI
+only; they do not deploy to Vercel or Cloudflare until the Deploy workflow is
+started manually from GitHub Actions.
 
 Frontend deployment target: Vercel Hobby.
 
