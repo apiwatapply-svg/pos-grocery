@@ -128,6 +128,8 @@ describe('ProductListPage', () => {
     renderPage(ownerSession)
     expect(await screen.findByText('SQL Product')).toBeInTheDocument()
 
+    expect(screen.getByRole('button', { name: 'ล้างตัวกรอง' })).toHaveClass('product-filter-clear')
+
     fireEvent.change(screen.getByLabelText('ค้นหา/กรองสินค้า'), {
       target: { value: 'FILTER-SKU' },
     })

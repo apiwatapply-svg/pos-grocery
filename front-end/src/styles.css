@@ -445,7 +445,7 @@ td span {
 }
 
 .product-filter-panel {
-  align-items: end;
+  align-items: center;
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(280px, 1fr) auto;
@@ -453,6 +453,11 @@ td span {
 }
 
 .product-filter-field input {
+  min-height: 44px;
+}
+
+.product-filter-clear {
+  align-self: center;
   min-height: 44px;
 }
 

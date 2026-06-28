@@ -318,7 +318,7 @@ export function ProductListPage() {
             >{`${product.name} - ${product.barcode}`}</option>
           ))}
         </datalist>
-        <button className="ghost-button compact" onClick={() => setProductFilter('')} type="button">
+        <button className="ghost-button compact product-filter-clear" onClick={() => setProductFilter('')} type="button">
           ล้างตัวกรอง
         </button>
       </section>
