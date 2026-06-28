@@ -858,6 +858,14 @@ td span {
   width: 100%;
 }
 
+.page-action-button {
+  align-self: center;
+  box-shadow: 0 10px 22px rgb(21 128 61 / 18%);
+  margin-top: 0;
+  min-width: 132px;
+  width: auto;
+}
+
 .receipt-paper {
   background: #fbfcfa;
   border: 1px dashed #9aa79e;
@@ -1346,6 +1354,7 @@ td span {
 .route-page {
   display: grid;
   gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .page-header {
@@ -1353,6 +1362,15 @@ td span {
   display: flex;
   gap: 14px;
   justify-content: space-between;
+  width: 100%;
+}
+
+.page-actions {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .page-header h1,
@@ -1392,6 +1410,11 @@ td span {
   width: min(100%, 520px);
 }
 
+.product-bulk-modal {
+  max-width: 1120px;
+  width: min(100%, 1120px);
+}
+
 .modal-header,
 .modal-actions {
   align-items: center;
@@ -1405,9 +1428,59 @@ td span {
   margin: 0;
 }
 
+.modal-header p {
+  color: #66746b;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+
 .modal-form {
   display: grid;
   gap: 12px;
+}
+
+.product-bulk-form {
+  gap: 14px;
+}
+
+.product-bulk-list {
+  display: grid;
+  gap: 12px;
+  max-height: min(58vh, 560px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.product-bulk-row {
+  align-items: end;
+  background: #f8fbf7;
+  border: 1px solid #dce7dc;
+  border-left: 5px solid #15803d;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1.15fr 1fr 0.75fr 0.7fr 0.7fr 0.7fr auto;
+  margin: 0;
+  padding: 14px;
+}
+
+.product-bulk-row legend {
+  color: #285f45;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 0 6px;
+}
+
+.product-bulk-row .danger-button {
+  margin-bottom: 0;
+  min-height: 38px;
+}
+
+.modal-actions-right {
+  align-items: center;
+  display: flex;
+  gap: 10px;
 }
 
 .modal-form select {
@@ -1492,7 +1565,16 @@ td span {
     flex-direction: column-reverse;
   }
 
+  .modal-actions-right {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
   .modal-actions .compact {
     width: 100%;
+  }
+
+  .product-bulk-row {
+    grid-template-columns: 1fr;
   }
 }
