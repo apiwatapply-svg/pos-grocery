@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import Swal from 'sweetalert2'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiPost } from '../../lib/api/client'
 import { readSession, saveSession } from '../../lib/auth/session'
@@ -10,7 +11,14 @@ vi.mock('../../lib/api/client', () => ({
   apiPost: vi.fn(),
 }))
 
+vi.mock('sweetalert2', () => ({
+  default: {
+    fire: vi.fn().mockResolvedValue({}),
+  },
+}))
+
 const mockedApiPost = vi.mocked(apiPost)
+const mockedSwal = vi.mocked(Swal)
 
 function loginResponse(role: 'owner' | 'admin' | 'cashier' | 'stock') {
   return {
@@ -77,6 +85,12 @@ describe('LoginPage', () => {
         role,
       },
     })
+    expect(mockedSwal.fire).toHaveBeenCalledWith(
+      expect.objectContaining({
+        icon: 'success',
+        timer: 800,
+      }),
+    )
   })
 
   it.each([

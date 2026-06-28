@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiPost } from '../../lib/api/client'
 import { readSession, saveSession } from '../../lib/auth/session'
 import type { Role } from '../../lib/auth/permissions'
@@ -54,6 +56,14 @@ export function LoginPage() {
         },
       })
       setMessage(`พร้อมใช้งาน: ${result.user.displayName}`)
+      await Swal.fire({
+        icon: 'success',
+        title: 'เข้าสู่ระบบสำเร็จ',
+        text: `ยินดีต้อนรับ ${result.user.displayName}`,
+        timer: 800,
+        showConfirmButton: false,
+        timerProgressBar: true,
+      })
       navigate(defaultPathForRole(result.user.role))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'เข้าสู่ระบบไม่สำเร็จ')
