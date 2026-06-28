@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { DashboardPage } from './features/dashboard/DashboardPage'
@@ -36,7 +37,7 @@ function defaultRouteForCurrentUser() {
   return '/login'
 }
 
-function protectedPage(routeId: AppRouteId, page: JSX.Element) {
+function protectedPage(routeId: AppRouteId, page: ReactElement) {
   return (
     <RequireAuth routeId={routeId}>
       <AppShell>{page}</AppShell>
