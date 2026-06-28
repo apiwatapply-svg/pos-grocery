@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, type ReactNode, useState } from 'react'
+import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 
 type Store = {
   name: string
@@ -80,6 +80,74 @@ function baht(value: number) {
   return value.toFixed(2)
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function buildCustomerDisplayHtml(input: {
+  store: Store
+  cart: CartItem[]
+  cartTotal: number
+  lastSale: Sale | null
+}) {
+  const rows =
+    input.cart.length > 0
+      ? input.cart
+          .map(
+            (item) => `<div class="row"><span>${escapeHtml(item.productName)} x${item.quantity}</span><strong>${baht(
+              item.quantity * item.unitPrice,
+            )} บาท</strong></div>`,
+          )
+          .join('')
+      : '<p class="muted">รอรายการสินค้า</p>'
+
+  return `<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>จอลูกค้า - ${escapeHtml(input.store.name)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #101814;
+      color: #fff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px;
+    }
+    .screen { display: grid; gap: 24px; margin: 0 auto; max-width: 960px; }
+    h1 { font-size: 48px; line-height: 1; margin: 0; }
+    .store, .muted, .receipt { color: #c9d7cf; }
+    .row {
+      align-items: center;
+      border-top: 1px solid #34463b;
+      display: grid;
+      font-size: 28px;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 18px 0 0;
+    }
+    .total { color: #bff0d2; font-size: 42px; font-weight: 900; }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <p class="store">${escapeHtml(input.store.name)}</p>
+    <h1>จอลูกค้า</h1>
+    <section>${rows}</section>
+    <strong class="total">ยอดที่ต้องชำระ ${baht(input.cartTotal)} บาท</strong>
+    ${input.lastSale ? `<p class="receipt">บิลล่าสุด ${escapeHtml(input.lastSale.receiptNumber)}</p>` : ''}
+  </main>
+</body>
+</html>`
+}
+
 function hasSecondScreen() {
   const screenWithExtension = window.screen as Screen & { isExtended?: boolean }
   return screenWithExtension.isExtended === true
@@ -107,6 +175,7 @@ function Field(props: {
 }
 
 export function App() {
+  const customerDisplayWindowRef = useRef<Window | null>(null)
   const [store, setStore] = useState<Store>({
     name: 'POS Grocery',
     phone: '0800000000',
@@ -148,6 +217,34 @@ export function App() {
       {},
     ) ?? {}
   const bestSellers = Object.values(soldItems).sort((left, right) => right.quantity - left.quantity)
+
+  useEffect(() => {
+    if (!customerDisplayEnabled || !customerDisplayWindowRef.current) {
+      return
+    }
+
+    if (customerDisplayWindowRef.current.closed) {
+      customerDisplayWindowRef.current = null
+      return
+    }
+
+    customerDisplayWindowRef.current.document.open()
+    customerDisplayWindowRef.current.document.write(
+      buildCustomerDisplayHtml({ store, cart, cartTotal, lastSale }),
+    )
+    customerDisplayWindowRef.current.document.close()
+  }, [cart, cartTotal, customerDisplayEnabled, lastSale, store])
+
+  useEffect(() => {
+    if (customerDisplayEnabled || !customerDisplayWindowRef.current) {
+      return
+    }
+
+    if (!customerDisplayWindowRef.current.closed) {
+      customerDisplayWindowRef.current.close()
+    }
+    customerDisplayWindowRef.current = null
+  }, [customerDisplayEnabled])
 
   function updateStore<K extends keyof Store>(key: K, value: Store[K]) {
     setStore((current) => ({ ...current, [key]: value }))
@@ -261,6 +358,28 @@ export function App() {
     localStorage.setItem(customerDisplayStorageKey, String(event.target.checked))
   }
 
+  function openCustomerDisplayWindow() {
+    if (!customerDisplayEnabled) {
+      return
+    }
+
+    const displayWindow = window.open(
+      '',
+      'pos-grocery-customer-display',
+      'popup,width=900,height=700',
+    )
+
+    if (!displayWindow) {
+      setNotice('เปิดหน้าต่างจอลูกค้าไม่สำเร็จ')
+      return
+    }
+
+    customerDisplayWindowRef.current = displayWindow
+    displayWindow.document.open()
+    displayWindow.document.write(buildCustomerDisplayHtml({ store, cart, cartTotal, lastSale }))
+    displayWindow.document.close()
+  }
+
   function checkout() {
     if (cart.length === 0) {
       setNotice('ตะกร้ายังว่าง')
@@ -338,6 +457,14 @@ export function App() {
           </label>
           <button className="ghost-button" onClick={refreshCustomerDisplayAvailability} type="button">
             ตรวจจออีกครั้ง
+          </button>
+          <button
+            className="ghost-button"
+            disabled={!customerDisplayEnabled}
+            onClick={openCustomerDisplayWindow}
+            type="button"
+          >
+            เปิดหน้าต่างจอลูกค้า
           </button>
         </div>
       </section>
