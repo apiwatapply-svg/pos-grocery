@@ -30,6 +30,8 @@ const routeCases = [
 ]
 
 const screenshotRoutes = [
+  { path: '/login', name: 'login-desktop', login: true },
+  { path: '/login', name: 'login-mobile', login: true, width: 390, height: 900 },
   { path: '/dashboard', role: 'owner', name: 'dashboard-desktop' },
   { path: '/dashboard', role: 'owner', name: 'dashboard-sidebar-collapsed', collapseSidebar: true },
   { path: '/pos', role: 'cashier', name: 'pos-desktop' },
@@ -263,8 +265,23 @@ async function captureScreenshot(cdp, item) {
     mobile: Boolean(item.width && item.width < 600),
     width: item.width ?? 1440,
   })
-  await setSession(cdp, item.role)
+  if (item.login) {
+    await navigate(cdp, `${appUrl}/login`)
+    await evaluate(cdp, `localStorage.clear(); undefined`)
+  } else {
+    await setSession(cdp, item.role)
+  }
   await navigate(cdp, `${appUrl}${item.path}`)
+  if (item.login) {
+    const loginState = await auditCurrentPage(cdp)
+    const loginButton = await evaluate(
+      cdp,
+      `Boolean(document.querySelector('button[type="submit"]'))`,
+    )
+    if (!loginState.headings.includes('เข้าสู่ระบบร้านค้า') || !loginButton) {
+      throw new Error('Login page did not render the expected heading and submit action.')
+    }
+  }
   if (item.collapseSidebar) {
     const interaction = await evaluate(
       cdp,

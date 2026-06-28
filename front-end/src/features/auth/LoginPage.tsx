@@ -56,35 +56,65 @@ export function LoginPage() {
   }
 
   return (
-    <section className="auth-panel" aria-labelledby="login-title">
-      <div>
-        <p className="eyebrow">POS Grocery</p>
-        <h1 id="login-title">เข้าสู่ระบบร้านค้า</h1>
-        <p className="summary">{message}</p>
+    <section className="auth-screen" aria-labelledby="login-title">
+      <div className="auth-hero">
+        <div className="auth-brand">
+          <span>POS</span>
+          <div>
+            <p className="eyebrow">POS Grocery</p>
+            <strong>ระบบขายหน้าร้าน</strong>
+          </div>
+        </div>
+        <div>
+          <h1 id="login-title">เข้าสู่ระบบร้านค้า</h1>
+          <p className="summary">{message}</p>
+        </div>
+        <dl className="auth-highlights" aria-label="ภาพรวมการทำงาน">
+          <div>
+            <dt>Checkout</dt>
+            <dd>Scan barcode</dd>
+          </div>
+          <div>
+            <dt>Inventory</dt>
+            <dd>Stock control</dd>
+          </div>
+          <div>
+            <dt>Reports</dt>
+            <dd>Sales insight</dd>
+          </div>
+        </dl>
       </div>
 
-      <form className="login-form" onSubmit={handleSubmit}>
-        <label>
-          Username
-          <input
-            autoComplete="username"
-            name="username"
-            onChange={(event) => setUsername(event.target.value)}
-            value={username}
-          />
-        </label>
-        <label>
-          Password
-          <input
-            autoComplete="current-password"
-            name="password"
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            value={password}
-          />
-        </label>
-        <button type="submit">Login</button>
-      </form>
+      <div className="auth-panel">
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-form-header">
+            <p className="eyebrow">Secure access</p>
+            <h2>Login</h2>
+          </div>
+          <label className="field">
+            <span>Username</span>
+            <input
+              autoComplete="username"
+              name="username"
+              onChange={(event) => setUsername(event.target.value)}
+              value={username}
+            />
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input
+              autoComplete="current-password"
+              name="password"
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              value={password}
+            />
+          </label>
+          <button className="primary-button" type="submit">
+            Login
+          </button>
+        </form>
+      </div>
     </section>
   )
 }
