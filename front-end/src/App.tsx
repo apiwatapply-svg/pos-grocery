@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useMemo, useState } from 'react'
+import { type ChangeEvent, type FormEvent, type ReactNode, useState } from 'react'
 
 type Store = {
   name: string
@@ -47,6 +47,7 @@ type Sale = {
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787/api'
+const customerDisplayStorageKey = 'pos-grocery:customer-display-enabled'
 
 const initialProducts: Product[] = [
   {
@@ -79,6 +80,20 @@ function baht(value: number) {
   return value.toFixed(2)
 }
 
+function hasSecondScreen() {
+  const screenWithExtension = window.screen as Screen & { isExtended?: boolean }
+  return screenWithExtension.isExtended === true
+}
+
+function readCustomerDisplayPreference() {
+  if (!hasSecondScreen()) {
+    localStorage.removeItem(customerDisplayStorageKey)
+    return false
+  }
+
+  return localStorage.getItem(customerDisplayStorageKey) === 'true'
+}
+
 function Field(props: {
   label: string
   children: ReactNode
@@ -109,28 +124,29 @@ export function App() {
   const [cashReceived, setCashReceived] = useState(100)
   const [lastSale, setLastSale] = useState<Sale | null>(null)
   const [notice, setNotice] = useState('พร้อมขาย')
+  const [hasCustomerScreen, setHasCustomerScreen] = useState(hasSecondScreen)
+  const [customerDisplayEnabled, setCustomerDisplayEnabled] = useState(
+    readCustomerDisplayPreference,
+  )
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-  const soldItems = useMemo(
-    () =>
-      lastSale?.items.reduce<Record<string, { productName: string; quantity: number; total: number }>>(
-        (rows, item) => {
-          const current = rows[item.productId] ?? {
-            productName: item.productName,
-            quantity: 0,
-            total: 0,
-          }
-          rows[item.productId] = {
-            ...current,
-            quantity: current.quantity + item.quantity,
-            total: current.total + item.quantity * item.unitPrice,
-          }
-          return rows
-        },
-        {},
-      ) ?? {},
-    [lastSale],
-  )
+  const soldItems =
+    lastSale?.items.reduce<Record<string, { productName: string; quantity: number; total: number }>>(
+      (rows, item) => {
+        const current = rows[item.productId] ?? {
+          productName: item.productName,
+          quantity: 0,
+          total: 0,
+        }
+        rows[item.productId] = {
+          ...current,
+          quantity: current.quantity + item.quantity,
+          total: current.total + item.quantity * item.unitPrice,
+        }
+        return rows
+      },
+      {},
+    ) ?? {}
   const bestSellers = Object.values(soldItems).sort((left, right) => right.quantity - left.quantity)
 
   function updateStore<K extends keyof Store>(key: K, value: Store[K]) {
@@ -224,6 +240,27 @@ export function App() {
     setNotice(`${product.name} added`)
   }
 
+  function refreshCustomerDisplayAvailability() {
+    const nextHasCustomerScreen = hasSecondScreen()
+    setHasCustomerScreen(nextHasCustomerScreen)
+
+    if (!nextHasCustomerScreen) {
+      localStorage.removeItem(customerDisplayStorageKey)
+      setCustomerDisplayEnabled(false)
+    }
+  }
+
+  function updateCustomerDisplayPreference(event: ChangeEvent<HTMLInputElement>) {
+    if (!hasCustomerScreen) {
+      localStorage.removeItem(customerDisplayStorageKey)
+      setCustomerDisplayEnabled(false)
+      return
+    }
+
+    setCustomerDisplayEnabled(event.target.checked)
+    localStorage.setItem(customerDisplayStorageKey, String(event.target.checked))
+  }
+
   function checkout() {
     if (cart.length === 0) {
       setNotice('ตะกร้ายังว่าง')
@@ -279,6 +316,54 @@ export function App() {
           <strong>{products.reduce((sum, product) => sum + product.stockQuantity, 0)}</strong>
         </div>
       </section>
+
+      <section className="customer-display-control" aria-labelledby="customer-display-control-title">
+        <div>
+          <h2 id="customer-display-control-title">หน้าจอลูกค้า</h2>
+          <p>
+            {hasCustomerScreen
+              ? 'พร้อมแสดงหน้าจอสำหรับลูกค้าเมื่อมีจอที่สอง'
+              : 'ใช้ได้เมื่อพบการต่อ 2 จอเท่านั้น'}
+          </p>
+        </div>
+        <div className="customer-display-actions">
+          <label className="toggle-field">
+            <input
+              checked={customerDisplayEnabled}
+              disabled={!hasCustomerScreen}
+              onChange={updateCustomerDisplayPreference}
+              type="checkbox"
+            />
+            เปิดหน้าจอลูกค้า
+          </label>
+          <button className="ghost-button" onClick={refreshCustomerDisplayAvailability} type="button">
+            ตรวจจออีกครั้ง
+          </button>
+        </div>
+      </section>
+
+      {customerDisplayEnabled ? (
+        <section className="customer-display-screen" aria-labelledby="customer-display-title">
+          <div>
+            <p>{store.name}</p>
+            <h2 id="customer-display-title">จอลูกค้า</h2>
+          </div>
+          <div className="customer-cart">
+            {cart.length > 0 ? (
+              cart.map((item) => (
+                <div className="customer-cart-row" key={item.productId}>
+                  <span>{item.productName} x{item.quantity}</span>
+                  <strong>{baht(item.quantity * item.unitPrice)} บาท</strong>
+                </div>
+              ))
+            ) : (
+              <p>รอรายการสินค้า</p>
+            )}
+          </div>
+          <strong className="customer-total">ยอดที่ต้องชำระ {baht(cartTotal)} บาท</strong>
+          {lastSale ? <span>บิลล่าสุด {lastSale.receiptNumber}</span> : null}
+        </section>
+      ) : null}
 
       <div className="operations-grid">
         <section className="panel store-panel" aria-labelledby="store-title">

@@ -1,7 +1,19 @@
 import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { App } from './App'
+
+function setExtendedScreen(isExtended: boolean) {
+  Object.defineProperty(window.screen, 'isExtended', {
+    configurable: true,
+    value: isExtended,
+  })
+}
+
+afterEach(() => {
+  localStorage.clear()
+  setExtendedScreen(false)
+})
 
 describe('App', () => {
   it('renders every requested POS module in the operations workspace', () => {
@@ -39,5 +51,39 @@ describe('App', () => {
     expect(screen.getByText('เงินทอน 86.00 บาท')).toBeInTheDocument()
     expect(screen.getByText('คงเหลือ 22')).toBeInTheDocument()
     expect(screen.getByText(/Drinking Water x2/)).toBeInTheDocument()
+  })
+
+  it('keeps the customer display disabled on a single screen and ignores localStorage', () => {
+    localStorage.setItem('pos-grocery:customer-display-enabled', 'true')
+    setExtendedScreen(false)
+
+    render(<App />)
+
+    expect(screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).toBeDisabled()
+    expect(screen.getByText('ใช้ได้เมื่อพบการต่อ 2 จอเท่านั้น')).toBeInTheDocument()
+    expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBeNull()
+  })
+
+  it('enables and persists the customer display only when a second screen is detected', () => {
+    setExtendedScreen(true)
+    render(<App />)
+
+    const toggle = screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })
+    expect(toggle).not.toBeDisabled()
+
+    fireEvent.click(toggle)
+    expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBe('true')
+
+    fireEvent.change(screen.getByLabelText('Barcode'), {
+      target: { value: '8850002000010' },
+    })
+    fireEvent.change(screen.getByLabelText('จำนวนขาย'), {
+      target: { value: '2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'เพิ่มลงตะกร้า' }))
+
+    expect(screen.getByRole('heading', { name: 'จอลูกค้า' })).toBeInTheDocument()
+    expect(screen.getByText('Drinking Water x2')).toBeInTheDocument()
+    expect(screen.getByText('ยอดที่ต้องชำระ 14.00 บาท')).toBeInTheDocument()
   })
 })
