@@ -271,4 +271,61 @@ describe("POS Grocery MVP API", () => {
     );
     expect(exported.body.length).toBeGreaterThan(1000);
   });
+
+  it("reports cost, profit, and margin for each completed bill", async () => {
+    const { app, owner } = await createFixture();
+
+    const product = await request(app)
+      .post("/api/products")
+      .set("Authorization", authHeader(owner))
+      .send({
+        name: "Profit Water",
+        barcode: "8850002000027",
+        unit: "bottle",
+        costPriceSatang: 400,
+        salePriceSatang: 700,
+        status: "active",
+      });
+
+    await request(app)
+      .post("/api/inventory/receive")
+      .set("Authorization", authHeader(owner))
+      .send({
+        productId: product.body.data.id,
+        quantity: 10,
+        unitCostSatang: 400,
+      });
+
+    await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850002000027", quantity: 3 }],
+        cashReceivedSatang: 2100,
+        paymentMethod: "cash",
+        soldAt: "2026-06-28T10:15:00.000Z",
+      });
+
+    const report = await request(app)
+      .get("/api/reports/sales?from=2026-06-28T00:00:00.000Z&to=2026-06-28T23:59:59.999Z")
+      .set("Authorization", authHeader(owner));
+
+    expect(report.status).toBe(200);
+    expect(report.body.data.summary).toMatchObject({
+      orderCount: 1,
+      totalSalesSatang: 2100,
+      itemsSold: 3,
+      totalCostSatang: 1200,
+      profitSatang: 900,
+      profitMarginPercent: 42.86,
+    });
+    expect(report.body.data.sales[0]).toMatchObject({
+      billNumber: 1,
+      orderCount: 1,
+      itemCount: 3,
+      totalCostSatang: 1200,
+      profitSatang: 900,
+      profitMarginPercent: 42.86,
+    });
+  });
 });

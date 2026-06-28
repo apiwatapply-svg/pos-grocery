@@ -60,7 +60,9 @@ export function checkoutController(deps?: { repository?: UserRepository }): Requ
           barcode: product.barcode,
           quantity: line.quantity,
           unitPriceSatang: product.salePriceSatang,
+          unitCostSatang: product.costPriceSatang,
           totalSatang: product.salePriceSatang * line.quantity,
+          totalCostSatang: product.costPriceSatang * line.quantity,
         });
       }
 

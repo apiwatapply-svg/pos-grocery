@@ -4,6 +4,29 @@ import { bahtFromSatang, dateRangeQuery, todayDateInputValue, type SalesReport }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787/api'
 
+function saleItemCount(sale: SalesReport['sales'][number]) {
+  return sale.itemCount ?? sale.items.reduce((sum, item) => sum + item.quantity, 0)
+}
+
+function saleCostSatang(sale: SalesReport['sales'][number]) {
+  return sale.totalCostSatang ?? sale.items.reduce((sum, item) => {
+    const itemCost = item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity
+    return sum + itemCost
+  }, 0)
+}
+
+function saleProfitSatang(sale: SalesReport['sales'][number]) {
+  return sale.profitSatang ?? sale.totalSatang - saleCostSatang(sale)
+}
+
+function saleProfitMarginPercent(sale: SalesReport['sales'][number]) {
+  if (typeof sale.profitMarginPercent === 'number') {
+    return sale.profitMarginPercent.toFixed(2)
+  }
+
+  return sale.totalSatang > 0 ? ((saleProfitSatang(sale) / sale.totalSatang) * 100).toFixed(2) : '0.00'
+}
+
 export function SalesReportPage() {
   const today = todayDateInputValue()
   const [from, setFrom] = useState(today)
@@ -62,18 +85,55 @@ export function SalesReportPage() {
             <dt>จำนวนชิ้น</dt>
             <dd>{report?.summary.itemsSold ?? 0}</dd>
           </div>
+          <div>
+            <dt>ต้นทุน</dt>
+            <dd>{bahtFromSatang(report?.summary.totalCostSatang ?? 0)} บาท</dd>
+          </div>
+          <div>
+            <dt>กำไร</dt>
+            <dd>{bahtFromSatang(report?.summary.profitSatang ?? 0)} บาท</dd>
+          </div>
+          <div>
+            <dt>กำไร%</dt>
+            <dd>{(report?.summary.profitMarginPercent ?? 0).toFixed(2)}%</dd>
+          </div>
         </dl>
         {report?.sales.length ? (
-          <div className="inventory-list">
-            {report.sales.map((sale) => (
-              <div className="inventory-row" key={sale.id}>
-                <div>
-                  <strong>{sale.receiptNumber}</strong>
-                  <span>{sale.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}</span>
-                </div>
-                <strong>{bahtFromSatang(sale.totalSatang)} บาท</strong>
-              </div>
-            ))}
+          <div className="table-wrap sales-report-table-wrap">
+            <table className="sales-report-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>เลขที่บิล</th>
+                  <th>รายการสินค้า</th>
+                  <th>จำนวนบิล</th>
+                  <th>ยอดขาย</th>
+                  <th>จำนวนชิ้น</th>
+                  <th>ต้นทุน</th>
+                  <th>กำไร</th>
+                  <th>กำไร%</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.sales.map((sale) => (
+                  <tr key={sale.id}>
+                    <td>{sale.billNumber ?? '-'}</td>
+                    <td>{sale.receiptNumber}</td>
+                    <td>
+                      {sale.items.map((item) => `${item.productName} x${item.quantity}`).join(', ')}
+                    </td>
+                    <td>{sale.orderCount ?? (sale.status === 'completed' ? 1 : 0)}</td>
+                    <td>{bahtFromSatang(sale.status === 'completed' ? sale.totalSatang : 0)} บาท</td>
+                    <td>{saleItemCount(sale)}</td>
+                    <td>{bahtFromSatang(saleCostSatang(sale))} บาท</td>
+                    <td>{bahtFromSatang(saleProfitSatang(sale))} บาท</td>
+                    <td>{saleProfitMarginPercent(sale)}%</td>
+                    <td>{sale.status === 'completed' ? 'ขายสำเร็จ' : 'ยกเลิกบิล'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <p>{message || 'ยังไม่มีข้อมูลยอดขาย'}</p>

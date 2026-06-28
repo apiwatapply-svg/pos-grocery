@@ -39,8 +39,21 @@ const salesReport = {
     orderCount: 1,
     totalSalesSatang: 2700,
     itemsSold: 3,
+    totalCostSatang: 1800,
+    profitSatang: 900,
+    profitMarginPercent: 33.33,
   },
-  sales: [sqlSale],
+  sales: [
+    {
+      ...sqlSale,
+      billNumber: 1,
+      orderCount: 1,
+      itemCount: 3,
+      totalCostSatang: 1800,
+      profitSatang: 900,
+      profitMarginPercent: 33.33,
+    },
+  ],
 }
 
 const dashboardReport = {
@@ -99,6 +112,16 @@ describe('backend connected report pages', () => {
 
     expect(await screen.findByText('RC-SQL-001')).toBeInTheDocument()
     expect(screen.getByText(/SQL Sale Product x3/)).toBeInTheDocument()
+    expect(screen.getByText('No')).toBeInTheDocument()
+    expect(screen.getAllByText('จำนวนบิล')).toHaveLength(2)
+    expect(screen.getAllByText('ยอดขาย')).toHaveLength(2)
+    expect(screen.getAllByText('จำนวนชิ้น')).toHaveLength(2)
+    expect(screen.getAllByText('ต้นทุน')).toHaveLength(2)
+    expect(screen.getAllByText('กำไร')).toHaveLength(2)
+    expect(screen.getAllByText('กำไร%')).toHaveLength(2)
+    expect(screen.getAllByText('18.00 บาท')).toHaveLength(2)
+    expect(screen.getAllByText('9.00 บาท')).toHaveLength(2)
+    expect(screen.getAllByText('33.33%')).toHaveLength(2)
   })
 
   it('renders best sellers from the dashboard API', async () => {

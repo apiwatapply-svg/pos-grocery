@@ -23,15 +23,60 @@ function dateRange(request: Parameters<RequestHandler>[0]) {
 
 function summarize(sales: SaleRecord[]) {
   const completedSales = sales.filter((sale) => sale.status === "completed");
+  const totalSalesSatang = completedSales.reduce((sum, sale) => sum + sale.totalSatang, 0);
+  const totalCostSatang = completedSales.reduce((sum, sale) => sum + saleCostSatang(sale), 0);
+  const profitSatang = totalSalesSatang - totalCostSatang;
 
   return {
     orderCount: completedSales.length,
-    totalSalesSatang: completedSales.reduce((sum, sale) => sum + sale.totalSatang, 0),
+    totalSalesSatang,
     itemsSold: completedSales.reduce(
       (sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
       0,
     ),
+    totalCostSatang,
+    profitSatang,
+    profitMarginPercent: marginPercent(profitSatang, totalSalesSatang),
   };
+}
+
+function marginPercent(profitSatang: number, totalSalesSatang: number) {
+  if (totalSalesSatang <= 0) {
+    return 0;
+  }
+
+  return Number(((profitSatang / totalSalesSatang) * 100).toFixed(2));
+}
+
+function saleCostSatang(sale: SaleRecord) {
+  return sale.items.reduce((sum, item) => {
+    const itemCost = item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity;
+    return sum + itemCost;
+  }, 0);
+}
+
+function saleItemCount(sale: SaleRecord) {
+  return sale.items.reduce((sum, item) => sum + item.quantity, 0);
+}
+
+function saleReportRows(sales: SaleRecord[]) {
+  return sales.map((sale, index) => {
+    const isCompleted = sale.status === "completed";
+    const totalSalesSatang = isCompleted ? sale.totalSatang : 0;
+    const itemCount = isCompleted ? saleItemCount(sale) : 0;
+    const totalCostSatang = isCompleted ? saleCostSatang(sale) : 0;
+    const profitSatang = totalSalesSatang - totalCostSatang;
+
+    return {
+      ...sale,
+      billNumber: index + 1,
+      orderCount: isCompleted ? 1 : 0,
+      itemCount,
+      totalCostSatang,
+      profitSatang,
+      profitMarginPercent: marginPercent(profitSatang, totalSalesSatang),
+    };
+  });
 }
 
 function bestSellers(sales: SaleRecord[]) {
@@ -84,7 +129,7 @@ export function salesReportController(deps?: { repository?: UserRepository }): R
         success: true,
         data: {
           summary: summarize(sales),
-          sales,
+          sales: saleReportRows(sales),
         },
       });
     } catch (error) {
@@ -125,19 +170,31 @@ export function exportSalesReportController(deps?: { repository?: UserRepository
       const buffer = await createStyledWorkbookBuffer({
         sheetName: "Sales Report",
         columns: [
+          { header: "No", key: "no", width: 8 },
           { header: "Receipt", key: "receipt", width: 24 },
           { header: "Sold At", key: "soldAt", width: 24 },
+          { header: "Bill Count", key: "orderCount", width: 14 },
           { header: "Items", key: "items", width: 36 },
+          { header: "Items Sold", key: "itemCount", width: 14 },
           { header: "Total", key: "total", width: 14 },
+          { header: "Cost", key: "cost", width: 14 },
+          { header: "Profit", key: "profit", width: 14 },
+          { header: "Profit %", key: "margin", width: 14 },
           { header: "Cash", key: "cash", width: 14 },
           { header: "Change", key: "change", width: 14 },
           { header: "Status", key: "status", width: 14 },
         ],
-        rows: sales.map((sale) => ({
+        rows: saleReportRows(sales).map((sale) => ({
+          no: sale.billNumber,
           receipt: sale.receiptNumber,
           soldAt: sale.soldAt,
+          orderCount: sale.orderCount,
           items: sale.items.map((item) => `${item.productName} x${item.quantity}`).join(", "),
-          total: sale.totalSatang / 100,
+          itemCount: sale.itemCount,
+          total: (sale.orderCount ? sale.totalSatang : 0) / 100,
+          cost: sale.totalCostSatang / 100,
+          profit: sale.profitSatang / 100,
+          margin: `${sale.profitMarginPercent}%`,
           cash: sale.cashReceivedSatang / 100,
           change: sale.changeDueSatang / 100,
           status: sale.status,

@@ -76,7 +76,9 @@ export type SaleItemRecord = {
   barcode: string;
   quantity: number;
   unitPriceSatang: number;
+  unitCostSatang?: number;
   totalSatang: number;
+  totalCostSatang?: number;
 };
 
 export type PaymentRecord = {

@@ -1,7 +1,13 @@
 export type ApiSale = {
   id: string
   receiptNumber: string
+  billNumber?: number
+  orderCount?: number
   totalSatang: number
+  itemCount?: number
+  totalCostSatang?: number
+  profitSatang?: number
+  profitMarginPercent?: number
   cashReceivedSatang?: number
   changeDueSatang: number
   status: 'completed' | 'void'
@@ -12,7 +18,9 @@ export type ApiSale = {
     barcode?: string
     quantity: number
     unitPriceSatang: number
+    unitCostSatang?: number
     totalSatang: number
+    totalCostSatang?: number
   }>
 }
 
@@ -21,6 +29,9 @@ export type SalesReport = {
     orderCount: number
     totalSalesSatang: number
     itemsSold: number
+    totalCostSatang?: number
+    profitSatang?: number
+    profitMarginPercent?: number
   }
   sales: ApiSale[]
 }

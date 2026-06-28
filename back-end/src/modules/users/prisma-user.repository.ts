@@ -175,7 +175,7 @@ function mapSale(sale: {
     quantity: number;
     unitPriceSatang: number;
     totalSatang: number;
-    product?: { barcode: string };
+    product?: { barcode: string; costPriceSatang: number };
   }>;
   payment: {
     id: string;
@@ -215,7 +215,9 @@ function mapSale(sale: {
       barcode: item.product?.barcode ?? "",
       quantity: item.quantity,
       unitPriceSatang: item.unitPriceSatang,
+      unitCostSatang: item.product?.costPriceSatang ?? 0,
       totalSatang: item.totalSatang,
+      totalCostSatang: (item.product?.costPriceSatang ?? 0) * item.quantity,
     })),
     payment: {
       id: sale.payment.id,
