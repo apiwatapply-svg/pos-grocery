@@ -52,6 +52,27 @@ const initialProducts: Product[] = [
   },
 ]
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
+const productsStorageKey = 'pos-grocery:pos-products'
+const receiptsStorageKey = 'pos-grocery:receipts'
+
+function readStoredValue<T>(key: string, fallback: T): T {
+  try {
+    const rawValue = localStorage.getItem(key)
+    return rawValue ? JSON.parse(rawValue) as T : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function readStoredProducts() {
+  const storedProducts = readStoredValue<Product[]>(productsStorageKey, initialProducts)
+  return Array.isArray(storedProducts) ? storedProducts : initialProducts
+}
+
+function readStoredReceipts() {
+  const storedReceipts = readStoredValue<Sale[]>(receiptsStorageKey, [])
+  return Array.isArray(storedReceipts) ? storedReceipts : []
+}
 
 function stockStatus(product: Product) {
   const stockRatio = product.stockQuantity / Math.max(product.initialStockQuantity, 1)
@@ -81,11 +102,11 @@ function Field(props: {
 
 export function PosCheckoutPage() {
   const session = readSession()
-  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [products, setProducts] = useState<Product[]>(() => readStoredProducts())
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
   const [cashReceived, setCashReceived] = useState(100)
-  const [lastSale, setLastSale] = useState<Sale | null>(null)
+  const [receipts, setReceipts] = useState<Sale[]>(() => readStoredReceipts())
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [notice, setNotice] = useState('พร้อมขาย')
 
@@ -93,8 +114,17 @@ export function PosCheckoutPage() {
   const changeDue = cashReceived - cartTotal
   const canCheckout = cart.length > 0 && cashReceived >= cartTotal
   const activeProducts = products.filter((product) => product.status === 'active')
+  const lastSale = receipts[0] ?? null
   const canCancelReceipt =
     session?.user.role === 'owner' || session?.user.role === 'admin'
+
+  useEffect(() => {
+    localStorage.setItem(productsStorageKey, JSON.stringify(products))
+  }, [products])
+
+  useEffect(() => {
+    localStorage.setItem(receiptsStorageKey, JSON.stringify(receipts))
+  }, [receipts])
 
   useEffect(() => {
     writeCustomerDisplayPayload({
@@ -205,7 +235,7 @@ export function PosCheckoutPage() {
       changeDue,
       status: 'completed',
     }
-    setLastSale(sale)
+    setReceipts((current) => [sale, ...current])
     setCart([])
     setNotice('ขายสำเร็จ')
   }
@@ -245,7 +275,11 @@ export function PosCheckoutPage() {
         return item ? { ...product, stockQuantity: product.stockQuantity + item.quantity } : product
       }),
     )
-    setLastSale(cancelledSale)
+    setReceipts((current) =>
+      current.map((receipt) =>
+        receipt.receiptNumber === cancelledSale.receiptNumber ? cancelledSale : receipt,
+      ),
+    )
     setSelectedSale(cancelledSale)
     setNotice('ยกเลิกบิลแล้ว')
   }
@@ -348,17 +382,22 @@ export function PosCheckoutPage() {
         <div className="pos-side-column">
           <section className="panel receipt-panel pos-side-panel" aria-labelledby="receipt-title">
             <h2 id="receipt-title">ใบเสร็จ</h2>
-            <div className="pos-scroll-area receipt-list">
-              {lastSale ? (
-                <button
-                  className="receipt-card"
-                  type="button"
-                  onClick={() => setSelectedSale(lastSale)}
-                >
-                  <span>{lastSale.receiptNumber}</span>
-                  <strong>ยอดรวม {baht(lastSale.total)} บาท</strong>
-                  <small>{lastSale.status === 'cancelled' ? 'ยกเลิกแล้ว' : 'ดูรายละเอียดบิล'}</small>
-                </button>
+            <div aria-label="รายการใบเสร็จล่าสุด" className="pos-scroll-area receipt-list" role="list">
+              {receipts.length > 0 ? (
+                receipts.map((receipt) => (
+                  <div className="receipt-row-wrap" key={receipt.receiptNumber} role="listitem">
+                    <button
+                      className={receipt.status === 'cancelled' ? 'receipt-row receipt-row-cancelled' : 'receipt-row'}
+                      type="button"
+                      onClick={() => setSelectedSale(receipt)}
+                    >
+                      <span>{receipt.receiptNumber}</span>
+                      <strong>{baht(receipt.total)} บาท</strong>
+                      <small>{receipt.status === 'cancelled' ? 'ยกเลิกแล้ว' : 'ขายสำเร็จ'}</small>
+                      <em>ดูรายละเอียดบิล</em>
+                    </button>
+                  </div>
+                ))
               ) : (
                 <p className="empty-hint">ยังไม่มีบิลล่าสุด</p>
               )}

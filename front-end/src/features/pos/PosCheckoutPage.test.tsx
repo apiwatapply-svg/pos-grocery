@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import Swal from 'sweetalert2'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveSession, type Session } from '../../lib/auth/session'
@@ -20,6 +20,7 @@ const confirmedDialog = {
 }
 
 afterEach(() => {
+  cleanup()
   localStorage.clear()
   vi.clearAllMocks()
 })
@@ -54,7 +55,7 @@ describe('PosCheckoutPage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
     await waitFor(() => {
-      expect(screen.getByText('ขายสำเร็จ')).toBeInTheDocument()
+      expect(screen.getAllByText('ขายสำเร็จ').length).toBeGreaterThan(0)
     })
   }
 
@@ -91,7 +92,7 @@ describe('PosCheckoutPage', () => {
         }),
       )
     })
-    expect(screen.getByText('ยอดรวม 26.00 บาท')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /26.00 บาท/ })).toHaveClass('receipt-row')
     expectStockMeter('Drinking Water', 22, 24)
     expectStockMeter('Instant Noodles', 17, 18)
 
@@ -101,6 +102,25 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByText(/Drinking Water x2/)).toBeInTheDocument()
     expect(screen.getByText(/Instant Noodles x1/)).toBeInTheDocument()
     expect(screen.getByText('เงินทอน 74.00 บาท')).toBeInTheDocument()
+  })
+
+  it('persists receipts after refresh and renders each receipt as one list row', async () => {
+    const { unmount } = render(<PosCheckoutPage />)
+
+    await createWaterSale()
+    const receiptButton = screen.getByRole('button', { name: /ดูรายละเอียดบิล/ })
+    expect(receiptButton).toHaveClass('receipt-row')
+
+    unmount()
+    render(<PosCheckoutPage />)
+
+    const receiptList = screen.getByRole('list', { name: 'รายการใบเสร็จล่าสุด' })
+    const receiptItems = within(receiptList).getAllByRole('listitem')
+
+    expect(receiptItems).toHaveLength(1)
+    expect(within(receiptItems[0]).getByText(/RC-/)).toBeInTheDocument()
+    expect(within(receiptItems[0]).getByText('14.00 บาท')).toBeInTheDocument()
+    expect(within(receiptItems[0]).getByText('ขายสำเร็จ')).toBeInTheDocument()
   })
 
   it('supports quick cash amounts, custom cash, live change, and blocks underpaid checkout confirmation', () => {

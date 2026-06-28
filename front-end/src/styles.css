@@ -541,6 +541,60 @@ td span {
   font-weight: 800;
 }
 
+.receipt-row-wrap {
+  min-width: 0;
+}
+
+.receipt-row {
+  align-items: center;
+  background: #fbfcfa;
+  border: 1px solid #dfe7df;
+  border-left: 5px solid #0f766e;
+  color: #17201b;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(112px, 1fr) auto auto auto;
+  min-height: 46px;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.receipt-row:hover {
+  background: #eef2ed;
+}
+
+.receipt-row span,
+.receipt-row small,
+.receipt-row em {
+  color: #66746b;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.receipt-row strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.receipt-row small {
+  background: #dff7e7;
+  border-radius: 999px;
+  color: #0f6b3b;
+  padding: 3px 8px;
+}
+
+.receipt-row-cancelled {
+  border-left-color: #b42318;
+}
+
+.receipt-row-cancelled small {
+  background: #fee4e2;
+  color: #912018;
+}
+
 .stock-panel {
   background:
     linear-gradient(180deg, rgb(255 255 255 / 95%), rgb(248 251 248 / 95%)),
