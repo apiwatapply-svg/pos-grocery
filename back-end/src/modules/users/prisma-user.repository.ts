@@ -1,5 +1,5 @@
 import { PrismaLibSQL } from "@prisma/adapter-libsql";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { env } from "../../config/env.js";
 import type {
   InventoryTransactionRecord,
@@ -240,7 +240,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
     async findUserByUsername(username) {
       const normalized = username.trim().toLowerCase();
       const users = await prisma.user.findMany();
-      const user = users.find((candidate) => candidate.username.toLowerCase() === normalized);
+      const user = users.find((candidate: { username: string }) => candidate.username.toLowerCase() === normalized);
       return user ? mapUser(user) : null;
     },
     async findUserById(id) {
@@ -343,7 +343,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       }
     },
     async adjustInventory(input) {
-      return prisma.$transaction(async (tx) => {
+      return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const product = await tx.product.findUnique({
           where: { id: input.productId },
           include: { images: true },
