@@ -1,19 +1,11 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { PosCheckoutPage } from './PosCheckoutPage'
-
-function setExtendedScreen(isExtended: boolean) {
-  Object.defineProperty(window.screen, 'isExtended', {
-    configurable: true,
-    value: isExtended,
-  })
-}
+import { customerDisplayPayloadStorageKey } from './customerDisplay'
 
 afterEach(() => {
   localStorage.clear()
-  setExtendedScreen(false)
-  vi.restoreAllMocks()
 })
 
 describe('PosCheckoutPage', () => {
@@ -38,28 +30,19 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByText(/Drinking Water x2/)).toBeInTheDocument()
   })
 
-  it('keeps the customer display disabled on a single screen and ignores localStorage', () => {
+  it('keeps the checkout page focused by not rendering customer display controls', () => {
     localStorage.setItem('pos-grocery:customer-display-enabled', 'true')
-    setExtendedScreen(false)
 
     render(<PosCheckoutPage />)
 
-    expect(screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).toBeDisabled()
-    expect(screen.getByText('ใช้ได้เมื่อพบการต่อ 2 จอเท่านั้น')).toBeInTheDocument()
-    expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeInTheDocument()
+    expect(screen.queryByText('ยอดที่ต้องชำระ 0.00 บาท')).not.toBeInTheDocument()
   })
 
-  it('enables and persists the customer display only when a second screen is detected', () => {
-    setExtendedScreen(true)
+  it('syncs scanned cart lines to customer display storage without rendering controls', async () => {
     render(<PosCheckoutPage />)
-
-    const toggle = screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })
-    expect(toggle).not.toBeDisabled()
-
-    fireEvent.click(toggle)
-    expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBe('true')
-    expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeDisabled()
 
     fireEvent.change(screen.getByLabelText('Barcode'), {
       target: { value: '8850002000010' },
@@ -69,47 +52,22 @@ describe('PosCheckoutPage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'เพิ่มลงตะกร้า' }))
 
-    expect(screen.getByRole('heading', { name: 'จอลูกค้า' })).toBeInTheDocument()
-    expect(screen.getByText('Drinking Water x2')).toBeInTheDocument()
-    expect(screen.getByText('ยอดที่ต้องชำระ 14.00 บาท')).toBeInTheDocument()
-  })
+    await waitFor(() => {
+      const displayPayload = JSON.parse(
+        localStorage.getItem(customerDisplayPayloadStorageKey) ?? '{}',
+      )
+      expect(displayPayload.cart).toEqual([
+        {
+          barcode: '8850002000010',
+          productId: 'product-water',
+          productName: 'Drinking Water',
+          quantity: 2,
+          unitPrice: 7,
+        },
+      ])
+      expect(displayPayload.cartTotal).toBe(14)
+    })
 
-  it('opens a separate customer display window after the customer display is enabled', () => {
-    setExtendedScreen(true)
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
-
-    render(<PosCheckoutPage />)
-
-    fireEvent.click(screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' }))
-    fireEvent.click(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' }))
-
-    expect(openSpy).toHaveBeenCalledWith(
-      '',
-      'pos-grocery-customer-display',
-      'popup,width=900,height=700',
-    )
-  })
-
-  it('closes the separate customer display window when the display is turned off', () => {
-    setExtendedScreen(true)
-    const displayWindow = {
-      closed: false,
-      close: vi.fn(),
-      document: {
-        close: vi.fn(),
-        open: vi.fn(),
-        write: vi.fn(),
-      },
-    } as unknown as Window
-    vi.spyOn(window, 'open').mockReturnValue(displayWindow)
-
-    render(<PosCheckoutPage />)
-
-    const toggle = screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })
-    fireEvent.click(toggle)
-    fireEvent.click(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' }))
-    fireEvent.click(toggle)
-
-    expect(displayWindow.close).toHaveBeenCalled()
+    expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()
   })
 })

@@ -12,7 +12,25 @@ export type CustomerSale = {
   receiptNumber: string
 } | null
 
+export type CustomerDisplayPayload = {
+  store: StoreForCustomerDisplay
+  cart: CustomerCartItem[]
+  cartTotal: number
+  lastSale: CustomerSale
+}
+
 export const customerDisplayStorageKey = 'pos-grocery:customer-display-enabled'
+export const customerDisplayPayloadStorageKey = 'pos-grocery:customer-display-payload'
+export const customerDisplayPayloadEvent = 'pos-grocery:customer-display-payload-updated'
+
+function emptyCustomerDisplayPayload(): CustomerDisplayPayload {
+  return {
+    store: { name: 'POS Grocery' },
+    cart: [],
+    cartTotal: 0,
+    lastSale: null,
+  }
+}
 
 export function baht(value: number) {
   return value.toFixed(2)
@@ -38,6 +56,34 @@ export function readCustomerDisplayPreference() {
   }
 
   return localStorage.getItem(customerDisplayStorageKey) === 'true'
+}
+
+export function readCustomerDisplayPayload() {
+  const rawPayload = localStorage.getItem(customerDisplayPayloadStorageKey)
+  if (!rawPayload) {
+    return emptyCustomerDisplayPayload()
+  }
+
+  try {
+    const parsedPayload = JSON.parse(rawPayload) as Partial<CustomerDisplayPayload>
+    return {
+      store: {
+        name: parsedPayload.store?.name || 'POS Grocery',
+      },
+      cart: Array.isArray(parsedPayload.cart) ? parsedPayload.cart : [],
+      cartTotal: typeof parsedPayload.cartTotal === 'number' ? parsedPayload.cartTotal : 0,
+      lastSale: parsedPayload.lastSale?.receiptNumber
+        ? { receiptNumber: parsedPayload.lastSale.receiptNumber }
+        : null,
+    }
+  } catch {
+    return emptyCustomerDisplayPayload()
+  }
+}
+
+export function writeCustomerDisplayPayload(payload: CustomerDisplayPayload) {
+  localStorage.setItem(customerDisplayPayloadStorageKey, JSON.stringify(payload))
+  window.dispatchEvent(new Event(customerDisplayPayloadEvent))
 }
 
 export function buildCustomerDisplayHtml(input: {
