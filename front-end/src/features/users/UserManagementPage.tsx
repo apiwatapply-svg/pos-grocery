@@ -159,6 +159,7 @@ export function UserManagementPage() {
         <table>
           <thead>
             <tr>
+              <th>No</th>
               <th>Username</th>
               <th>ชื่อ</th>
               <th>Role</th>
@@ -167,8 +168,9 @@ export function UserManagementPage() {
             </tr>
           </thead>
           <tbody>
-            {users.length > 0 ? users.map((user) => (
+            {users.length > 0 ? users.map((user, index) => (
               <tr key={user.id}>
+                <td>{index + 1}</td>
                 <td>{user.username}</td>
                 <td>{user.displayName}</td>
                 <td>{user.role}</td>
@@ -185,7 +187,7 @@ export function UserManagementPage() {
               </tr>
             )) : (
               <tr>
-                <td colSpan={5}>{message}</td>
+                <td colSpan={6}>{message}</td>
               </tr>
             )}
           </tbody>

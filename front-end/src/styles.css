@@ -638,13 +638,16 @@ td span {
 }
 
 .product-inventory-table th:first-child,
-.product-inventory-table td:first-child {
+.product-inventory-table td:first-child,
+.product-inventory-table th:nth-child(2),
+.product-inventory-table td:nth-child(2) {
   text-align: center;
   width: 64px;
 }
 
 .product-inventory-table td:nth-child(7),
-.product-inventory-table td:nth-child(8) {
+.product-inventory-table td:nth-child(8),
+.product-inventory-table td:nth-child(9) {
   font-weight: 900;
 }
 

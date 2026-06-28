@@ -39,8 +39,11 @@ describe('UserManagementPage', () => {
   it('loads users from the backend instead of rendering hardcoded users', async () => {
     render(<UserManagementPage />)
 
+    expect(await screen.findByRole('columnheader', { name: 'No' })).toBeInTheDocument()
     expect(await screen.findByRole('cell', { name: 'sqladmin' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'SQL Cashier' })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /1 sqladmin SQL Admin owner active/ })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /2 sqlcashier SQL Cashier cashier active/ })).toBeInTheDocument()
     expect(screen.queryByRole('cell', { name: 'admin' })).not.toBeInTheDocument()
     expect(mockedApiGet).toHaveBeenCalledWith('/users')
   })

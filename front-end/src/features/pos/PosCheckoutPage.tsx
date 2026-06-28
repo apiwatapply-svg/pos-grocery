@@ -424,7 +424,7 @@ export function PosCheckoutPage() {
               <table className="cart-table" aria-label="รายการสินค้าในตะกร้า">
                 <thead>
                   <tr>
-                    <th scope="col">ลำดับ</th>
+                    <th scope="col">No</th>
                     <th scope="col">ภาพ</th>
                     <th scope="col">สินค้า</th>
                     <th scope="col">ราคา</th>

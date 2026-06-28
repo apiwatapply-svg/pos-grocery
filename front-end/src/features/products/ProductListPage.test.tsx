@@ -111,6 +111,7 @@ describe('ProductListPage', () => {
     renderPage(ownerSession)
 
     expect(await screen.findByText('SQL Product')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'No' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'รูป' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'SKU' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'หน่วย' })).toBeInTheDocument()
@@ -120,6 +121,8 @@ describe('ProductListPage', () => {
     expect(screen.getByText('SQL-SKU')).toBeInTheDocument()
     expect(screen.getByText('box')).toBeInTheDocument()
     expect(screen.getByText('9')).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /1 SQL Product SQL Product SQL-SKU SQL-001 box 1\.23 4\.56 9 พร้อมขาย เปิดขาย/ })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /2 ไม่มีรูป Filtered Product FILTER-SKU SQL-002 pack 10\.00 15\.00 0 หมดสต็อก ปิดขาย/ })).toBeInTheDocument()
     expect(screen.getByText('พร้อมขาย')).toBeInTheDocument()
     expect(screen.getByText('หมดสต็อก')).toBeInTheDocument()
   })

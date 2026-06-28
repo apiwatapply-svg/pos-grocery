@@ -87,7 +87,9 @@ describe('CustomerDisplayPage', () => {
 
     expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBe('true')
     expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeDisabled()
+    expect(screen.getByRole('columnheader', { name: 'No' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'สินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '1' })).toBeInTheDocument()
     expect(screen.getByText('Drinking Water')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('7.00 บาท')).toBeInTheDocument()
@@ -120,6 +122,9 @@ describe('CustomerDisplayPage', () => {
       '',
       'pos-grocery-customer-display',
       'popup,width=900,height=700',
+    )
+    expect(displayWindow.document.write).toHaveBeenCalledWith(
+      expect.stringContaining('<th>No</th>'),
     )
     expect(displayWindow.document.write).toHaveBeenCalledWith(
       expect.stringContaining('ยอดที่ต้องชำระ'),

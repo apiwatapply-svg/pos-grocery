@@ -157,7 +157,7 @@ export function buildCustomerDisplayHtml(input: {
     <section>${input.cart.length > 0 ? `<table>
       <thead>
         <tr>
-          <th>ลำดับ</th>
+          <th>No</th>
           <th>สินค้า</th>
           <th>จำนวน</th>
           <th>ราคา</th>

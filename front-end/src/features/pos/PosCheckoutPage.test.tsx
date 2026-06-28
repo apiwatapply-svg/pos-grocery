@@ -235,7 +235,7 @@ describe('PosCheckoutPage', () => {
       target: { value: 'Instant Noodles' },
     })
     const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
-    for (const column of ['ลำดับ', 'ภาพ', 'สินค้า', 'ราคา', 'จำนวน', 'ราคารวม']) {
+    for (const column of ['No', 'ภาพ', 'สินค้า', 'ราคา', 'จำนวน', 'ราคารวม']) {
       expect(within(cartTable).getByRole('columnheader', { name: column })).toBeInTheDocument()
     }
     const cartRows = within(cartTable).getAllByRole('row')
@@ -440,7 +440,9 @@ describe('PosCheckoutPage', () => {
       expect(screen.getAllByText('ยกเลิกแล้ว').length).toBeGreaterThan(0)
     })
     expectStockMeter('Drinking Water', 24, 24)
-    expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
+    })
   })
 
   it('keeps the checkout page focused by not rendering customer display controls', async () => {

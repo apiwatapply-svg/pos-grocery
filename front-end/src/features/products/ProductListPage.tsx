@@ -326,6 +326,7 @@ export function ProductListPage() {
         <table className="product-inventory-table">
           <thead>
             <tr>
+              <th>No</th>
               <th>รูป</th>
               <th>สินค้า</th>
               <th>SKU</th>
@@ -339,8 +340,9 @@ export function ProductListPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.length > 0 ? filteredProducts.map((product) => (
+            {filteredProducts.length > 0 ? filteredProducts.map((product, index) => (
               <tr key={product.id}>
+                <td>{index + 1}</td>
                 <td>
                   {productImageUrl(product) ? (
                     <img className="product-thumb" src={productImageUrl(product)} alt={product.name} />
@@ -360,7 +362,7 @@ export function ProductListPage() {
               </tr>
             )) : (
               <tr>
-                <td colSpan={10}>{products.length > 0 ? 'ไม่พบสินค้าที่ตรงกับตัวกรอง' : message}</td>
+                <td colSpan={11}>{products.length > 0 ? 'ไม่พบสินค้าที่ตรงกับตัวกรอง' : message}</td>
               </tr>
             )}
           </tbody>

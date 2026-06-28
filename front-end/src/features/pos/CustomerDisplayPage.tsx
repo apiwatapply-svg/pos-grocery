@@ -162,7 +162,7 @@ export function CustomerDisplayPage() {
               <table className="customer-cart-table" aria-label="รายการสินค้าสำหรับลูกค้า">
                 <thead>
                   <tr>
-                    <th scope="col">ลำดับ</th>
+                    <th scope="col">No</th>
                     <th scope="col">สินค้า</th>
                     <th scope="col">ราคา</th>
                     <th scope="col">จำนวน</th>
