@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: projects/pos-grocery/front-end
+        working-directory: front-end
     env:
       VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
     steps:
@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: projects/pos-grocery/front-end/package-lock.json
+          cache-dependency-path: front-end/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -38,7 +38,7 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: projects/pos-grocery/front-end
+          working-directory: front-end
           vercel-args: --prod
 
   deploy_backend:
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: projects/pos-grocery/back-end
+        working-directory: back-end
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,7 +56,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: projects/pos-grocery/back-end/package-lock.json
+          cache-dependency-path: back-end/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -71,5 +71,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: projects/pos-grocery/back-end
+          workingDirectory: back-end
           command: deploy
