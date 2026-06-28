@@ -354,4 +354,16 @@ export function createInMemoryUserRepository(seed?: {
   };
 }
 
-export const defaultUserRepository = createPrismaUserRepository();
+let prismaBackedRepository: UserRepository | undefined;
+
+function getDefaultUserRepository() {
+  prismaBackedRepository ??= createPrismaUserRepository();
+  return prismaBackedRepository;
+}
+
+export const defaultUserRepository = new Proxy({} as UserRepository, {
+  get(_target, property: keyof UserRepository) {
+    const value = getDefaultUserRepository()[property];
+    return typeof value === "function" ? value.bind(getDefaultUserRepository()) : value;
+  },
+});
