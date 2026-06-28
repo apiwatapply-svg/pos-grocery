@@ -1,11 +1,40 @@
-const storeFields = {
-  name: 'POS Grocery',
-  phone: '0800000000',
-  address: 'Bangkok',
-  ownerName: 'admin',
+import { useEffect, useState } from 'react'
+import { apiGet } from '../../lib/api/client'
+
+type Store = {
+  id: string
+  name: string
+  phone: string
+  address: string
+  ownerName: string
+  status: 'active' | 'inactive'
 }
 
 export function StoreSettingsPage() {
+  const [store, setStore] = useState<Store | null>(null)
+  const [message, setMessage] = useState('กำลังโหลดข้อมูลร้าน')
+
+  useEffect(() => {
+    let active = true
+
+    apiGet<Store>('/stores/current')
+      .then((nextStore) => {
+        if (active) {
+          setStore(nextStore)
+          setMessage('')
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(error instanceof Error ? error.message : 'โหลดข้อมูลร้านไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <section className="settings-panel" aria-labelledby="store-settings-title">
       <div>
@@ -16,19 +45,19 @@ export function StoreSettingsPage() {
       <dl className="settings-list">
         <div>
           <dt>ชื่อร้าน</dt>
-          <dd>{storeFields.name}</dd>
+          <dd>{store?.name ?? message}</dd>
         </div>
         <div>
           <dt>เบอร์โทร</dt>
-          <dd>{storeFields.phone}</dd>
+          <dd>{store?.phone ?? '-'}</dd>
         </div>
         <div>
           <dt>ที่อยู่</dt>
-          <dd>{storeFields.address}</dd>
+          <dd>{store?.address ?? '-'}</dd>
         </div>
         <div>
           <dt>เจ้าของร้าน</dt>
-          <dd>{storeFields.ownerName}</dd>
+          <dd>{store?.ownerName ?? '-'}</dd>
         </div>
       </dl>
     </section>

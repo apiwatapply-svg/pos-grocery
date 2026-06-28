@@ -44,3 +44,22 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
   return readApiResponse<T>(response)
 }
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: 'PATCH',
+    headers: buildHeaders(true),
+    body: JSON.stringify(body),
+  })
+
+  return readApiResponse<T>(response)
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: 'DELETE',
+    headers: buildHeaders(false),
+  })
+
+  return readApiResponse<T>(response)
+}

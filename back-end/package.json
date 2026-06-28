@@ -10,7 +10,8 @@
     "test": "vitest run",
     "build": "tsc --noEmit",
     "start": "node dist/server.js",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "seed:products": "tsx scripts/ensure-grocery-products.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

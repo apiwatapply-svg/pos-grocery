@@ -1,6 +1,7 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
+import { apiDelete, apiGet, apiPost } from '../../lib/api/client'
 
 type User = {
   id: string
@@ -12,26 +13,49 @@ type User = {
 
 export function UserManagementPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [users, setUsers] = useState<User[]>([
-    { id: 'user-owner', username: 'admin', displayName: 'Admin', role: 'owner', status: 'active' },
-    { id: 'user-cashier', username: 'cashier', displayName: 'Cashier One', role: 'cashier', status: 'active' },
-  ])
+  const [users, setUsers] = useState<User[]>([])
+  const [message, setMessage] = useState('กำลังโหลดผู้ใช้')
 
-  function createUser(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    let active = true
+
+    apiGet<User[]>('/users')
+      .then((nextUsers) => {
+        if (active) {
+          setUsers(nextUsers)
+          setMessage(nextUsers.length > 0 ? '' : 'ยังไม่มีผู้ใช้')
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(error instanceof Error ? error.message : 'โหลดผู้ใช้ไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setUsers((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
+    try {
+      const created = await apiPost<User>('/users', {
         username: String(form.get('username')),
+        password: String(form.get('password')),
         displayName: String(form.get('displayName')),
         role: String(form.get('role')) as User['role'],
         status: 'active',
-      },
-    ])
-    event.currentTarget.reset()
-    setIsCreateModalOpen(false)
+      })
+      setUsers((current) => [...current, created])
+      formElement.reset()
+      setIsCreateModalOpen(false)
+      setMessage('')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'สร้างผู้ใช้ไม่สำเร็จ')
+    }
   }
 
   async function deactivateUser(user: User) {
@@ -49,9 +73,14 @@ export function UserManagementPage() {
       return
     }
 
-    setUsers((current) =>
-      current.map((row) => (row.id === user.id ? { ...row, status: 'inactive' } : row)),
-    )
+    try {
+      const updated = await apiDelete<User>(`/users/${user.id}`)
+      setUsers((current) =>
+        current.map((row) => (row.id === user.id ? updated : row)),
+      )
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'ปิดใช้งานผู้ใช้ไม่สำเร็จ')
+    }
   }
 
   return (
@@ -98,6 +127,10 @@ export function UserManagementPage() {
                 <input name="displayName" required />
               </label>
               <label className="field">
+                <span>password</span>
+                <input minLength={6} name="password" required type="password" />
+              </label>
+              <label className="field">
                 <span>Role</span>
                 <select name="role" defaultValue="cashier">
                   <option value="owner">owner</option>
@@ -134,7 +167,7 @@ export function UserManagementPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {users.length > 0 ? users.map((user) => (
               <tr key={user.id}>
                 <td>{user.username}</td>
                 <td>{user.displayName}</td>
@@ -150,7 +183,11 @@ export function UserManagementPage() {
                   </button>
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan={5}>{message}</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
