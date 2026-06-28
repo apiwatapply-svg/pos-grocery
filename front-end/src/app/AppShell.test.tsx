@@ -1,9 +1,18 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
-import { saveSession, type Session } from '../lib/auth/session'
+import Swal from 'sweetalert2'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readSession, saveSession, type Session } from '../lib/auth/session'
 import { AppShell } from './AppShell'
+
+vi.mock('sweetalert2', () => ({
+  default: {
+    fire: vi.fn(),
+  },
+}))
+
+const mockedSwal = vi.mocked(Swal)
 
 const cashierSession: Session = {
   token: 'token-cashier',
@@ -27,6 +36,7 @@ const stockSession: Session = {
 
 afterEach(() => {
   localStorage.clear()
+  vi.clearAllMocks()
 })
 
 function renderShell(session = cashierSession) {
@@ -67,6 +77,34 @@ describe('AppShell', () => {
 
     expect(screen.queryByRole('link', { name: 'ไปหน้า POS' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
+  })
+
+  it('keeps the session when logout confirmation is cancelled', async () => {
+    mockedSwal.fire.mockResolvedValueOnce({ isConfirmed: false, isDenied: false, isDismissed: true })
+    renderShell()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Logout' }))
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          icon: 'warning',
+          showCancelButton: true,
+        }),
+      )
+    })
+    expect(readSession()).toMatchObject({ token: cashierSession.token })
+  })
+
+  it('clears the session when logout confirmation is accepted', async () => {
+    mockedSwal.fire.mockResolvedValueOnce({ isConfirmed: true, isDenied: false, isDismissed: false })
+    renderShell()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Logout' }))
+
+    await waitFor(() => {
+      expect(readSession()).toBeNull()
+    })
   })
 
   it('uses the products page as the single product and inventory list in the sidebar', () => {

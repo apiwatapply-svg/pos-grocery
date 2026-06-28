@@ -1,5 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
 import { canAccessRoute, type AppRouteId } from '../lib/auth/permissions'
 import { clearSession, readSession } from '../lib/auth/session'
 import { navGroups, protectedRoutes } from './routes'
@@ -38,7 +40,21 @@ export function AppShell({ children }: AppShellProps) {
   const user = session?.user
   const canUsePos = user ? canAccessRoute(user.role, 'pos') : false
 
-  function logout() {
+  async function logout() {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'ออกจากระบบ?',
+      text: 'ยืนยันการออกจากระบบ POS Grocery',
+      showCancelButton: true,
+      confirmButtonText: 'ออกจากระบบ',
+      cancelButtonText: 'ยกเลิก',
+      reverseButtons: true,
+    })
+
+    if (!result.isConfirmed) {
+      return
+    }
+
     clearSession()
     navigate('/login')
   }
