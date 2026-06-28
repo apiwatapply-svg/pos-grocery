@@ -229,6 +229,17 @@ td span {
   max-width: 1440px;
 }
 
+.pos-workspace {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.42fr) minmax(320px, 1fr);
+  height: clamp(560px, calc(100vh - 172px), 760px);
+  margin: 0 auto;
+  max-width: 1440px;
+  min-height: 0;
+  width: 100%;
+}
+
 .panel {
   grid-column: span 4;
   padding: 16px;
@@ -242,6 +253,25 @@ td span {
 .pos-panel,
 .receipt-panel {
   grid-column: span 4;
+}
+
+.pos-panel-large,
+.pos-side-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pos-panel-large {
+  grid-column: auto;
+}
+
+.pos-side-column {
+  display: grid;
+  gap: 14px;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
 }
 
 .panel h2 {
@@ -280,6 +310,13 @@ td span {
   grid-template-columns: 1.4fr 0.7fr auto;
 }
 
+.pos-scan-bar {
+  border-bottom: 1px solid #edf0eb;
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
 .field {
   color: #435247;
   display: grid;
@@ -300,6 +337,11 @@ td span {
   min-height: 38px;
   padding: 8px 10px;
   width: 100%;
+}
+
+.pos-scan-bar input {
+  font-size: 16px;
+  min-height: 46px;
 }
 
 .field textarea {
@@ -379,6 +421,74 @@ td span {
   padding-top: 10px;
 }
 
+.pos-scroll-area {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.pos-panel-large .cart-list {
+  flex: 1 1 auto;
+  margin: 12px 0;
+}
+
+.pos-checkout-footer {
+  border-top: 1px solid #edf0eb;
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.pos-checkout-footer .total-line {
+  border-top: 0;
+  margin: 0;
+  padding-top: 0;
+}
+
+.empty-hint {
+  color: #66746b;
+  margin: 0;
+}
+
+.receipt-list,
+.stock-list {
+  display: grid;
+  gap: 10px;
+}
+
+.receipt-card {
+  align-items: stretch;
+  background: #fbfcfa;
+  border: 1px solid #dfe7df;
+  color: #17201b;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  min-height: 98px;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.receipt-card:hover {
+  background: #eef2ed;
+}
+
+.receipt-card span,
+.receipt-card small {
+  color: #66746b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stock-list p {
+  border-bottom: 1px solid #edf0eb;
+  margin: 0;
+  padding: 0 0 10px;
+}
+
 .inventory-row span {
   color: #66746b;
   display: block;
@@ -414,6 +524,10 @@ td span {
   font-family: 'Courier New', monospace;
   margin-bottom: 10px;
   padding: 14px;
+}
+
+.receipt-modal {
+  max-width: 460px;
 }
 
 .date-row {
@@ -541,6 +655,24 @@ td span {
 }
 
 @media (max-width: 1100px) {
+  .pos-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .pos-panel-large {
+    min-height: 560px;
+  }
+
+  .pos-side-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
+  .pos-side-panel {
+    min-height: 320px;
+  }
+
   .panel,
   .wide-panel,
   .store-panel,
@@ -610,6 +742,18 @@ td span {
   .pos-panel,
   .receipt-panel {
     grid-column: 1 / -1;
+  }
+
+  .pos-panel-large {
+    min-height: 520px;
+  }
+
+  .pos-side-column {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-side-panel {
+    min-height: 280px;
   }
 }
 
