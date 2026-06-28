@@ -52,7 +52,6 @@ const initialProducts: Product[] = [
   },
 ]
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
-const productsStorageKey = 'pos-grocery:pos-products'
 const receiptsStorageKey = 'pos-grocery:receipts'
 
 function readStoredValue<T>(key: string, fallback: T): T {
@@ -62,11 +61,6 @@ function readStoredValue<T>(key: string, fallback: T): T {
   } catch {
     return fallback
   }
-}
-
-function readStoredProducts() {
-  const storedProducts = readStoredValue<Product[]>(productsStorageKey, initialProducts)
-  return Array.isArray(storedProducts) ? storedProducts : initialProducts
 }
 
 function readStoredReceipts() {
@@ -102,7 +96,7 @@ function Field(props: {
 
 export function PosCheckoutPage() {
   const session = readSession()
-  const [products, setProducts] = useState<Product[]>(() => readStoredProducts())
+  const [products, setProducts] = useState<Product[]>(initialProducts)
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
   const [cashReceived, setCashReceived] = useState(100)
@@ -117,10 +111,6 @@ export function PosCheckoutPage() {
   const lastSale = receipts[0] ?? null
   const canCancelReceipt =
     session?.user.role === 'owner' || session?.user.role === 'admin'
-
-  useEffect(() => {
-    localStorage.setItem(productsStorageKey, JSON.stringify(products))
-  }, [products])
 
   useEffect(() => {
     localStorage.setItem(receiptsStorageKey, JSON.stringify(receipts))
@@ -272,7 +262,15 @@ export function PosCheckoutPage() {
     setProducts((current) =>
       current.map((product) => {
         const item = sale.items.find((line) => line.productId === product.id)
-        return item ? { ...product, stockQuantity: product.stockQuantity + item.quantity } : product
+        return item
+          ? {
+              ...product,
+              stockQuantity: Math.min(
+                product.stockQuantity + item.quantity,
+                product.initialStockQuantity,
+              ),
+            }
+          : product
       }),
     )
     setReceipts((current) =>

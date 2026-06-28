@@ -121,6 +121,8 @@ describe('PosCheckoutPage', () => {
     expect(within(receiptItems[0]).getByText(/RC-/)).toBeInTheDocument()
     expect(within(receiptItems[0]).getByText('14.00 บาท')).toBeInTheDocument()
     expect(within(receiptItems[0]).getByText('ขายสำเร็จ')).toBeInTheDocument()
+    expectStockMeter('Drinking Water', 24, 24)
+    expectStockMeter('Instant Noodles', 18, 18)
   })
 
   it('supports quick cash amounts, custom cash, live change, and blocks underpaid checkout confirmation', () => {
