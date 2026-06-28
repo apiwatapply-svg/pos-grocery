@@ -44,7 +44,7 @@ describe('CustomerDisplayPage', () => {
 
     render(<CustomerDisplayPage />)
 
-    expect(screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).toBeDisabled()
+    expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ตรวจสอบจอ' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).toBeDisabled()
     expect(screen.getByText('สถานะจอ: ยังไม่พบจอที่สอง')).toBeInTheDocument()
@@ -66,15 +66,24 @@ describe('CustomerDisplayPage', () => {
     expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeDisabled()
   })
 
-  it('enables, persists, and previews the customer display when a second screen is detected', () => {
+  it('enables, persists, and previews the customer display when opening a detected second screen', () => {
     seedCustomerDisplayPayload()
     setExtendedScreen(true)
+    const displayWindow = {
+      closed: false,
+      document: {
+        close: vi.fn(),
+        open: vi.fn(),
+        write: vi.fn(),
+      },
+    } as unknown as Window
+    vi.spyOn(window, 'open').mockReturnValue(displayWindow)
+
     render(<CustomerDisplayPage />)
 
-    const toggle = screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })
-    expect(toggle).not.toBeDisabled()
+    expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()
 
-    fireEvent.click(toggle)
+    fireEvent.click(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' }))
 
     expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBe('true')
     expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeDisabled()
@@ -103,10 +112,9 @@ describe('CustomerDisplayPage', () => {
 
     render(<CustomerDisplayPage />)
 
-    const toggle = screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })
-    fireEvent.click(toggle)
     fireEvent.click(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' }))
-    fireEvent.click(toggle)
+    setExtendedScreen(false)
+    fireEvent.click(screen.getByRole('button', { name: 'ตรวจสอบจอ' }))
 
     expect(openSpy).toHaveBeenCalledWith(
       '',

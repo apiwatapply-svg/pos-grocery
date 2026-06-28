@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   baht,
   buildCustomerDisplayHtml,
@@ -80,17 +80,6 @@ export function CustomerDisplayPage() {
     }
   }
 
-  function updateCustomerDisplayPreference(event: ChangeEvent<HTMLInputElement>) {
-    if (!hasCustomerScreen) {
-      localStorage.removeItem(customerDisplayStorageKey)
-      setCustomerDisplayEnabled(false)
-      return
-    }
-
-    setCustomerDisplayEnabled(event.target.checked)
-    localStorage.setItem(customerDisplayStorageKey, String(event.target.checked))
-  }
-
   function openCustomerDisplayWindow() {
     if (!hasCustomerScreen) {
       return
@@ -145,15 +134,6 @@ export function CustomerDisplayPage() {
           </p>
         </div>
         <div className="customer-display-actions">
-          <label className="toggle-field">
-            <input
-              checked={customerDisplayEnabled}
-              disabled={!hasCustomerScreen}
-              onChange={updateCustomerDisplayPreference}
-              type="checkbox"
-            />
-            เปิดหน้าจอลูกค้า
-          </label>
           <button
             className="warning-button"
             onClick={refreshCustomerDisplayAvailability}
