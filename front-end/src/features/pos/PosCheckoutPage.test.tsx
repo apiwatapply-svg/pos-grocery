@@ -480,6 +480,8 @@ describe('PosCheckoutPage', () => {
         },
       ])
       expect(displayPayload.cartTotal).toBe(14)
+      expect(displayPayload.cashReceived).toBe(100)
+      expect(displayPayload.changeDue).toBe(86)
     })
 
     expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()

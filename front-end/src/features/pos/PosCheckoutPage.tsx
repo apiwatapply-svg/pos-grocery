@@ -231,9 +231,11 @@ export function PosCheckoutPage() {
       store: { name: 'POS Grocery' },
       cart,
       cartTotal,
+      cashReceived,
+      changeDue,
       lastSale,
     })
-  }, [cart, cartTotal, lastSale])
+  }, [cart, cartTotal, cashReceived, changeDue, lastSale])
 
   function findProductByQuery(query: string) {
     const normalizedQuery = query.trim().toLowerCase()

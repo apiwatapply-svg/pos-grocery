@@ -51,6 +51,8 @@ export function CustomerDisplayPage() {
         store: displayPayload.store,
         cart: displayPayload.cart,
         cartTotal: displayPayload.cartTotal,
+        cashReceived: displayPayload.cashReceived,
+        changeDue: displayPayload.changeDue,
         lastSale: displayPayload.lastSale,
       }),
     )
@@ -90,8 +92,13 @@ export function CustomerDisplayPage() {
   }
 
   function openCustomerDisplayWindow() {
-    if (!customerDisplayEnabled) {
+    if (!hasCustomerScreen) {
       return
+    }
+
+    if (!customerDisplayEnabled) {
+      setCustomerDisplayEnabled(true)
+      localStorage.setItem(customerDisplayStorageKey, 'true')
     }
 
     const displayWindow = window.open(
@@ -111,6 +118,8 @@ export function CustomerDisplayPage() {
         store: displayPayload.store,
         cart: displayPayload.cart,
         cartTotal: displayPayload.cartTotal,
+        cashReceived: displayPayload.cashReceived,
+        changeDue: displayPayload.changeDue,
         lastSale: displayPayload.lastSale,
       }),
     )
@@ -128,6 +137,7 @@ export function CustomerDisplayPage() {
       <section className="customer-display-control" aria-labelledby="customer-display-control-title">
         <div>
           <h2 id="customer-display-control-title">หน้าจอลูกค้า</h2>
+          <p>{hasCustomerScreen ? 'สถานะจอ: พบจอที่สอง' : 'สถานะจอ: ยังไม่พบจอที่สอง'}</p>
           <p>
             {hasCustomerScreen
               ? 'พร้อมแสดงหน้าจอสำหรับลูกค้าเมื่อมีจอที่สอง'
@@ -149,11 +159,11 @@ export function CustomerDisplayPage() {
             onClick={refreshCustomerDisplayAvailability}
             type="button"
           >
-            ตรวจจออีกครั้ง
+            ตรวจสอบจอ
           </button>
           <button
             className="info-button"
-            disabled={!customerDisplayEnabled}
+            disabled={!hasCustomerScreen}
             onClick={openCustomerDisplayWindow}
             type="button"
           >
@@ -169,21 +179,39 @@ export function CustomerDisplayPage() {
           </div>
           <div className="customer-cart">
             {displayPayload.cart.length > 0 ? (
-              displayPayload.cart.map((item) => (
-                <div className="customer-cart-row" key={item.productName}>
-                  <span>
-                    {item.productName} x{item.quantity}
-                  </span>
-                  <strong>{baht(item.quantity * item.unitPrice)} บาท</strong>
-                </div>
-              ))
+              <table className="customer-cart-table" aria-label="รายการสินค้าสำหรับลูกค้า">
+                <thead>
+                  <tr>
+                    <th scope="col">ลำดับ</th>
+                    <th scope="col">สินค้า</th>
+                    <th scope="col">ราคา</th>
+                    <th scope="col">จำนวน</th>
+                    <th scope="col">ราคารวม</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayPayload.cart.map((item, index) => (
+                    <tr key={item.productName}>
+                      <td>{index + 1}</td>
+                      <td>{item.productName}</td>
+                      <td>{baht(item.unitPrice)} บาท</td>
+                      <td>{item.quantity}</td>
+                      <td>{baht(item.quantity * item.unitPrice)} บาท</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
               <p>รอรายการสินค้า</p>
             )}
           </div>
-          <strong className="customer-total">
-            ยอดที่ต้องชำระ {baht(displayPayload.cartTotal)} บาท
-          </strong>
+          <div className="customer-payment-summary">
+            <strong className="customer-total">
+              ยอดที่ต้องชำระ {baht(displayPayload.cartTotal)} บาท
+            </strong>
+            <span>รับเงิน {baht(displayPayload.cashReceived)} บาท</span>
+            <span>เงินทอน {baht(Math.max(displayPayload.changeDue, 0))} บาท</span>
+          </div>
           {displayPayload.lastSale ? (
             <span>บิลล่าสุด {displayPayload.lastSale.receiptNumber}</span>
           ) : null}

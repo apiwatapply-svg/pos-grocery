@@ -31,6 +31,8 @@ describe('CustomerDisplayPage', () => {
           },
         ],
         cartTotal: 14,
+        cashReceived: 20,
+        changeDue: 6,
         lastSale: null,
       }),
     )
@@ -43,9 +45,25 @@ describe('CustomerDisplayPage', () => {
     render(<CustomerDisplayPage />)
 
     expect(screen.getByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'ตรวจสอบจอ' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).toBeDisabled()
+    expect(screen.getByText('สถานะจอ: ยังไม่พบจอที่สอง')).toBeInTheDocument()
     expect(screen.getByText('ใช้ได้เมื่อพบการต่อ 2 จอเท่านั้น')).toBeInTheDocument()
     expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBeNull()
+  })
+
+  it('enables the open-display button after checking and finding a second screen', () => {
+    seedCustomerDisplayPayload()
+    setExtendedScreen(false)
+    render(<CustomerDisplayPage />)
+
+    expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).toBeDisabled()
+
+    setExtendedScreen(true)
+    fireEvent.click(screen.getByRole('button', { name: 'ตรวจสอบจอ' }))
+
+    expect(screen.getByText('สถานะจอ: พบจอที่สอง')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeDisabled()
   })
 
   it('enables, persists, and previews the customer display when a second screen is detected', () => {
@@ -60,8 +78,13 @@ describe('CustomerDisplayPage', () => {
 
     expect(localStorage.getItem('pos-grocery:customer-display-enabled')).toBe('true')
     expect(screen.getByRole('button', { name: 'เปิดหน้าต่างจอลูกค้า' })).not.toBeDisabled()
-    expect(screen.getByText('Drinking Water x2')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'สินค้า' })).toBeInTheDocument()
+    expect(screen.getByText('Drinking Water')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getByText('7.00 บาท')).toBeInTheDocument()
     expect(screen.getByText('ยอดที่ต้องชำระ 14.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText('รับเงิน 20.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText('เงินทอน 6.00 บาท')).toBeInTheDocument()
   })
 
   it('opens and closes the separate customer display window from the display page', () => {
@@ -91,7 +114,22 @@ describe('CustomerDisplayPage', () => {
       'popup,width=900,height=700',
     )
     expect(displayWindow.document.write).toHaveBeenCalledWith(
-      expect.stringContaining('ยอดที่ต้องชำระ 14.00 บาท'),
+      expect.stringContaining('ยอดที่ต้องชำระ'),
+    )
+    expect(displayWindow.document.write).toHaveBeenCalledWith(
+      expect.stringContaining('14.00 บาท'),
+    )
+    expect(displayWindow.document.write).toHaveBeenCalledWith(
+      expect.stringContaining('รับเงิน'),
+    )
+    expect(displayWindow.document.write).toHaveBeenCalledWith(
+      expect.stringContaining('20.00 บาท'),
+    )
+    expect(displayWindow.document.write).toHaveBeenCalledWith(
+      expect.stringContaining('เงินทอน'),
+    )
+    expect(displayWindow.document.write).toHaveBeenCalledWith(
+      expect.stringContaining('6.00 บาท'),
     )
     expect(displayWindow.close).toHaveBeenCalled()
   })

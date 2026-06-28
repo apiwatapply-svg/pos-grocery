@@ -16,6 +16,8 @@ export type CustomerDisplayPayload = {
   store: StoreForCustomerDisplay
   cart: CustomerCartItem[]
   cartTotal: number
+  cashReceived: number
+  changeDue: number
   lastSale: CustomerSale
 }
 
@@ -28,6 +30,8 @@ function emptyCustomerDisplayPayload(): CustomerDisplayPayload {
     store: { name: 'POS Grocery' },
     cart: [],
     cartTotal: 0,
+    cashReceived: 0,
+    changeDue: 0,
     lastSale: null,
   }
 }
@@ -72,6 +76,9 @@ export function readCustomerDisplayPayload() {
       },
       cart: Array.isArray(parsedPayload.cart) ? parsedPayload.cart : [],
       cartTotal: typeof parsedPayload.cartTotal === 'number' ? parsedPayload.cartTotal : 0,
+      cashReceived:
+        typeof parsedPayload.cashReceived === 'number' ? parsedPayload.cashReceived : 0,
+      changeDue: typeof parsedPayload.changeDue === 'number' ? parsedPayload.changeDue : 0,
       lastSale: parsedPayload.lastSale?.receiptNumber
         ? { receiptNumber: parsedPayload.lastSale.receiptNumber }
         : null,
@@ -90,15 +97,21 @@ export function buildCustomerDisplayHtml(input: {
   store: StoreForCustomerDisplay
   cart: CustomerCartItem[]
   cartTotal: number
+  cashReceived: number
+  changeDue: number
   lastSale: CustomerSale
 }) {
   const rows =
     input.cart.length > 0
       ? input.cart
           .map(
-            (item) => `<div class="row"><span>${escapeHtml(item.productName)} x${item.quantity}</span><strong>${baht(
-              item.quantity * item.unitPrice,
-            )} บาท</strong></div>`,
+            (item, index) => `<tr>
+              <td>${index + 1}</td>
+              <td>${escapeHtml(item.productName)}</td>
+              <td>${item.quantity}</td>
+              <td>${baht(item.unitPrice)} บาท</td>
+              <td>${baht(item.quantity * item.unitPrice)} บาท</td>
+            </tr>`,
           )
           .join('')
       : '<p class="muted">รอรายการสินค้า</p>'
@@ -122,14 +135,17 @@ export function buildCustomerDisplayHtml(input: {
     .screen { display: grid; gap: 24px; margin: 0 auto; max-width: 960px; }
     h1 { font-size: 48px; line-height: 1; margin: 0; }
     .store, .muted, .receipt { color: #c9d7cf; }
-    .row {
+    table { border-collapse: collapse; font-size: 26px; width: 100%; }
+    th, td { border-bottom: 1px solid #34463b; padding: 14px 10px; text-align: left; }
+    th { color: #bff0d2; font-size: 18px; text-transform: uppercase; }
+    td:nth-child(3), td:nth-child(4), td:nth-child(5) { text-align: right; }
+    .summary { display: grid; gap: 12px; }
+    .summary div {
       align-items: center;
       border-top: 1px solid #34463b;
-      display: grid;
-      font-size: 28px;
-      gap: 16px;
-      grid-template-columns: minmax(0, 1fr) auto;
-      padding: 18px 0 0;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 12px;
     }
     .total { color: #bff0d2; font-size: 42px; font-weight: 900; }
   </style>
@@ -138,8 +154,23 @@ export function buildCustomerDisplayHtml(input: {
   <main class="screen">
     <p class="store">${escapeHtml(input.store.name)}</p>
     <h1>จอลูกค้า</h1>
-    <section>${rows}</section>
-    <strong class="total">ยอดที่ต้องชำระ ${baht(input.cartTotal)} บาท</strong>
+    <section>${input.cart.length > 0 ? `<table>
+      <thead>
+        <tr>
+          <th>ลำดับ</th>
+          <th>สินค้า</th>
+          <th>จำนวน</th>
+          <th>ราคา</th>
+          <th>รวม</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>` : rows}</section>
+    <section class="summary">
+      <div><span>ยอดที่ต้องชำระ</span><strong class="total">${baht(input.cartTotal)} บาท</strong></div>
+      <div><span>รับเงิน</span><strong>${baht(input.cashReceived)} บาท</strong></div>
+      <div><span>เงินทอน</span><strong>${baht(Math.max(input.changeDue, 0))} บาท</strong></div>
+    </section>
     ${input.lastSale ? `<p class="receipt">บิลล่าสุด ${escapeHtml(input.lastSale.receiptNumber)}</p>` : ''}
   </main>
 </body>
