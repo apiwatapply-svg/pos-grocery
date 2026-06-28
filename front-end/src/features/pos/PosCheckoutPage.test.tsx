@@ -349,14 +349,14 @@ describe('PosCheckoutPage', () => {
     for (const amount of [5, 10, 20, 50, 100, 500, 1000]) {
       expect(screen.getByRole('button', { name: `${amount} บาท` })).toBeInTheDocument()
     }
+    expect(screen.getByRole('button', { name: 'จ่ายพอดี' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '20 บาท' }))
     expect(screen.getByLabelText('รับเงินสด')).toHaveValue(20)
     expect(screen.getByRole('status', { name: 'เงินทอน 6.00 บาท' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('รับเงินสด'), {
-      target: { value: '14' },
-    })
+    fireEvent.click(screen.getByRole('button', { name: 'จ่ายพอดี' }))
+    expect(screen.getByLabelText('รับเงินสด')).toHaveValue(14)
     expect(screen.getByRole('status', { name: 'จ่ายพอดี 0.00 บาท' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('รับเงินสด'), {

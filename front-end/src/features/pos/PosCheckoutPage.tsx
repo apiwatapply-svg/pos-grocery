@@ -437,6 +437,14 @@ export function PosCheckoutPage() {
                 />
               </Field>
               <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด">
+                <button
+                  className={cartTotal > 0 && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
+                  disabled={cartTotal <= 0}
+                  type="button"
+                  onClick={() => setCashReceived(cartTotal)}
+                >
+                  จ่ายพอดี
+                </button>
                 {quickCashAmounts.map((amount) => (
                   <button
                     className={cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
