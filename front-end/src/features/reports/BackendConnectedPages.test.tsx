@@ -84,9 +84,14 @@ describe('backend connected report pages', () => {
   it('renders dashboard metrics and charts from the reports API', async () => {
     render(<DashboardPage />)
 
-    expect(await screen.findByText('SQL Sale Product')).toBeInTheDocument()
-    expect(screen.getByText('27.00 บาท')).toBeInTheDocument()
-    expect(screen.getByText('09:00')).toBeInTheDocument()
+    expect(await screen.findAllByText('SQL Sale Product')).toHaveLength(2)
+    expect(screen.getAllByText('27.00 บาท')).toHaveLength(2)
+    expect(screen.getAllByText('09:00')).toHaveLength(2)
+    expect(screen.getByText('สินค้าท็อปวันนี้')).toBeInTheDocument()
+    expect(screen.getByText('ช่วงที่ขายดีที่สุด')).toBeInTheDocument()
+    expect(screen.getByText('ค่าเฉลี่ยต่อบิล')).toBeInTheDocument()
+    expect(screen.getByText('สถานะวันนี้')).toBeInTheDocument()
+    expect(screen.getByText('มีการขายแล้ว 1 บิล')).toBeInTheDocument()
   })
 
   it('renders sales report rows from the reports API', async () => {

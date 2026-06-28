@@ -139,6 +139,61 @@ td span {
   margin-top: 4px;
 }
 
+.dashboard-card-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 auto 18px;
+  max-width: 1440px;
+}
+
+.dashboard-card {
+  background: #ffffff;
+  border: 1px solid #d7ded5;
+  border-left: 6px solid #16834a;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-height: 128px;
+  padding: 16px;
+}
+
+.dashboard-card span {
+  color: #536259;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.dashboard-card strong {
+  color: #102017;
+  display: block;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.dashboard-card small {
+  align-self: end;
+  color: #66746b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dashboard-card-green {
+  border-left-color: #16834a;
+}
+
+.dashboard-card-blue {
+  border-left-color: #1d4ed8;
+}
+
+.dashboard-card-orange {
+  border-left-color: #c45a00;
+}
+
+.dashboard-card-purple {
+  border-left-color: #7c3aed;
+}
+
 .customer-display-control {
   align-items: center;
   display: flex;
@@ -1076,6 +1131,10 @@ td span {
 }
 
 @media (max-width: 1100px) {
+  .dashboard-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pos-workspace {
     grid-template-columns: 1fr;
     height: auto;
@@ -1140,6 +1199,7 @@ td span {
   }
 
   .metric-strip,
+  .dashboard-card-grid,
   .customer-display-control,
   .form-grid,
   .compact-form,
