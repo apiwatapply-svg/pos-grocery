@@ -1,3 +1,5 @@
+import { createPrismaUserRepository } from "./prisma-user.repository.js";
+
 export type UserRole = "owner" | "admin" | "cashier" | "stock";
 export type UserStatus = "active" | "inactive";
 export type StoreStatus = "active" | "inactive";
@@ -352,4 +354,4 @@ export function createInMemoryUserRepository(seed?: {
   };
 }
 
-export const defaultUserRepository = createInMemoryUserRepository();
+export const defaultUserRepository = createPrismaUserRepository();

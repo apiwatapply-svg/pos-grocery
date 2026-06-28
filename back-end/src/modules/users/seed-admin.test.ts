@@ -16,6 +16,7 @@ describe("seedInitialAdmin", () => {
 
     const store = await repository.getFirstStore();
     const user = await repository.findUserByUsername("admin");
+    const products = store ? await repository.listProducts(store.id) : [];
 
     expect(store).toMatchObject({
       name: "POS Grocery",
@@ -28,6 +29,20 @@ describe("seedInitialAdmin", () => {
       storeId: store?.id,
     });
     await expect(comparePassword("admin", user?.passwordHash ?? "")).resolves.toBe(true);
+    expect(products).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Drinking Water",
+          barcode: "8850002000010",
+          stockQuantity: 24,
+        }),
+        expect.objectContaining({
+          name: "Instant Noodles",
+          barcode: "8850001000011",
+          stockQuantity: 18,
+        }),
+      ]),
+    );
   });
 
   it("does not duplicate the admin user when run twice", async () => {

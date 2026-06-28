@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
+import { apiGet, apiPost } from '../../lib/api/client'
 import { readSession } from '../../lib/auth/session'
 import { baht, writeCustomerDisplayPayload } from './customerDisplay'
 
@@ -23,12 +24,37 @@ type CartItem = {
 }
 
 type Sale = {
+  id?: string
   receiptNumber: string
   items: CartItem[]
   total: number
   changeDue: number
   status: 'completed' | 'cancelled'
   cancelledBy?: string
+}
+
+type ApiProduct = {
+  id: string
+  name: string
+  barcode: string
+  salePriceSatang: number
+  stockQuantity: number
+  status: 'active' | 'inactive'
+}
+
+type ApiSale = {
+  id: string
+  receiptNumber: string
+  totalSatang: number
+  changeDueSatang: number
+  status: 'completed' | 'void' | 'cancelled'
+  items: Array<{
+    productId: string
+    productName: string
+    barcode: string
+    quantity: number
+    unitPriceSatang: number
+  }>
 }
 
 const initialProducts: Product[] = [
@@ -53,6 +79,9 @@ const initialProducts: Product[] = [
 ]
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
 const receiptsStorageKey = 'pos-grocery:receipts'
+const initialStockByBarcode = new Map(
+  initialProducts.map((product) => [product.barcode, product.initialStockQuantity]),
+)
 
 function readStoredValue<T>(key: string, fallback: T): T {
   try {
@@ -66,6 +95,53 @@ function readStoredValue<T>(key: string, fallback: T): T {
 function readStoredReceipts() {
   const storedReceipts = readStoredValue<Sale[]>(receiptsStorageKey, [])
   return Array.isArray(storedReceipts) ? storedReceipts : []
+}
+
+function mapApiProduct(product: ApiProduct): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    barcode: product.barcode,
+    salePrice: product.salePriceSatang / 100,
+    stockQuantity: product.stockQuantity,
+    initialStockQuantity: initialStockByBarcode.get(product.barcode) ?? Math.max(product.stockQuantity, 1),
+    status: product.status,
+  }
+}
+
+function mapApiSale(sale: ApiSale): Sale {
+  return {
+    id: sale.id,
+    receiptNumber: sale.receiptNumber,
+    items: sale.items.map((item) => ({
+      productId: item.productId,
+      productName: item.productName,
+      barcode: item.barcode,
+      quantity: item.quantity,
+      unitPrice: item.unitPriceSatang / 100,
+    })),
+    total: sale.totalSatang / 100,
+    changeDue: sale.changeDueSatang / 100,
+    status: sale.status === 'void' ? 'cancelled' : sale.status,
+  }
+}
+
+function productsAreSame(current: Product[], next: Product[]) {
+  return (
+    current.length === next.length &&
+    current.every((product, index) => {
+      const nextProduct = next[index]
+      return (
+        nextProduct &&
+        product.id === nextProduct.id &&
+        product.name === nextProduct.name &&
+        product.barcode === nextProduct.barcode &&
+        product.salePrice === nextProduct.salePrice &&
+        product.stockQuantity === nextProduct.stockQuantity &&
+        product.status === nextProduct.status
+      )
+    })
+  )
 }
 
 function stockStatus(product: Product) {
@@ -106,11 +182,40 @@ export function PosCheckoutPage() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const changeDue = cashReceived - cartTotal
+  const paymentStatusLabel =
+    changeDue < 0 ? 'ขาดอีก' : cartTotal > 0 && changeDue === 0 ? 'จ่ายพอดี' : 'เงินทอน'
   const canCheckout = cart.length > 0 && cashReceived >= cartTotal
   const activeProducts = products.filter((product) => product.status === 'active')
   const lastSale = receipts[0] ?? null
   const canCancelReceipt =
     session?.user.role === 'owner' || session?.user.role === 'admin'
+
+  async function refreshProducts() {
+    const apiProducts = await apiGet<ApiProduct[]>('/products')
+    const nextProducts = apiProducts.map(mapApiProduct)
+    setProducts((current) => (productsAreSame(current, nextProducts) ? current : nextProducts))
+  }
+
+  useEffect(() => {
+    let active = true
+
+    apiGet<ApiProduct[]>('/products')
+      .then((apiProducts) => {
+        if (active) {
+          const nextProducts = apiProducts.map(mapApiProduct)
+          setProducts((current) => (productsAreSame(current, nextProducts) ? current : nextProducts))
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setNotice(error instanceof Error ? error.message : 'โหลดสินค้าไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(receiptsStorageKey, JSON.stringify(receipts))
@@ -211,23 +316,22 @@ export function PosCheckoutPage() {
       return
     }
 
-    setProducts((current) =>
-      current.map((product) => {
-        const item = cart.find((line) => line.productId === product.id)
-        return item ? { ...product, stockQuantity: product.stockQuantity - item.quantity } : product
-      }),
-    )
-
-    const sale: Sale = {
-      receiptNumber: `RC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-      items: cart,
-      total: cartTotal,
-      changeDue,
-      status: 'completed',
+    try {
+      const sale = await apiPost<ApiSale>('/sales/checkout', {
+        barcodeItems: cart.map((item) => ({
+          barcode: item.barcode,
+          quantity: item.quantity,
+        })),
+        cashReceivedSatang: Math.round(cashReceived * 100),
+        paymentMethod: 'cash',
+      })
+      setReceipts((current) => [mapApiSale(sale), ...current])
+      setCart([])
+      setNotice('ขายสำเร็จ')
+      await refreshProducts()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'ขายไม่สำเร็จ')
     }
-    setReceipts((current) => [sale, ...current])
-    setCart([])
-    setNotice('ขายสำเร็จ')
   }
 
   async function cancelSale(sale: Sale) {
@@ -363,11 +467,11 @@ export function PosCheckoutPage() {
                 ))}
               </div>
               <div
-                aria-label={`${changeDue >= 0 ? 'เงินทอน' : 'ขาดอีก'} ${baht(Math.abs(changeDue))} บาท`}
+                aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
                 className={changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
                 role="status"
               >
-                <span>{changeDue >= 0 ? 'เงินทอน' : 'ขาดอีก'}</span>
+                <span>{paymentStatusLabel}</span>
                 <strong>{baht(Math.abs(changeDue))} บาท</strong>
               </div>
             </div>
