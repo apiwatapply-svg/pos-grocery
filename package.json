@@ -1,0 +1,19 @@
+{
+  "name": "pos-grocery",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Grocery POS system with React frontend and Express backend.",
+  "scripts": {
+    "dev:front-end": "npm --prefix front-end run dev",
+    "dev:back-end": "npm --prefix back-end run dev",
+    "lint": "npm --prefix front-end run lint && npm --prefix back-end run lint",
+    "typecheck": "npm --prefix front-end run typecheck && npm --prefix back-end run typecheck",
+    "test": "npm --prefix front-end test && npm --prefix back-end test",
+    "build": "npm --prefix front-end run build && npm --prefix back-end run build",
+    "prisma:validate": "npm --prefix back-end run prisma -- validate",
+    "prisma:generate": "npm --prefix back-end run prisma -- generate"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

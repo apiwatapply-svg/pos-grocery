@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            front-end/package-lock.json
+            back-end/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix front-end
+
+      - name: Install backend dependencies
+        run: npm ci --prefix back-end
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Prisma validate
+        run: npm run prisma:validate
+        env:
+          PRISMA_DATABASE_URL: file:./dev.db
+
+      - name: Prisma generate
+        run: npm run prisma:generate
+        env:
+          PRISMA_DATABASE_URL: file:./dev.db
+
+      - name: Build
+        run: npm run build

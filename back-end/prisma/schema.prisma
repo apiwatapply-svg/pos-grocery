@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("PRISMA_DATABASE_URL")
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  address   String
+  ownerName String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  products   Product[]
+  categories Category[]
+  sales      Sale[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  storeId      String
+  username     String
+  passwordHash String
+  displayName  String
+  role         String
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+  sales Sale[]
+
+  @@unique([storeId, username])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    Store     @relation(fields: [storeId], references: [id])
+  products Product[]
+
+  @@unique([storeId, name])
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  storeId         String
+  categoryId      String?
+  name            String
+  barcode         String
+  sku             String?
+  unit            String
+  costPriceSatang Int
+  salePriceSatang Int
+  stockQuantity   Int      @default(0)
+  status          String   @default("active")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  store                 Store                  @relation(fields: [storeId], references: [id])
+  category              Category?              @relation(fields: [categoryId], references: [id])
+  images                ProductImage[]
+  inventoryTransactions InventoryTransaction[]
+  saleItems             SaleItem[]
+
+  @@unique([storeId, barcode])
+}
+
+model ProductImage {
+  id           String   @id @default(cuid())
+  productId    String
+  provider     String   @default("cloudinary")
+  publicId     String
+  secureUrl    String
+  thumbnailUrl String
+  width        Int?
+  height       Int?
+  format       String?
+  bytes        Int?
+  altText      String?
+  createdAt    DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model InventoryTransaction {
+  id                 String   @id @default(cuid())
+  productId          String
+  type               String
+  quantityChange     Int
+  unitCostSatang     Int?
+  balanceAfterChange Int
+  note               String?
+  createdByUserId    String?
+  createdAt          DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Sale {
+  id                 String   @id @default(cuid())
+  storeId            String
+  cashierUserId      String
+  receiptNumber      String
+  subtotalSatang     Int
+  totalSatang        Int
+  cashReceivedSatang Int
+  changeDueSatang    Int
+  status             String   @default("completed")
+  soldAt             DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  store   Store      @relation(fields: [storeId], references: [id])
+  cashier User       @relation(fields: [cashierUserId], references: [id])
+  items   SaleItem[]
+  payment Payment?
+  receipt Receipt?
+
+  @@unique([storeId, receiptNumber])
+}
+
+model SaleItem {
+  id              String @id @default(cuid())
+  saleId          String
+  productId       String
+  productName     String
+  quantity        Int
+  unitPriceSatang Int
+  totalSatang     Int
+
+  sale    Sale    @relation(fields: [saleId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id           String   @id @default(cuid())
+  saleId       String   @unique
+  method       String
+  amountSatang Int
+  createdAt    DateTime @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id])
+}
+
+model Receipt {
+  id        String   @id @default(cuid())
+  saleId    String   @unique
+  content   String
+  createdAt DateTime @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id])
+}

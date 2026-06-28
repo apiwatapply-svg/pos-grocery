@@ -1,0 +1,6 @@
+name = "pos-grocery-api"
+main = "src/server.ts"
+compatibility_date = "2026-06-28"
+
+[vars]
+NODE_ENV = "production"

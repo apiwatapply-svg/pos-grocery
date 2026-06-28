@@ -1,0 +1,25 @@
+import { Router } from "express";
+import { requireAuth, requireRole } from "../auth/auth.middleware.js";
+import {
+  createUserController,
+  deleteUserController,
+  listUsersController,
+  updateUserController,
+} from "./user.controller.js";
+import type { UserRepository } from "./user.repository.js";
+
+export function createUserRouter(deps?: {
+  repository?: UserRepository;
+  jwtSecret?: string;
+}) {
+  const router = Router();
+  const ownerOrAdmin = ["owner", "admin"] as const;
+
+  router.use(requireAuth(deps), requireRole([...ownerOrAdmin]));
+  router.get("/", listUsersController(deps));
+  router.post("/", createUserController(deps));
+  router.patch("/:id", updateUserController(deps));
+  router.delete("/:id", deleteUserController(deps));
+
+  return router;
+}

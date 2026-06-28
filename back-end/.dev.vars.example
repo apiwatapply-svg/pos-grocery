@@ -1,0 +1,17 @@
+NODE_ENV=development
+PORT=8787
+
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin
+
+TURSO_DATABASE_URL=libsql://dbpos-grocery-oatapiwat.aws-ap-northeast-1.turso.io
+TURSO_AUTH_TOKEN=
+DATABASE_URL=libsql://dbpos-grocery-oatapiwat.aws-ap-northeast-1.turso.io
+PRISMA_DATABASE_URL=file:./dev.db
+
+JWT_SECRET=
+
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_UPLOAD_FOLDER=pos-grocery/products
