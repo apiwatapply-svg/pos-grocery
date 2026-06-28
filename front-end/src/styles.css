@@ -1374,6 +1374,22 @@ td span {
   gap: 8px;
 }
 
+.navbar-pos-button {
+  align-items: center;
+  background: #1d4ed8;
+  border-radius: 6px;
+  color: #ffffff;
+  display: inline-flex;
+  font-weight: 900;
+  justify-content: center;
+  min-width: 112px;
+  text-decoration: none;
+}
+
+.navbar-pos-button:hover {
+  background: #1e40af;
+}
+
 .compact {
   min-height: 34px;
   padding: 8px 12px;

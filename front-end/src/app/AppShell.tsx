@@ -126,7 +126,7 @@ export function AppShell({ children }: AppShellProps) {
           </div>
           <div className="navbar-actions">
             {canUsePos ? (
-              <Link className="primary-button compact" to="/pos">
+              <Link className="navbar-pos-button primary-button compact" to="/pos">
                 ไปหน้า POS
               </Link>
             ) : null}

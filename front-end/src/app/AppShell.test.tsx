@@ -57,7 +57,7 @@ describe('AppShell', () => {
     expect(screen.getAllByText('POS Grocery').length).toBeGreaterThan(0)
     expect(screen.getByText('Cashier One')).toBeInTheDocument()
     expect(screen.getByText('cashier')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'ไปหน้า POS' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ไปหน้า POS' })).toHaveClass('navbar-pos-button')
     expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Page Content' })).toBeInTheDocument()
   })
