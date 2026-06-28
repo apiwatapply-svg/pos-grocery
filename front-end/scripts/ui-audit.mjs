@@ -39,6 +39,46 @@ const screenshotRoutes = [
   { path: '/products', role: 'stock', name: 'products-mobile', width: 390, height: 900 },
 ]
 
+const responsiveDevices = [
+  { name: 'iPhone SE', width: 375, height: 667 },
+  { name: 'iPhone XR', width: 414, height: 896 },
+  { name: 'iPhone 12 Pro', width: 390, height: 844 },
+  { name: 'iPhone 14 Pro Max', width: 430, height: 932 },
+  { name: 'Pixel 7', width: 412, height: 915 },
+  { name: 'Samsung Galaxy S8+', width: 360, height: 740 },
+  { name: 'Samsung Galaxy S20 Ultra', width: 412, height: 915 },
+  { name: 'iPad Mini', width: 768, height: 1024 },
+  { name: 'iPad Air', width: 820, height: 1180 },
+  { name: 'iPad Pro', width: 1024, height: 1366 },
+  { name: 'Surface Pro 7', width: 912, height: 1368 },
+  { name: 'Desktop', width: 1440, height: 1100 },
+]
+
+const responsiveRoutes = [
+  { path: '/login', heading: 'เข้าสู่ระบบร้านค้า', login: true },
+  { path: '/dashboard', heading: 'Dashboard', role: 'owner' },
+  { path: '/pos', heading: 'ขายสินค้า / Scan barcode', role: 'cashier' },
+  { path: '/products', heading: 'สินค้า', role: 'stock' },
+  { path: '/inventory', heading: 'สินค้าคงคลัง', role: 'stock' },
+  { path: '/reports/sales', heading: 'รายงานยอดขาย', role: 'owner' },
+  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', role: 'owner' },
+]
+
+const responsiveViewports = responsiveDevices.flatMap((device) => [
+  {
+    device: device.name,
+    orientation: 'portrait',
+    width: device.width,
+    height: device.height,
+  },
+  {
+    device: device.name,
+    orientation: 'landscape',
+    width: device.height,
+    height: device.width,
+  },
+])
+
 function chromePath() {
   const candidates = [
     process.env.CHROME_PATH,
@@ -324,6 +364,63 @@ async function captureScreenshot(cdp, item) {
   return { ...layout, path: screenshotPath }
 }
 
+async function setViewport(cdp, width, height) {
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    deviceScaleFactor: 1,
+    height,
+    mobile: width < 760,
+    width,
+  })
+}
+
+async function auditResponsiveRoute(cdp, route, viewport) {
+  await setViewport(cdp, viewport.width, viewport.height)
+  if (route.login) {
+    await navigate(cdp, `${appUrl}/login`)
+    await evaluate(cdp, `localStorage.clear(); undefined`)
+  } else {
+    await setSession(cdp, route.role)
+  }
+  await navigate(cdp, `${appUrl}${route.path}`)
+
+  return evaluate(
+    cdp,
+    `(() => {
+      const body = document.body;
+      const bodyRect = body.getBoundingClientRect();
+      const root = document.querySelector('main') ?? document;
+      const headings = [...root.querySelectorAll('h1, h2')]
+        .map((node) => node.textContent.trim())
+        .filter(Boolean);
+      const appLayout = document.querySelector('.app-layout');
+      const authPanel = document.querySelector('.auth-panel');
+      const keySurface = appLayout ?? authPanel ?? root.body ?? body;
+      const surfaceRect = keySurface.getBoundingClientRect();
+      const visibleButtons = [...document.querySelectorAll('button, a.primary-button, a.export-link')]
+        .filter((node) => {
+          const style = getComputedStyle(node);
+          const rect = node.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+        })
+        .map((node) => ({
+          text: node.textContent.trim() || node.getAttribute('aria-label') || node.getAttribute('href') || '',
+          height: Math.round(node.getBoundingClientRect().height),
+          width: Math.round(node.getBoundingClientRect().width),
+        }));
+      return {
+        bodyTextLength: body.innerText.length,
+        headingFound: headings.includes('${route.heading}'),
+        headings,
+        keySurfaceVisible: surfaceRect.width > 0 && surfaceRect.height > 0,
+        overflowX: document.documentElement.scrollWidth > window.innerWidth + 4 || body.scrollWidth > window.innerWidth + 4,
+        bodyWidth: Math.ceil(bodyRect.width),
+        viewportWidth: window.innerWidth,
+        visibleButtons,
+      };
+    })()`,
+  )
+}
+
 async function main() {
   const userDataDir = await mkdtemp(path.join(tmpdir(), 'pos-grocery-chrome-'))
   await mkdir(screenshotDir, { recursive: true })
@@ -411,6 +508,26 @@ async function main() {
         failures.push(`${item.path} ${item.name} screenshot has horizontal overflow`)
       }
     }
+
+    let checkedResponsiveViewports = 0
+    for (const viewport of responsiveViewports) {
+      for (const route of responsiveRoutes) {
+        const audit = await auditResponsiveRoute(cdp, route, viewport)
+        checkedResponsiveViewports += 1
+
+        if (!audit.headingFound) {
+          failures.push(
+            `${route.path} missing heading ${route.heading} on ${viewport.device} ${viewport.orientation}`,
+          )
+        }
+        if (!audit.keySurfaceVisible || audit.bodyTextLength < 10) {
+          failures.push(`${route.path} blank or unusable on ${viewport.device} ${viewport.orientation}`)
+        }
+        if (audit.overflowX) {
+          failures.push(`${route.path} horizontal overflow on ${viewport.device} ${viewport.orientation}`)
+        }
+      }
+    }
     cdp.close()
 
     if (failures.length > 0) {
@@ -422,6 +539,9 @@ async function main() {
     console.log(JSON.stringify({
       checkedRoutes: routeCases.length,
       checkedRoleNavigations: routeCases.length * roles.length + 1,
+      checkedResponsiveViewports,
+      responsiveDevices: responsiveDevices.map((device) => device.name),
+      responsiveOrientations: ['portrait', 'landscape'],
       screenshots,
       status: 'passed',
     }, null, 2))

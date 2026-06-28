@@ -78,7 +78,9 @@ Image storage:
 - Product image storage: Cloudinary Free
 - Frontend hosting: Vercel Hobby
 - Backend hosting: Cloudflare Workers Free
-- CI/CD: GitHub Actions
+- CI: GitHub Actions
+- Production deploy: manual GitHub Actions workflow only while the project is
+  in local-first development
 
 ## Routing
 
@@ -127,6 +129,14 @@ an explicit stack choice from the user.
 - Do not hardcode backend URLs when an environment variable is available.
 - POS screens should prioritize fast repeated operation, clear totals, readable
   product search, cart editing, checkout state, and error recovery.
+- Frontend UI must be suitable for common device sizes in both portrait and
+  landscape orientation. At minimum, check phone, tablet, and desktop widths;
+  use the project responsive audit when available.
+- The responsive audit target device list is maintained in
+  `front-end/scripts/ui-audit.mjs` and includes iPhone SE, iPhone XR, iPhone 12
+  Pro, iPhone 14 Pro Max, Pixel 7, Samsung Galaxy S8+, Samsung Galaxy S20
+  Ultra, iPad Mini, iPad Air, iPad Pro, Surface Pro 7, and desktop, each in
+  portrait and landscape orientation.
 
 ## Backend Rules
 
@@ -155,6 +165,10 @@ an explicit stack choice from the user.
 After code changes, run the available checks for the touched side:
 
 - Frontend: lint, test, typecheck, and build when configured.
+- Frontend UI/layout changes: also run `npm --prefix front-end run ui:audit`
+  when Chrome or Edge is available locally. This audit checks route access,
+  important screenshots, responsive device/orientation coverage, and horizontal
+  overflow.
 - Backend: lint, test, typecheck, Prisma validation/generation, and start/build
   checks when configured.
 
