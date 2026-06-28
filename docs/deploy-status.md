@@ -14,6 +14,8 @@ Updated: 2026-06-28
 
 ## Missing GitHub Secrets
 
+Setup guide: `docs/github-secrets-setup.md`
+
 Frontend deploy to Vercel needs:
 
 - `VERCEL_TOKEN`
