@@ -1,4 +1,6 @@
 import { type FormEvent, useState } from 'react'
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
 
 type User = {
   id: string
@@ -30,6 +32,26 @@ export function UserManagementPage() {
     ])
     event.currentTarget.reset()
     setIsCreateModalOpen(false)
+  }
+
+  async function deactivateUser(user: User) {
+    const result = await Swal.fire({
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#b42318',
+      confirmButtonText: 'ปิดใช้งาน',
+      icon: 'warning',
+      showCancelButton: true,
+      text: `ผู้ใช้ ${user.displayName} จะไม่สามารถเข้าสู่ระบบได้จนกว่าจะเปิดใช้งานอีกครั้ง`,
+      title: 'ยืนยันปิดใช้งานผู้ใช้',
+    })
+
+    if (!result.isConfirmed) {
+      return
+    }
+
+    setUsers((current) =>
+      current.map((row) => (row.id === user.id ? { ...row, status: 'inactive' } : row)),
+    )
   }
 
   return (
@@ -121,13 +143,7 @@ export function UserManagementPage() {
                 <td>
                   <button
                     className="ghost-button"
-                    onClick={() =>
-                      setUsers((current) =>
-                        current.map((row) =>
-                          row.id === user.id ? { ...row, status: 'inactive' } : row,
-                        ),
-                      )
-                    }
+                    onClick={() => void deactivateUser(user)}
                     type="button"
                   >
                     ปิดใช้งาน
