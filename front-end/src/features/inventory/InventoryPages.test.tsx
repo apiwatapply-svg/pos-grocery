@@ -19,7 +19,13 @@ const apiProducts = [
     id: 'sql-inventory-product',
     name: 'SQL Inventory Product',
     barcode: 'SQL-INV-001',
+    sku: 'INV-SKU',
+    unit: 'box',
+    images: [],
+    costPriceSatang: 725,
+    salePriceSatang: 999,
     stockQuantity: 12,
+    status: 'active',
   },
 ]
 
@@ -37,9 +43,13 @@ describe('Inventory pages', () => {
     render(<InventoryListPage />)
 
     expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'สินค้า' })).toBeInTheDocument()
     expect(await screen.findByText('SQL Inventory Product')).toBeInTheDocument()
     expect(screen.getByText('SQL-INV-001')).toBeInTheDocument()
-    expect(screen.getByText('คงเหลือ 12')).toBeInTheDocument()
+    expect(screen.getByText('INV-SKU')).toBeInTheDocument()
+    expect(screen.getByText('box')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('พร้อมขาย')).toBeInTheDocument()
   })
 
   it('receives stock by posting the selected SQL product to the backend', async () => {

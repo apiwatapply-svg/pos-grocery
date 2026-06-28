@@ -69,6 +69,14 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
   })
 
+  it('uses the products page as the single product and inventory list in the sidebar', () => {
+    renderShell(stockSession)
+
+    expect(screen.getByRole('link', { name: 'สินค้า' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'สินค้าคงคลัง' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'เพิ่มสินค้า' })).not.toBeInTheDocument()
+  })
+
   it('toggles the mobile sidebar', () => {
     renderShell()
 

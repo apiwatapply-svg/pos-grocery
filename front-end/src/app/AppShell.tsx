@@ -76,6 +76,7 @@ export function AppShell({ children }: AppShellProps) {
                 route.navGroup === group.id &&
                 user &&
                 canAccessRoute(user.role, route.id) &&
+                route.id !== 'inventory' &&
                 route.id !== 'product-create' &&
                 !route.path.includes(':'),
             )

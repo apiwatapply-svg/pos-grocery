@@ -77,7 +77,7 @@ const protectedRouteCases: Array<{
   { path: '/products', heading: 'สินค้า', allowedRoles: ['owner', 'admin', 'cashier', 'stock'] },
   { path: '/products/new', heading: 'เพิ่มสินค้า', allowedRoles: ['owner', 'admin'] },
   { path: '/products/product-water/edit', heading: 'แก้ไขสินค้า', allowedRoles: ['owner', 'admin'] },
-  { path: '/inventory', heading: 'สินค้าคงคลัง', allowedRoles: ['owner', 'admin', 'stock'] },
+  { path: '/inventory', heading: 'สินค้า', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/inventory/receiving', heading: 'รับของเข้า', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/inventory/counting', heading: 'ตรวจนับ stock', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/reports/sales', heading: 'รายงานยอดขาย', allowedRoles: ['owner', 'admin'] },

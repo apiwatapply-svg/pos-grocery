@@ -3,11 +3,18 @@ import { apiGet, apiPost } from '../../lib/api/client'
 import { canAccessRoute } from '../../lib/auth/permissions'
 import { readSession } from '../../lib/auth/session'
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787/api'
+
 type Product = {
   id: string
   name: string
   barcode: string
   sku?: string
+  unit?: string
+  images?: Array<{
+    thumbnailUrl?: string
+    secureUrl?: string
+  }>
   costPriceSatang: number
   salePriceSatang: number
   stockQuantity: number
@@ -42,10 +49,27 @@ function satangFromBaht(value: string) {
   return Math.round(Number(value || 0) * 100)
 }
 
+function productImageUrl(product: Product) {
+  return product.images?.[0]?.thumbnailUrl ?? product.images?.[0]?.secureUrl
+}
+
+function stockStatus(product: Product) {
+  if (product.stockQuantity <= 0) {
+    return 'หมดสต็อก'
+  }
+
+  return 'พร้อมขาย'
+}
+
+function productStatusLabel(product: Product) {
+  return product.status === 'inactive' ? 'ปิดขาย' : 'เปิดขาย'
+}
+
 export function ProductListPage() {
   const session = readSession()
   const canCreateProduct = session ? canAccessRoute(session.user.role, 'product-create') : false
   const [products, setProducts] = useState<Product[]>([])
+  const [productFilter, setProductFilter] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [drafts, setDrafts] = useState<ProductDraft[]>([emptyDraft()])
   const [message, setMessage] = useState('กำลังโหลดสินค้า')
@@ -70,6 +94,23 @@ export function ProductListPage() {
       active = false
     }
   }, [])
+
+  const normalizedFilter = productFilter.trim().toLowerCase()
+  const filteredProducts = normalizedFilter
+    ? products.filter((product) =>
+        [
+          product.name,
+          product.barcode,
+          product.sku ?? '',
+          product.unit ?? '',
+          product.status,
+          stockStatus(product),
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedFilter),
+      )
+    : products
 
   function updateDraft(id: string, field: keyof Omit<ProductDraft, 'id'>, value: string) {
     setDrafts((current) =>
@@ -129,6 +170,9 @@ export function ProductListPage() {
           <h1 id="products-title">สินค้า</h1>
         </div>
         <div className="page-actions">
+          <a className="export-link compact" href={`${apiBaseUrl}/inventory/export.xlsx`}>
+            Export Excel
+          </a>
           {canCreateProduct ? (
             <button
               className="success-button compact page-action-button"
@@ -254,34 +298,69 @@ export function ProductListPage() {
           </section>
         </div>
       ) : null}
+      <section className="panel product-filter-panel" aria-label="ตัวกรองสินค้า">
+        <label className="field product-filter-field" htmlFor="product-filter">
+          <span>ค้นหา/กรองสินค้า</span>
+          <input
+            autoComplete="off"
+            id="product-filter"
+            list="product-filter-options"
+            placeholder="เลือกหรือพิมพ์ชื่อ, SKU, barcode, สถานะ"
+            value={productFilter}
+            onChange={(event) => setProductFilter(event.target.value)}
+          />
+        </label>
+        <datalist id="product-filter-options">
+          {products.map((product) => (
+            <option
+              key={product.id}
+              value={product.sku ?? product.name}
+            >{`${product.name} - ${product.barcode}`}</option>
+          ))}
+        </datalist>
+        <button className="ghost-button compact" onClick={() => setProductFilter('')} type="button">
+          ล้างตัวกรอง
+        </button>
+      </section>
       <div className="table-wrap panel">
-        <table>
+        <table className="product-inventory-table">
           <thead>
             <tr>
+              <th>รูป</th>
               <th>สินค้า</th>
+              <th>SKU</th>
               <th>Barcode</th>
+              <th>หน่วย</th>
               <th>ต้นทุน</th>
-              <th>ขาย</th>
-              <th>Stock</th>
-              <th>Status</th>
+              <th>ราคาขาย</th>
+              <th>คงเหลือ</th>
+              <th>สถานะสต็อก</th>
+              <th>สถานะสินค้า</th>
             </tr>
           </thead>
           <tbody>
-            {products.length > 0 ? products.map((product) => (
+            {filteredProducts.length > 0 ? filteredProducts.map((product) => (
               <tr key={product.id}>
                 <td>
-                  <strong>{product.name}</strong>
-                  <span>{product.sku}</span>
+                  {productImageUrl(product) ? (
+                    <img className="product-thumb" src={productImageUrl(product)} alt={product.name} />
+                  ) : (
+                    <span className="product-thumb product-thumb-empty" aria-label="ไม่มีรูป" />
+                  )}
                 </td>
+                <td><strong>{product.name}</strong></td>
+                <td>{product.sku ?? '-'}</td>
                 <td>{product.barcode}</td>
+                <td>{product.unit ?? '-'}</td>
                 <td>{bahtFromSatang(product.costPriceSatang)}</td>
                 <td>{bahtFromSatang(product.salePriceSatang)}</td>
-                <td>คงเหลือ {product.stockQuantity}</td>
-                <td>{product.status}</td>
+                <td>{product.stockQuantity}</td>
+                <td>{stockStatus(product)}</td>
+                <td>{productStatusLabel(product)}</td>
               </tr>
             )) : (
               <tr>
-                <td colSpan={6}>{message}</td>
+                <td colSpan={10}>{products.length > 0 ? 'ไม่พบสินค้าที่ตรงกับตัวกรอง' : message}</td>
               </tr>
             )}
           </tbody>

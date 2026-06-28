@@ -428,6 +428,49 @@ td span {
   width: 44px;
 }
 
+.product-thumb-empty {
+  background: #eef5ef;
+  border: 1px solid #d6e2d7;
+  display: inline-block;
+}
+
+.product-thumb-empty::after {
+  color: #6b7f70;
+  content: "IMG";
+  display: grid;
+  font-size: 10px;
+  font-weight: 900;
+  height: 100%;
+  place-items: center;
+}
+
+.product-filter-panel {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  padding: 14px;
+}
+
+.product-filter-field input {
+  min-height: 44px;
+}
+
+.product-inventory-table {
+  min-width: 1040px;
+}
+
+.product-inventory-table th:first-child,
+.product-inventory-table td:first-child {
+  text-align: center;
+  width: 64px;
+}
+
+.product-inventory-table td:nth-child(7),
+.product-inventory-table td:nth-child(8) {
+  font-weight: 900;
+}
+
 .inventory-list,
 .receipt-paper,
 .summary-list,

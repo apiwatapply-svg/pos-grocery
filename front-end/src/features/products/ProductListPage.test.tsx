@@ -20,10 +20,24 @@ const apiProducts = [
     name: 'SQL Product',
     barcode: 'SQL-001',
     sku: 'SQL-SKU',
+    unit: 'box',
+    images: [{ thumbnailUrl: 'https://example.com/sql-product.jpg' }],
     costPriceSatang: 123,
     salePriceSatang: 456,
     stockQuantity: 9,
     status: 'active',
+  },
+  {
+    id: 'sql-product-2',
+    name: 'Filtered Product',
+    barcode: 'SQL-002',
+    sku: 'FILTER-SKU',
+    unit: 'pack',
+    images: [],
+    costPriceSatang: 1000,
+    salePriceSatang: 1500,
+    stockQuantity: 0,
+    status: 'inactive',
   },
 ]
 
@@ -91,6 +105,36 @@ describe('ProductListPage', () => {
     expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
     expect(await screen.findByText('SQL Product')).toBeInTheDocument()
     expect(screen.getByText('SQL-001')).toBeInTheDocument()
+  })
+
+  it('shows product and inventory data in one complete table', async () => {
+    renderPage(ownerSession)
+
+    expect(await screen.findByText('SQL Product')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'รูป' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'SKU' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'หน่วย' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'คงเหลือ' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'สถานะสต็อก' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'SQL Product' })).toBeInTheDocument()
+    expect(screen.getByText('SQL-SKU')).toBeInTheDocument()
+    expect(screen.getByText('box')).toBeInTheDocument()
+    expect(screen.getByText('9')).toBeInTheDocument()
+    expect(screen.getByText('พร้อมขาย')).toBeInTheDocument()
+    expect(screen.getByText('หมดสต็อก')).toBeInTheDocument()
+  })
+
+  it('filters the combined product table from a searchable dropdown input', async () => {
+    renderPage(ownerSession)
+    expect(await screen.findByText('SQL Product')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('ค้นหา/กรองสินค้า'), {
+      target: { value: 'FILTER-SKU' },
+    })
+
+    expect(screen.queryByText('SQL Product')).not.toBeInTheDocument()
+    expect(screen.getByText('Filtered Product')).toBeInTheDocument()
+    expect(screen.getByText('SQL-002')).toBeInTheDocument()
   })
 
   it('creates multiple products from one modal instead of navigating to a new page', async () => {
