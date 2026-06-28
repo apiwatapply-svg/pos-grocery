@@ -10,6 +10,7 @@ type Product = {
   id: string
   name: string
   barcode: string
+  imageUrl?: string
   salePrice: number
   stockQuantity: number
   initialStockQuantity: number
@@ -20,6 +21,7 @@ type CartItem = {
   productId: string
   productName: string
   barcode: string
+  imageUrl?: string
   quantity: number
   unitPrice: number
 }
@@ -38,6 +40,11 @@ type ApiProduct = {
   id: string
   name: string
   barcode: string
+  images?: Array<{
+    thumbnailUrl?: string
+    secureUrl?: string
+    altText?: string
+  }>
   salePriceSatang: number
   stockQuantity: number
   status: 'active' | 'inactive'
@@ -65,6 +72,7 @@ function mapApiProduct(product: ApiProduct, existingProduct?: Product): Product 
     id: product.id,
     name: product.name,
     barcode: product.barcode,
+    imageUrl: product.images?.[0]?.thumbnailUrl ?? product.images?.[0]?.secureUrl,
     salePrice: product.salePriceSatang / 100,
     stockQuantity: product.stockQuantity,
     initialStockQuantity: existingProduct?.initialStockQuantity ?? Math.max(product.stockQuantity, 1),
@@ -262,6 +270,7 @@ export function PosCheckoutPage() {
           productId: product.id,
           productName: product.name,
           barcode: product.barcode,
+          imageUrl: product.imageUrl,
           quantity: 1,
           unitPrice: product.salePrice,
         },
@@ -408,19 +417,41 @@ export function PosCheckoutPage() {
               ))}
             </datalist>
           </div>
-          <div className="cart-list pos-scroll-area" aria-label="รายการสินค้าในตะกร้า">
+          <div className="cart-table-wrap pos-scroll-area">
             {cart.length > 0 ? (
-              cart.map((item) => (
-                <div className="cart-row" key={item.productId}>
-                  <div>
-                    <strong>{item.productName}</strong>
-                    <span>{item.barcode}</span>
-                  </div>
-                  <strong>
-                    {item.quantity} x {baht(item.unitPrice)}
-                  </strong>
-                </div>
-              ))
+              <table className="cart-table" aria-label="รายการสินค้าในตะกร้า">
+                <thead>
+                  <tr>
+                    <th scope="col">ลำดับ</th>
+                    <th scope="col">ภาพ</th>
+                    <th scope="col">สินค้า</th>
+                    <th scope="col">ราคา</th>
+                    <th scope="col">จำนวน</th>
+                    <th scope="col">ราคารวม</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cart.map((item, index) => (
+                    <tr key={item.productId}>
+                      <td>{index + 1}</td>
+                      <td>
+                        {item.imageUrl ? (
+                          <img className="cart-product-image" src={item.imageUrl} alt="" />
+                        ) : (
+                          <span className="cart-product-image cart-product-image-empty" aria-label="ไม่มีรูป" />
+                        )}
+                      </td>
+                      <td>
+                        <strong>{item.productName}</strong>
+                        <span>{item.barcode}</span>
+                      </td>
+                      <td>{baht(item.unitPrice)}</td>
+                      <td>{item.quantity}</td>
+                      <td>{baht(item.quantity * item.unitPrice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
               <p className="empty-hint">สแกนหรือเลือกสินค้าจากช่องค้นหา</p>
             )}

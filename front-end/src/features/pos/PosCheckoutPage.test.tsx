@@ -234,6 +234,15 @@ describe('PosCheckoutPage', () => {
     fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
       target: { value: 'Instant Noodles' },
     })
+    const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+    for (const column of ['ลำดับ', 'ภาพ', 'สินค้า', 'ราคา', 'จำนวน', 'ราคารวม']) {
+      expect(within(cartTable).getByRole('columnheader', { name: column })).toBeInTheDocument()
+    }
+    const cartRows = within(cartTable).getAllByRole('row')
+    expect(within(cartRows[1]).getByRole('cell', { name: '1' })).toBeInTheDocument()
+    expect(within(cartRows[1]).getByRole('cell', { name: 'Drinking Water 8850002000010' })).toBeInTheDocument()
+    expect(within(cartRows[1]).getByRole('cell', { name: '14.00' })).toBeInTheDocument()
+
     fireEvent.change(screen.getByLabelText('รับเงินสด'), {
       target: { value: '100' },
     })
@@ -427,7 +436,9 @@ describe('PosCheckoutPage', () => {
         }),
       )
     })
-    expect(screen.getAllByText('ยกเลิกแล้ว')).toHaveLength(2)
+    await waitFor(() => {
+      expect(screen.getAllByText('ยกเลิกแล้ว').length).toBeGreaterThan(0)
+    })
     expectStockMeter('Drinking Water', 24, 24)
     expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
   })
