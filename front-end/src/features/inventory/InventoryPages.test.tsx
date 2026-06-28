@@ -55,6 +55,10 @@ describe('Inventory pages', () => {
   it('receives stock by posting the selected SQL product to the backend', async () => {
     render(<InventoryReceivingPage />)
 
+    expect(screen.getByText('สินค้าในคลัง')).toBeInTheDocument()
+    expect(screen.getByText('จำนวนที่รับเข้า')).toBeInTheDocument()
+    expect(screen.getByText('ต้นทุนต่อหน่วย (บาท)')).toBeInTheDocument()
+    expect(screen.getByText('เลือกสินค้าที่ต้องการเพิ่มสต็อก')).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: 'SQL Inventory Product' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('จำนวนรับเข้า'), { target: { value: '5' } })
@@ -68,6 +72,16 @@ describe('Inventory pages', () => {
         unitCostSatang: 725,
       })
     })
+  })
+
+  it('shows product loading errors outside the product dropdown', async () => {
+    mockedApiGet.mockRejectedValueOnce(new Error('Unexpected server error.'))
+
+    render(<InventoryReceivingPage />)
+
+    expect(await screen.findByText('Unexpected server error.')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'เลือกสินค้า' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Unexpected server error.' })).not.toBeInTheDocument()
   })
 
   it('posts stock counts for SQL products to the backend', async () => {

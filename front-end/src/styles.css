@@ -331,6 +331,21 @@ td span {
   grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
+.inventory-receiving-form {
+  align-items: end;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(160px, 0.7fr) minmax(190px, 0.8fr) minmax(160px, auto);
+}
+
+.inventory-receiving-submit {
+  align-self: center;
+  min-height: 44px;
+}
+
+.inventory-receiving-form .summary {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .scan-grid {
   align-items: end;
   grid-template-columns: 1.4fr 0.7fr auto;
@@ -351,8 +366,16 @@ td span {
   gap: 6px;
 }
 
+.field small {
+  color: #66746b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .field input,
 .field textarea,
+.field select,
 .compact-form input,
 .compact-form select,
 .date-row input {

@@ -62,34 +62,48 @@ export function InventoryReceivingPage() {
           <h1 id="receiving-title">รับของเข้า</h1>
         </div>
       </div>
-      <form className="panel compact-form" onSubmit={(event) => void handleSubmit(event)}>
-        <select
-          aria-label="สินค้า"
-          value={selectedProductId}
-          onChange={(event) => setSelectedProductId(event.target.value)}
-        >
-          {products.length > 0 ? products.map((product) => (
-            <option key={product.id} value={product.id}>{product.name}</option>
-          )) : (
-            <option value="">{message}</option>
-          )}
-        </select>
-        <input
-          aria-label="จำนวนรับเข้า"
-          min="1"
-          type="number"
-          value={quantity}
-          onChange={(event) => setQuantity(Number(event.target.value))}
-        />
-        <input
-          aria-label="ราคาต้นทุนต่อหน่วย"
-          min="0"
-          step="0.01"
-          type="number"
-          value={unitCost}
-          onChange={(event) => setUnitCost(Number(event.target.value))}
-        />
-        <button className="success-button" disabled={!selectedProductId} type="submit">
+      <form className="panel compact-form inventory-receiving-form" onSubmit={(event) => void handleSubmit(event)}>
+        <label className="field" htmlFor="receiving-product">
+          <span>สินค้าในคลัง</span>
+          <select
+            aria-label="สินค้า"
+            id="receiving-product"
+            value={selectedProductId}
+            onChange={(event) => setSelectedProductId(event.target.value)}
+          >
+            <option value="">เลือกสินค้า</option>
+            {products.map((product) => (
+              <option key={product.id} value={product.id}>{product.name}</option>
+            ))}
+          </select>
+          <small>เลือกสินค้าที่ต้องการเพิ่มสต็อก</small>
+        </label>
+        <label className="field" htmlFor="receiving-quantity">
+          <span>จำนวนที่รับเข้า</span>
+          <input
+            aria-label="จำนวนรับเข้า"
+            id="receiving-quantity"
+            min="1"
+            type="number"
+            value={quantity}
+            onChange={(event) => setQuantity(Number(event.target.value))}
+          />
+          <small>จำนวนชิ้น/หน่วยที่รับเข้าร้าน</small>
+        </label>
+        <label className="field" htmlFor="receiving-unit-cost">
+          <span>ต้นทุนต่อหน่วย (บาท)</span>
+          <input
+            aria-label="ราคาต้นทุนต่อหน่วย"
+            id="receiving-unit-cost"
+            min="0"
+            step="0.01"
+            type="number"
+            value={unitCost}
+            onChange={(event) => setUnitCost(Number(event.target.value))}
+          />
+          <small>ราคาทุนของสินค้า 1 หน่วย</small>
+        </label>
+        <button className="success-button inventory-receiving-submit" disabled={!selectedProductId} type="submit">
           บันทึกรับของ
         </button>
         <p className="summary">{message}</p>
