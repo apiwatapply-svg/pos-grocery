@@ -13,6 +13,11 @@ vi.mock('sweetalert2', () => ({
 }))
 
 const mockedSwal = vi.mocked(Swal)
+const confirmedDialog = {
+  isConfirmed: true,
+  isDenied: false,
+  isDismissed: false,
+}
 
 afterEach(() => {
   localStorage.clear()
@@ -32,7 +37,12 @@ describe('PosCheckoutPage', () => {
     }
   }
 
-  function createWaterSale() {
+  function confirmNextDialog() {
+    mockedSwal.fire.mockResolvedValueOnce(confirmedDialog)
+  }
+
+  async function createWaterSale() {
+    confirmNextDialog()
     fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
       target: { value: '8850002000010' },
     })
@@ -43,6 +53,9 @@ describe('PosCheckoutPage', () => {
       target: { value: '100' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
+    await waitFor(() => {
+      expect(screen.getByText('ขายสำเร็จ')).toBeInTheDocument()
+    })
   }
 
   function expectStockMeter(productName: string, quantity: number, initialQuantity: number) {
@@ -51,8 +64,9 @@ describe('PosCheckoutPage', () => {
     })).toHaveAttribute('aria-valuenow', String(quantity))
   }
 
-  it('adds scanned and selected products immediately, merges duplicates, checks out, and opens a receipt modal', () => {
+  it('adds scanned and selected products immediately, merges duplicates, confirms checkout, and opens a receipt modal', async () => {
     render(<PosCheckoutPage />)
+    confirmNextDialog()
 
     fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
       target: { value: '8850002000010' },
@@ -68,6 +82,15 @@ describe('PosCheckoutPage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
 
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          confirmButtonText: 'ยืนยันขาย',
+          icon: 'question',
+          title: 'ยืนยันรับชำระเงิน',
+        }),
+      )
+    })
     expect(screen.getByText('ยอดรวม 26.00 บาท')).toBeInTheDocument()
     expectStockMeter('Drinking Water', 22, 24)
     expectStockMeter('Instant Noodles', 17, 18)
@@ -78,6 +101,32 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByText(/Drinking Water x2/)).toBeInTheDocument()
     expect(screen.getByText(/Instant Noodles x1/)).toBeInTheDocument()
     expect(screen.getByText('เงินทอน 74.00 บาท')).toBeInTheDocument()
+  })
+
+  it('supports quick cash amounts, custom cash, live change, and blocks underpaid checkout confirmation', () => {
+    render(<PosCheckoutPage />)
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: 'Drinking Water' },
+    })
+
+    for (const amount of [5, 10, 20, 50, 100, 500, 1000]) {
+      expect(screen.getByRole('button', { name: `${amount} บาท` })).toBeInTheDocument()
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: '20 บาท' }))
+    expect(screen.getByLabelText('รับเงินสด')).toHaveValue(20)
+    expect(screen.getByRole('status', { name: 'เงินทอน 6.00 บาท' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('รับเงินสด'), {
+      target: { value: '10' },
+    })
+    expect(screen.getByRole('status', { name: 'ขาดอีก 4.00 บาท' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ชำระเงิน' })).toBeDisabled()
+    expect(mockedSwal.fire).not.toHaveBeenCalled()
   })
 
   it('renders stock remaining as POS status cards with quantity meters', () => {
@@ -96,11 +145,11 @@ describe('PosCheckoutPage', () => {
     expect(within(stockItems[1]).getByText('พร้อมขาย')).toBeInTheDocument()
   })
 
-  it('does not allow a cashier to cancel a receipt', () => {
+  it('does not allow a cashier to cancel a receipt', async () => {
     saveSession(sessionForRole('cashier'))
     render(<PosCheckoutPage />)
 
-    createWaterSale()
+    await createWaterSale()
     fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
 
     expect(screen.getByRole('dialog', { name: /รายละเอียดบิล/ })).toBeInTheDocument()
@@ -109,15 +158,11 @@ describe('PosCheckoutPage', () => {
   })
 
   it('allows an admin to cancel a receipt after SweetAlert2 confirmation and restores stock', async () => {
-    mockedSwal.fire.mockResolvedValueOnce({
-      isConfirmed: true,
-      isDenied: false,
-      isDismissed: false,
-    })
     saveSession(sessionForRole('admin'))
     render(<PosCheckoutPage />)
 
-    createWaterSale()
+    await createWaterSale()
+    confirmNextDialog()
     fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
     fireEvent.click(screen.getByRole('button', { name: 'ยกเลิกบิล' }))
 

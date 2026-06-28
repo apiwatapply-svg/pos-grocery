@@ -447,6 +447,64 @@ td span {
   padding-top: 0;
 }
 
+.payment-box {
+  background: #f7faf7;
+  border: 1px solid #dfe7df;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.quick-cash-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.quick-cash-button {
+  background: #ffffff;
+  border: 1px solid #cbd4ca;
+  color: #285f45;
+  min-height: 38px;
+  padding: 8px 6px;
+}
+
+.quick-cash-button:hover,
+.quick-cash-button.selected {
+  background: #dff7e7;
+  border-color: #15803d;
+  color: #0f5132;
+}
+
+.change-summary {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.change-summary span {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.change-summary strong {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.change-summary.positive {
+  background: #e7f8ee;
+  color: #0f6b3b;
+}
+
+.change-summary.negative {
+  background: #fee4e2;
+  color: #912018;
+}
+
 .empty-hint {
   color: #66746b;
   margin: 0;
@@ -794,6 +852,10 @@ td span {
     min-height: 320px;
   }
 
+  .quick-cash-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .panel,
   .wide-panel,
   .store-panel,
@@ -875,6 +937,10 @@ td span {
 
   .pos-side-panel {
     min-height: 280px;
+  }
+
+  .quick-cash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

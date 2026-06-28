@@ -51,6 +51,7 @@ const initialProducts: Product[] = [
     status: 'active',
   },
 ]
+const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
 
 function stockStatus(product: Product) {
   const stockRatio = product.stockQuantity / Math.max(product.initialStockQuantity, 1)
@@ -89,6 +90,8 @@ export function PosCheckoutPage() {
   const [notice, setNotice] = useState('พร้อมขาย')
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+  const changeDue = cashReceived - cartTotal
+  const canCheckout = cart.length > 0 && cashReceived >= cartTotal
   const activeProducts = products.filter((product) => product.status === 'active')
   const canCancelReceipt =
     session?.user.role === 'owner' || session?.user.role === 'admin'
@@ -164,13 +167,27 @@ export function PosCheckoutPage() {
     addProductToCart(product)
   }
 
-  function checkout() {
+  async function checkout() {
     if (cart.length === 0) {
       setNotice('ตะกร้ายังว่าง')
       return
     }
     if (cashReceived < cartTotal) {
       setNotice('รับเงินไม่พอ')
+      return
+    }
+
+    const result = await Swal.fire({
+      cancelButtonText: 'กลับไปแก้ไข',
+      confirmButtonColor: '#15803d',
+      confirmButtonText: 'ยืนยันขาย',
+      icon: 'question',
+      showCancelButton: true,
+      text: `ยอดขาย ${baht(cartTotal)} บาท รับเงิน ${baht(cashReceived)} บาท เงินทอน ${baht(changeDue)} บาท`,
+      title: 'ยืนยันรับชำระเงิน',
+    })
+
+    if (!result.isConfirmed) {
       return
     }
 
@@ -185,7 +202,7 @@ export function PosCheckoutPage() {
       receiptNumber: `RC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       items: cart,
       total: cartTotal,
-      changeDue: cashReceived - cartTotal,
+      changeDue,
       status: 'completed',
     }
     setLastSale(sale)
@@ -292,15 +309,37 @@ export function PosCheckoutPage() {
           </div>
           <div className="pos-checkout-footer">
             <p className="total-line">ยอดรวม {baht(cartTotal)} บาท</p>
-            <Field label="รับเงินสด">
-              <input
-                min="0"
-                type="number"
-                value={cashReceived}
-                onChange={(event) => setCashReceived(Number(event.target.value))}
-              />
-            </Field>
-            <button className="primary-button" type="button" onClick={checkout}>
+            <div className="payment-box">
+              <Field label="รับเงินสด">
+                <input
+                  min="0"
+                  type="number"
+                  value={cashReceived}
+                  onChange={(event) => setCashReceived(Number(event.target.value))}
+                />
+              </Field>
+              <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด">
+                {quickCashAmounts.map((amount) => (
+                  <button
+                    className={cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
+                    key={amount}
+                    type="button"
+                    onClick={() => setCashReceived(amount)}
+                  >
+                    {amount} บาท
+                  </button>
+                ))}
+              </div>
+              <div
+                aria-label={`${changeDue >= 0 ? 'เงินทอน' : 'ขาดอีก'} ${baht(Math.abs(changeDue))} บาท`}
+                className={changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
+                role="status"
+              >
+                <span>{changeDue >= 0 ? 'เงินทอน' : 'ขาดอีก'}</span>
+                <strong>{baht(Math.abs(changeDue))} บาท</strong>
+              </div>
+            </div>
+            <button className="primary-button" disabled={!canCheckout} type="button" onClick={() => void checkout()}>
               ชำระเงิน
             </button>
           </div>
