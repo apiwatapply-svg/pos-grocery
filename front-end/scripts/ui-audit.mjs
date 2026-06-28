@@ -454,6 +454,22 @@ async function main() {
       failures.push('/login did not render the login heading')
     }
 
+    let checkedAuthenticatedLoginRedirects = 0
+    for (const role of roles) {
+      await setSession(cdp, role)
+      await navigate(cdp, `${appUrl}/login`)
+      const audit = await auditCurrentPage(cdp)
+      const expectedHeading = role === 'cashier' ? 'ขายสินค้า / Scan barcode' : role === 'stock' ? 'สินค้าคงคลัง' : 'Dashboard'
+      checkedAuthenticatedLoginRedirects += 1
+
+      if (!audit.headings.includes(expectedHeading)) {
+        failures.push(`/login as authenticated ${role} did not redirect to ${expectedHeading}`)
+      }
+      if (audit.headings.includes('เข้าสู่ระบบร้านค้า')) {
+        failures.push(`/login as authenticated ${role} still rendered the login screen`)
+      }
+    }
+
     for (const routeCase of routeCases) {
       for (const role of roles) {
         await cdp.send('Emulation.setDeviceMetricsOverride', {
@@ -538,6 +554,7 @@ async function main() {
 
     console.log(JSON.stringify({
       checkedRoutes: routeCases.length,
+      checkedAuthenticatedLoginRedirects,
       checkedRoleNavigations: routeCases.length * roles.length + 1,
       checkedResponsiveViewports,
       responsiveDevices: responsiveDevices.map((device) => device.name),

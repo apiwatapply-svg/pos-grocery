@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiPost } from '../../lib/api/client'
-import { readSession } from '../../lib/auth/session'
+import { readSession, saveSession } from '../../lib/auth/session'
 import { LoginPage } from './LoginPage'
 
 vi.mock('../../lib/api/client', () => ({
@@ -77,5 +77,22 @@ describe('LoginPage', () => {
         role,
       },
     })
+  })
+
+  it.each([
+    ['owner', 'Dashboard'],
+    ['admin', 'Dashboard'],
+    ['cashier', 'POS Checkout'],
+    ['stock', 'Inventory'],
+  ] as const)('redirects already authenticated %s users away from login', async (role, heading) => {
+    saveSession(loginResponse(role))
+
+    renderLogin()
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /login/i })).not.toBeInTheDocument()
+    expect(mockedApiPost).not.toHaveBeenCalled()
   })
 })

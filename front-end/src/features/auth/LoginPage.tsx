@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { apiPost } from '../../lib/api/client'
-import { saveSession } from '../../lib/auth/session'
+import { readSession, saveSession } from '../../lib/auth/session'
 import type { Role } from '../../lib/auth/permissions'
 
 type LoginResponse = {
@@ -27,9 +27,14 @@ function defaultPathForRole(role: Role) {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const currentSession = readSession()
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('admin')
   const [message, setMessage] = useState('เข้าสู่ระบบเพื่อเริ่มขายหน้าร้าน')
+
+  if (currentSession) {
+    return <Navigate replace to={defaultPathForRole(currentSession.user.role)} />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
