@@ -57,7 +57,7 @@ export function LoginPage() {
 
   return (
     <section className="auth-screen" aria-labelledby="login-title">
-      <div className="auth-hero">
+      <div className="auth-panel">
         <div className="auth-brand">
           <span>POS</span>
           <div>
@@ -69,23 +69,7 @@ export function LoginPage() {
           <h1 id="login-title">เข้าสู่ระบบร้านค้า</h1>
           <p className="summary">{message}</p>
         </div>
-        <dl className="auth-highlights" aria-label="ภาพรวมการทำงาน">
-          <div>
-            <dt>Checkout</dt>
-            <dd>Scan barcode</dd>
-          </div>
-          <div>
-            <dt>Inventory</dt>
-            <dd>Stock control</dd>
-          </div>
-          <div>
-            <dt>Reports</dt>
-            <dd>Sales insight</dd>
-          </div>
-        </dl>
-      </div>
 
-      <div className="auth-panel">
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="login-form-header">
             <p className="eyebrow">Secure access</p>

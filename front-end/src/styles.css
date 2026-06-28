@@ -451,27 +451,20 @@ td span {
 
 .auth-screen {
   align-items: center;
-  background:
-    linear-gradient(90deg, #16231c 0%, #16231c 50%, #eef2ed 50%, #eef2ed 100%);
+  background: #eef2ed;
   color: #17201b;
   display: grid;
-  gap: 36px;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  justify-items: center;
   min-height: 100vh;
-  padding: 48px clamp(22px, 6vw, 88px);
-}
-
-.auth-hero {
-  color: #ffffff;
-  display: grid;
-  gap: 28px;
-  max-width: 620px;
+  padding: 32px;
 }
 
 .auth-brand {
   align-items: center;
   display: flex;
   gap: 14px;
+  justify-content: center;
+  text-align: left;
 }
 
 .auth-brand > span {
@@ -501,50 +494,18 @@ td span {
   margin: 0 0 8px;
 }
 
-.auth-hero .eyebrow {
-  color: #bff0d2;
-}
-
-.auth-hero h1 {
-  color: #ffffff;
-  font-size: 44px;
-  line-height: 1.05;
+.auth-panel h1 {
+  font-size: 32px;
+  line-height: 1.12;
   margin: 0;
-  max-width: 520px;
+  text-align: center;
 }
 
 .summary {
-  color: #dce8df;
-  font-size: 17px;
-  margin: 12px 0 0;
-}
-
-.auth-highlights {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  color: #536259;
+  font-size: 16px;
   margin: 0;
-}
-
-.auth-highlights div {
-  background: rgb(255 255 255 / 8%);
-  border: 1px solid rgb(191 240 210 / 22%);
-  border-radius: 8px;
-  padding: 14px;
-}
-
-.auth-highlights dt {
-  color: #bff0d2;
-  font-size: 12px;
-  font-weight: 900;
-  margin-bottom: 6px;
-}
-
-.auth-highlights dd {
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 800;
-  margin: 0;
+  text-align: center;
 }
 
 .auth-panel {
@@ -552,7 +513,11 @@ td span {
   border: 1px solid #d7ded5;
   border-radius: 8px;
   box-shadow: 0 24px 80px rgb(16 24 20 / 18%);
-  padding: 26px;
+  display: grid;
+  gap: 22px;
+  max-width: 440px;
+  padding: 28px;
+  width: min(100%, 440px);
 }
 
 .login-form {
@@ -591,42 +556,17 @@ td span {
 
 @media (max-width: 720px) {
   .auth-screen {
-    align-content: center;
-    background: #eef2ed;
-    gap: 28px;
-    grid-template-columns: 1fr;
-    padding: 24px;
-  }
-
-  .auth-hero {
-    color: #17201b;
-    gap: 18px;
-  }
-
-  .auth-hero .eyebrow {
-    color: #285f45;
-  }
-
-  .auth-brand strong,
-  .auth-hero h1 {
-    color: #17201b;
-  }
-
-  .auth-hero h1 {
-    font-size: 34px;
-  }
-
-  .summary {
-    color: #536259;
-  }
-
-  .auth-highlights {
-    display: none;
+    padding: 18px;
   }
 
   .auth-panel {
     box-shadow: 0 16px 48px rgb(16 24 20 / 12%);
-    padding: 20px;
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .auth-panel h1 {
+    font-size: 28px;
   }
 
   .app-shell {
