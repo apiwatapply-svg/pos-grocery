@@ -453,6 +453,68 @@ td span {
   resize: vertical;
 }
 
+.store-crud-panel {
+  display: grid;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 1120px;
+}
+
+.store-crud-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.store-crud-summary div {
+  background: #f7f9f6;
+  border: 1px solid #e2e8df;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.store-crud-summary span {
+  color: #66746b;
+  display: block;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.store-crud-summary strong {
+  display: block;
+  font-size: 18px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.store-crud-form {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.store-address-field,
+.store-crud-actions {
+  grid-column: 1 / -1;
+}
+
+.store-crud-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.form-message {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  font-weight: 800;
+  margin: 0;
+  padding: 12px;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -1167,6 +1229,10 @@ td span {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .store-crud-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pos-workspace {
     grid-template-columns: 1fr;
     height: auto;
@@ -1232,6 +1298,8 @@ td span {
 
   .metric-strip,
   .dashboard-card-grid,
+  .store-crud-form,
+  .store-crud-summary,
   .customer-display-control,
   .form-grid,
   .compact-form,
