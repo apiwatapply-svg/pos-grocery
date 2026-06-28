@@ -86,10 +86,38 @@ const apiProductsAfterMixedSale = [
   { ...apiProducts[1], stockQuantity: 17 },
 ]
 
-function mockProductsResponse(products = apiProducts) {
+function salesReport(sales: Array<typeof apiWaterSale> = []) {
+  return {
+    summary: {
+      orderCount: sales.filter((sale) => sale.status === 'completed').length,
+      totalSalesSatang: sales
+        .filter((sale) => sale.status === 'completed')
+        .reduce((sum, sale) => sum + sale.totalSatang, 0),
+      itemsSold: sales
+        .filter((sale) => sale.status === 'completed')
+        .reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
+    },
+    sales,
+  }
+}
+
+function mockApiResponses(input?: {
+  productResponses?: Array<typeof apiProducts>
+  sales?: () => Array<typeof apiWaterSale>
+}) {
+  const productResponses = input?.productResponses ?? [apiProducts]
+  const getSales = input?.sales ?? (() => [])
+  let productCallIndex = 0
+
   mockedApiGet.mockImplementation(async (path: string) => {
     if (path === '/products') {
-      return products
+      const response = productResponses[Math.min(productCallIndex, productResponses.length - 1)]
+      productCallIndex += 1
+      return response
+    }
+
+    if (path.startsWith('/reports/sales')) {
+      return salesReport(getSales())
     }
 
     throw new Error(`Unexpected GET ${path}`)
@@ -97,7 +125,7 @@ function mockProductsResponse(products = apiProducts) {
 }
 
 beforeEach(() => {
-  mockProductsResponse()
+  mockApiResponses()
 })
 
 afterEach(() => {
@@ -147,11 +175,36 @@ describe('PosCheckoutPage', () => {
     })).toHaveAttribute('aria-valuenow', String(quantity))
   }
 
-  it('adds scanned and selected products immediately, merges duplicates, confirms checkout, and opens a receipt modal', async () => {
-    mockedApiGet
-      .mockResolvedValueOnce(apiProducts)
-      .mockResolvedValueOnce(apiProductsAfterMixedSale)
+  async function waitForProductsLoaded() {
+    await waitFor(() => {
+      expect(screen.getByText('Drinking Water')).toBeInTheDocument()
+    })
+  }
+
+  it('does not render fallback mock products before SQL products load', async () => {
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path === '/products') {
+        return new Promise(() => undefined)
+      }
+
+      if (path === '/reports/sales') {
+        return new Promise(() => undefined)
+      }
+
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
     render(<PosCheckoutPage />)
+
+    expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
+    expect(screen.queryByText('Instant Noodles')).not.toBeInTheDocument()
+    expect(screen.getByText('ยังไม่มีสินค้าในฐานข้อมูล')).toBeInTheDocument()
+  })
+
+  it('adds scanned and selected products immediately, merges duplicates, confirms checkout, and opens a receipt modal', async () => {
+    mockApiResponses({ productResponses: [apiProducts, apiProductsAfterMixedSale] })
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
     confirmNextDialog()
     mockedApiPost.mockResolvedValueOnce({
       ...apiWaterSale,
@@ -209,11 +262,14 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByText('เงินทอน 74.00 บาท')).toBeInTheDocument()
   })
 
-  it('persists receipts after refresh and renders each receipt as one list row', async () => {
-    mockedApiGet
-      .mockResolvedValueOnce(apiProducts)
-      .mockResolvedValue(apiProductsAfterWaterSale)
+  it('loads receipts from backend after refresh and renders each receipt as one list row', async () => {
+    let sqlSales: Array<typeof apiWaterSale> = []
+    mockApiResponses({
+      productResponses: [apiProducts, apiProductsAfterWaterSale],
+      sales: () => sqlSales,
+    })
     const { unmount } = render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
     await createWaterSale()
     const receiptButton = screen.getByRole('button', { name: /ดูรายละเอียดบิล/ })
@@ -223,28 +279,32 @@ describe('PosCheckoutPage', () => {
     })
 
     unmount()
+    sqlSales = [apiWaterSale]
     render(<PosCheckoutPage />)
 
     const receiptList = screen.getByRole('list', { name: 'รายการใบเสร็จล่าสุด' })
-    const receiptItems = within(receiptList).getAllByRole('listitem')
+    const receiptItems = await within(receiptList).findAllByRole('listitem')
 
     expect(receiptItems).toHaveLength(1)
     expect(within(receiptItems[0]).getByText(/RC/)).toBeInTheDocument()
     expect(within(receiptItems[0]).getByText('14.00 บาท')).toBeInTheDocument()
     expect(within(receiptItems[0]).getByText('ขายสำเร็จ')).toBeInTheDocument()
     await waitFor(() => {
-      expectStockMeter('Drinking Water', 22, 24)
+      expectStockMeter('Drinking Water', 22, 22)
     })
     expectStockMeter('Instant Noodles', 18, 18)
   })
 
   it('checks out through the backend and reloads shared stock from products API', async () => {
-    mockedApiGet
-      .mockResolvedValueOnce(apiProducts)
-      .mockResolvedValueOnce([
-        { ...apiProducts[0], stockQuantity: 23 },
-        apiProducts[1],
-      ])
+    mockApiResponses({
+      productResponses: [
+        apiProducts,
+        [
+          { ...apiProducts[0], stockQuantity: 23 },
+          apiProducts[1],
+        ],
+      ],
+    })
     mockedApiPost.mockResolvedValueOnce({
       ...apiWaterSale,
       totalSatang: 700,
@@ -277,9 +337,7 @@ describe('PosCheckoutPage', () => {
 
   it('supports quick cash amounts, custom cash, live change, and blocks underpaid checkout confirmation', async () => {
     render(<PosCheckoutPage />)
-    await waitFor(() => {
-      expect(mockedApiGet).toHaveBeenCalledWith('/products')
-    })
+    await waitForProductsLoaded()
 
     fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
       target: { value: '8850002000010' },
@@ -309,8 +367,9 @@ describe('PosCheckoutPage', () => {
     expect(mockedSwal.fire).not.toHaveBeenCalled()
   })
 
-  it('renders stock remaining as POS status cards with quantity meters', () => {
+  it('renders stock remaining as POS status cards with quantity meters', async () => {
     render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
     const stockList = screen.getByRole('list', { name: 'รายการสินค้าคงเหลือหลังขาย' })
     const stockItems = within(stockList).getAllByRole('listitem')
@@ -327,10 +386,9 @@ describe('PosCheckoutPage', () => {
 
   it('does not allow a cashier to cancel a receipt', async () => {
     saveSession(sessionForRole('cashier'))
-    mockedApiGet
-      .mockResolvedValueOnce(apiProducts)
-      .mockResolvedValue(apiProductsAfterWaterSale)
+    mockApiResponses({ productResponses: [apiProducts, apiProductsAfterWaterSale] })
     render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
     await createWaterSale()
     fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
@@ -344,13 +402,18 @@ describe('PosCheckoutPage', () => {
 
   it('allows an admin to cancel a receipt after SweetAlert2 confirmation and restores stock', async () => {
     saveSession(sessionForRole('admin'))
-    mockedApiGet
-      .mockResolvedValueOnce(apiProducts)
-      .mockResolvedValue(apiProductsAfterWaterSale)
+    let sqlSales: Array<typeof apiWaterSale> = []
+    mockApiResponses({
+      productResponses: [apiProducts, apiProductsAfterWaterSale, apiProducts],
+      sales: () => sqlSales,
+    })
     render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
     await createWaterSale()
     confirmNextDialog()
+    sqlSales = [{ ...apiWaterSale, status: 'void' }]
+    mockedApiPost.mockResolvedValueOnce({ ...apiWaterSale, status: 'void' })
     fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
     fireEvent.click(screen.getByRole('button', { name: 'ยกเลิกบิล' }))
 
@@ -369,10 +432,11 @@ describe('PosCheckoutPage', () => {
     expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
   })
 
-  it('keeps the checkout page focused by not rendering customer display controls', () => {
+  it('keeps the checkout page focused by not rendering customer display controls', async () => {
     localStorage.setItem('pos-grocery:customer-display-enabled', 'true')
 
     render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
     expect(screen.getByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()
@@ -382,6 +446,7 @@ describe('PosCheckoutPage', () => {
 
   it('syncs scanned cart lines to customer display storage without rendering controls', async () => {
     render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
     fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
       target: { value: '8850002000010' },

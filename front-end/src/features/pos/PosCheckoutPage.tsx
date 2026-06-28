@@ -3,6 +3,7 @@ import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { readSession } from '../../lib/auth/session'
+import type { ApiSale as ReportApiSale, SalesReport } from '../reports/reportApi'
 import { baht, writeCustomerDisplayPayload } from './customerDisplay'
 
 type Product = {
@@ -57,66 +58,37 @@ type ApiSale = {
   }>
 }
 
-const initialProducts: Product[] = [
-  {
-    id: 'product-water',
-    name: 'Drinking Water',
-    barcode: '8850002000010',
-    salePrice: 7,
-    stockQuantity: 24,
-    initialStockQuantity: 24,
-    status: 'active',
-  },
-  {
-    id: 'product-noodle',
-    name: 'Instant Noodles',
-    barcode: '8850001000011',
-    salePrice: 12,
-    stockQuantity: 18,
-    initialStockQuantity: 18,
-    status: 'active',
-  },
-]
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
-const receiptsStorageKey = 'pos-grocery:receipts'
-const initialStockByBarcode = new Map(
-  initialProducts.map((product) => [product.barcode, product.initialStockQuantity]),
-)
 
-function readStoredValue<T>(key: string, fallback: T): T {
-  try {
-    const rawValue = localStorage.getItem(key)
-    return rawValue ? JSON.parse(rawValue) as T : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function readStoredReceipts() {
-  const storedReceipts = readStoredValue<Sale[]>(receiptsStorageKey, [])
-  return Array.isArray(storedReceipts) ? storedReceipts : []
-}
-
-function mapApiProduct(product: ApiProduct): Product {
+function mapApiProduct(product: ApiProduct, existingProduct?: Product): Product {
   return {
     id: product.id,
     name: product.name,
     barcode: product.barcode,
     salePrice: product.salePriceSatang / 100,
     stockQuantity: product.stockQuantity,
-    initialStockQuantity: initialStockByBarcode.get(product.barcode) ?? Math.max(product.stockQuantity, 1),
+    initialStockQuantity: existingProduct?.initialStockQuantity ?? Math.max(product.stockQuantity, 1),
     status: product.status,
   }
 }
 
-function mapApiSale(sale: ApiSale): Sale {
+function mapApiProducts(apiProducts: ApiProduct[], currentProducts: Product[]) {
+  return apiProducts.map((product) =>
+    mapApiProduct(
+      product,
+      currentProducts.find((currentProduct) => currentProduct.id === product.id),
+    ),
+  )
+}
+
+function mapApiSale(sale: ApiSale | ReportApiSale): Sale {
   return {
     id: sale.id,
     receiptNumber: sale.receiptNumber,
     items: sale.items.map((item) => ({
       productId: item.productId,
       productName: item.productName,
-      barcode: item.barcode,
+      barcode: item.barcode ?? '',
       quantity: item.quantity,
       unitPrice: item.unitPriceSatang / 100,
     })),
@@ -172,11 +144,11 @@ function Field(props: {
 
 export function PosCheckoutPage() {
   const session = readSession()
-  const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
   const [cashReceived, setCashReceived] = useState(100)
-  const [receipts, setReceipts] = useState<Sale[]>(() => readStoredReceipts())
+  const [receipts, setReceipts] = useState<Sale[]>([])
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [notice, setNotice] = useState('พร้อมขาย')
 
@@ -192,8 +164,15 @@ export function PosCheckoutPage() {
 
   async function refreshProducts() {
     const apiProducts = await apiGet<ApiProduct[]>('/products')
-    const nextProducts = apiProducts.map(mapApiProduct)
-    setProducts((current) => (productsAreSame(current, nextProducts) ? current : nextProducts))
+    setProducts((current) => {
+      const nextProducts = mapApiProducts(apiProducts, current)
+      return productsAreSame(current, nextProducts) ? current : nextProducts
+    })
+  }
+
+  async function refreshReceipts() {
+    const report = await apiGet<SalesReport>('/reports/sales')
+    setReceipts(report.sales.map(mapApiSale))
   }
 
   useEffect(() => {
@@ -202,8 +181,10 @@ export function PosCheckoutPage() {
     apiGet<ApiProduct[]>('/products')
       .then((apiProducts) => {
         if (active) {
-          const nextProducts = apiProducts.map(mapApiProduct)
-          setProducts((current) => (productsAreSame(current, nextProducts) ? current : nextProducts))
+          setProducts((current) => {
+            const nextProducts = mapApiProducts(apiProducts, current)
+            return productsAreSame(current, nextProducts) ? current : nextProducts
+          })
         }
       })
       .catch((error: unknown) => {
@@ -218,8 +199,24 @@ export function PosCheckoutPage() {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(receiptsStorageKey, JSON.stringify(receipts))
-  }, [receipts])
+    let active = true
+
+    apiGet<SalesReport>('/reports/sales')
+      .then((report) => {
+        if (active) {
+          setReceipts(report.sales.map(mapApiSale))
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setNotice(error instanceof Error ? error.message : 'โหลดใบเสร็จไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     writeCustomerDisplayPayload({
@@ -357,33 +354,18 @@ export function PosCheckoutPage() {
       return
     }
 
-    const cancelledSale: Sale = {
-      ...sale,
-      status: 'cancelled',
-      cancelledBy: session?.user.displayName,
+    try {
+      const cancelledSale = mapApiSale(await apiPost<ApiSale>(`/sales/${sale.id}/cancel`, {}))
+      setReceipts((current) =>
+        current.map((receipt) => (receipt.id === cancelledSale.id ? cancelledSale : receipt)),
+      )
+      setSelectedSale(cancelledSale)
+      setNotice('ยกเลิกบิลแล้ว')
+      await refreshProducts()
+      await refreshReceipts()
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'ยกเลิกบิลไม่สำเร็จ')
     }
-
-    setProducts((current) =>
-      current.map((product) => {
-        const item = sale.items.find((line) => line.productId === product.id)
-        return item
-          ? {
-              ...product,
-              stockQuantity: Math.min(
-                product.stockQuantity + item.quantity,
-                product.initialStockQuantity,
-              ),
-            }
-          : product
-      }),
-    )
-    setReceipts((current) =>
-      current.map((receipt) =>
-        receipt.receiptNumber === cancelledSale.receiptNumber ? cancelledSale : receipt,
-      ),
-    )
-    setSelectedSale(cancelledSale)
-    setNotice('ยกเลิกบิลแล้ว')
   }
 
   return (
@@ -518,7 +500,7 @@ export function PosCheckoutPage() {
               className="pos-scroll-area stock-list"
               role="list"
             >
-              {products.map((product) => {
+              {products.length > 0 ? products.map((product) => {
                 const status = stockStatus(product)
                 const stockPercent = Math.min(
                   100,
@@ -553,7 +535,9 @@ export function PosCheckoutPage() {
                     </div>
                   </article>
                 )
-              })}
+              }) : (
+                <p className="empty-hint">ยังไม่มีสินค้าในฐานข้อมูล</p>
+              )}
             </div>
           </section>
         </div>

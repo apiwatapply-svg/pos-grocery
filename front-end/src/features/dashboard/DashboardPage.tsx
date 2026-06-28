@@ -1,4 +1,32 @@
+import { useEffect, useState } from 'react'
+import { apiGet } from '../../lib/api/client'
+import { bahtFromSatang, type DashboardReport } from '../reports/reportApi'
+
 export function DashboardPage() {
+  const [dashboard, setDashboard] = useState<DashboardReport | null>(null)
+  const [message, setMessage] = useState('กำลังโหลด Dashboard')
+
+  useEffect(() => {
+    let active = true
+
+    apiGet<DashboardReport>('/reports/dashboard')
+      .then((report) => {
+        if (active) {
+          setDashboard(report)
+          setMessage('')
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(error instanceof Error ? error.message : 'โหลด Dashboard ไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <section className="route-page" aria-labelledby="dashboard-title">
       <div className="page-header">
@@ -10,25 +38,39 @@ export function DashboardPage() {
       <section className="metric-strip" aria-label="สรุป Dashboard">
         <div>
           <span>ยอดขายวันนี้</span>
-          <strong>0.00 บาท</strong>
+          <strong>{bahtFromSatang(dashboard?.summary.totalSalesSatang ?? 0)} บาท</strong>
         </div>
         <div>
           <span>จำนวนบิลวันนี้</span>
-          <strong>0</strong>
+          <strong>{dashboard?.summary.orderCount ?? 0}</strong>
         </div>
         <div>
-          <span>สินค้าใกล้หมด</span>
-          <strong>2</strong>
+          <span>จำนวนชิ้นที่ขาย</span>
+          <strong>{dashboard?.summary.itemsSold ?? 0}</strong>
         </div>
       </section>
       <div className="dashboard-grid">
         <section className="panel">
           <h2>สินค้าขายดี</h2>
-          <p>รอข้อมูลยอดขาย</p>
+          {dashboard?.bestSellers.length ? dashboard.bestSellers.map((item) => (
+            <div className="inventory-row" key={item.productId}>
+              <strong>{item.productName}</strong>
+              <span>{item.quantity} ชิ้น / {bahtFromSatang(item.totalSalesSatang)} บาท</span>
+            </div>
+          )) : (
+            <p>{message || 'ยังไม่มีข้อมูลยอดขาย'}</p>
+          )}
         </section>
         <section className="panel">
           <h2>ช่วงเวลาขายดี</h2>
-          <p>รอข้อมูลยอดขาย</p>
+          {dashboard?.bestTimeSlots.length ? dashboard.bestTimeSlots.map((slot) => (
+            <div className="inventory-row" key={slot.hour}>
+              <strong>{String(slot.hour).padStart(2, '0')}:00</strong>
+              <span>{slot.orderCount} บิล / {bahtFromSatang(slot.totalSalesSatang)} บาท</span>
+            </div>
+          )) : (
+            <p>{message || 'ยังไม่มีข้อมูลยอดขาย'}</p>
+          )}
         </section>
       </div>
     </section>

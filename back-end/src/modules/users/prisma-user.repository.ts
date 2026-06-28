@@ -140,7 +140,10 @@ function mapInventoryTransaction(transaction: {
     id: transaction.id,
     productId: transaction.productId,
     type:
-      transaction.type === "receive" || transaction.type === "count" || transaction.type === "sale"
+      transaction.type === "receive" ||
+      transaction.type === "count" ||
+      transaction.type === "sale" ||
+      transaction.type === "void"
         ? transaction.type
         : "count",
     quantityChange: transaction.quantityChange,
@@ -444,6 +447,14 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         include: { items: { include: { product: true } }, payment: true, receipt: true },
       });
       return sale ? mapSale(sale) : null;
+    },
+    async voidSale(id) {
+      const sale = await prisma.sale.update({
+        where: { id },
+        data: { status: "void" },
+        include: { items: { include: { product: true } }, payment: true, receipt: true },
+      });
+      return mapSale(sale);
     },
     async listSales(storeId, input) {
       const sales = await prisma.sale.findMany({

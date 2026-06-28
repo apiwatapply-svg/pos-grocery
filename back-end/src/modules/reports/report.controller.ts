@@ -22,10 +22,12 @@ function dateRange(request: Parameters<RequestHandler>[0]) {
 }
 
 function summarize(sales: SaleRecord[]) {
+  const completedSales = sales.filter((sale) => sale.status === "completed");
+
   return {
-    orderCount: sales.length,
-    totalSalesSatang: sales.reduce((sum, sale) => sum + sale.totalSatang, 0),
-    itemsSold: sales.reduce(
+    orderCount: completedSales.length,
+    totalSalesSatang: completedSales.reduce((sum, sale) => sum + sale.totalSatang, 0),
+    itemsSold: completedSales.reduce(
       (sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
       0,
     ),
@@ -35,7 +37,7 @@ function summarize(sales: SaleRecord[]) {
 function bestSellers(sales: SaleRecord[]) {
   const rows = new Map<string, { productId: string; productName: string; quantity: number; totalSalesSatang: number }>();
 
-  for (const sale of sales) {
+  for (const sale of sales.filter((record) => record.status === "completed")) {
     for (const item of sale.items) {
       const current = rows.get(item.productId) ?? {
         productId: item.productId,
@@ -57,7 +59,7 @@ function bestSellers(sales: SaleRecord[]) {
 function bestTimeSlots(sales: SaleRecord[]) {
   const rows = new Map<number, { hour: number; orderCount: number; totalSalesSatang: number }>();
 
-  for (const sale of sales) {
+  for (const sale of sales.filter((record) => record.status === "completed")) {
     const hour = new Date(sale.soldAt).getUTCHours();
     const current = rows.get(hour) ?? { hour, orderCount: 0, totalSalesSatang: 0 };
     rows.set(hour, {

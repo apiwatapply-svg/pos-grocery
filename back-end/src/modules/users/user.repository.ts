@@ -4,7 +4,7 @@ export type UserRole = "owner" | "admin" | "cashier" | "stock";
 export type UserStatus = "active" | "inactive";
 export type StoreStatus = "active" | "inactive";
 export type ProductStatus = "active" | "inactive";
-export type InventoryTransactionType = "receive" | "count" | "sale";
+export type InventoryTransactionType = "receive" | "count" | "sale" | "void";
 export type PaymentMethod = "cash" | "transfer" | "card";
 
 export type StoreRecord = {
@@ -157,6 +157,7 @@ export type UserRepository = {
 
   createSale(input: Omit<SaleRecord, "id" | "createdAt">): Promise<SaleRecord>;
   findSaleById(id: string): Promise<SaleRecord | null>;
+  voidSale(id: string): Promise<SaleRecord | null>;
   listSales(storeId: string, input?: { from?: string; to?: string }): Promise<SaleRecord[]>;
 };
 
@@ -345,6 +346,15 @@ export function createInMemoryUserRepository(seed?: {
     },
     async findSaleById(id) {
       return sales.get(id) ?? null;
+    },
+    async voidSale(id) {
+      const sale = sales.get(id);
+      if (!sale) {
+        return null;
+      }
+      const voidedSale: SaleRecord = { ...sale, status: "void" };
+      sales.set(id, voidedSale);
+      return voidedSale;
     },
     async listSales(storeId, input) {
       return Array.from(sales.values()).filter(

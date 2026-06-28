@@ -1,33 +1,50 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { apiGet } from '../../lib/api/client'
 import { canAccessRoute } from '../../lib/auth/permissions'
 import { readSession } from '../../lib/auth/session'
 
-const products = [
-  {
-    id: 'product-water',
-    name: 'Drinking Water',
-    barcode: '8850002000010',
-    sku: 'WATER-001',
-    costPrice: '4.00',
-    salePrice: '7.00',
-    stockQuantity: 24,
-    status: 'active',
-  },
-  {
-    id: 'product-noodle',
-    name: 'Instant Noodles',
-    barcode: '8850001000011',
-    sku: 'NOODLE-001',
-    costPrice: '7.00',
-    salePrice: '12.00',
-    stockQuantity: 18,
-    status: 'active',
-  },
-]
+type Product = {
+  id: string
+  name: string
+  barcode: string
+  sku?: string
+  costPriceSatang: number
+  salePriceSatang: number
+  stockQuantity: number
+  status: string
+}
+
+function bahtFromSatang(value: number) {
+  return (value / 100).toFixed(2)
+}
 
 export function ProductListPage() {
   const session = readSession()
   const canCreateProduct = session ? canAccessRoute(session.user.role, 'product-create') : false
+  const [products, setProducts] = useState<Product[]>([])
+  const [message, setMessage] = useState('กำลังโหลดสินค้า')
+
+  useEffect(() => {
+    let active = true
+
+    apiGet<Product[]>('/products')
+      .then((apiProducts) => {
+        if (active) {
+          setProducts(apiProducts)
+          setMessage(apiProducts.length > 0 ? '' : 'ยังไม่มีสินค้าในฐานข้อมูล')
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(error instanceof Error ? error.message : 'โหลดสินค้าไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <section className="route-page" aria-labelledby="products-title">
@@ -55,19 +72,23 @@ export function ProductListPage() {
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
+            {products.length > 0 ? products.map((product) => (
               <tr key={product.id}>
                 <td>
                   <strong>{product.name}</strong>
                   <span>{product.sku}</span>
                 </td>
                 <td>{product.barcode}</td>
-                <td>{product.costPrice}</td>
-                <td>{product.salePrice}</td>
+                <td>{bahtFromSatang(product.costPriceSatang)}</td>
+                <td>{bahtFromSatang(product.salePriceSatang)}</td>
                 <td>คงเหลือ {product.stockQuantity}</td>
                 <td>{product.status}</td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan={6}>{message}</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

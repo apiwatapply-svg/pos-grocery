@@ -220,6 +220,17 @@ describe("POS Grocery MVP API", () => {
     const products = await request(app).get("/api/products").set("Authorization", authHeader(owner));
     expect(products.body.data[0].stockQuantity).toBe(7);
 
+    const cancelledSale = await request(app)
+      .post(`/api/sales/${sale.body.data.id}/cancel`)
+      .set("Authorization", authHeader(owner))
+      .send({});
+
+    expect(cancelledSale.status).toBe(200);
+    expect(cancelledSale.body.data.status).toBe("void");
+
+    const productsAfterCancel = await request(app).get("/api/products").set("Authorization", authHeader(owner));
+    expect(productsAfterCancel.body.data[0].stockQuantity).toBe(10);
+
     const receipt = await request(app)
       .get(`/api/sales/${sale.body.data.id}/receipt`)
       .set("Authorization", authHeader(owner));
@@ -234,24 +245,19 @@ describe("POS Grocery MVP API", () => {
 
     expect(report.status).toBe(200);
     expect(report.body.data.summary).toMatchObject({
-      orderCount: 1,
-      totalSalesSatang: 2100,
-      itemsSold: 3,
+      orderCount: 0,
+      totalSalesSatang: 0,
+      itemsSold: 0,
     });
+    expect(report.body.data.sales[0].status).toBe("void");
 
     const dashboard = await request(app)
       .get("/api/reports/dashboard?from=2026-06-28T00:00:00.000Z&to=2026-06-28T23:59:59.999Z")
       .set("Authorization", authHeader(owner));
 
     expect(dashboard.status).toBe(200);
-    expect(dashboard.body.data.bestSellers[0]).toMatchObject({
-      productName: "Drinking Water",
-      quantity: 3,
-    });
-    expect(dashboard.body.data.bestTimeSlots[0]).toMatchObject({
-      hour: 9,
-      totalSalesSatang: 2100,
-    });
+    expect(dashboard.body.data.bestSellers).toEqual([]);
+    expect(dashboard.body.data.bestTimeSlots).toEqual([]);
 
     const exported = await request(app)
       .get("/api/reports/export.xlsx?from=2026-06-28T00:00:00.000Z&to=2026-06-28T23:59:59.999Z")

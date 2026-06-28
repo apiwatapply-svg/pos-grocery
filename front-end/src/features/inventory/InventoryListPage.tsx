@@ -1,11 +1,40 @@
+import { useEffect, useState } from 'react'
+import { apiGet } from '../../lib/api/client'
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787/api'
 
-const inventory = [
-  { id: 'product-water', name: 'Drinking Water', barcode: '8850002000010', stockQuantity: 24 },
-  { id: 'product-noodle', name: 'Instant Noodles', barcode: '8850001000011', stockQuantity: 18 },
-]
+type Product = {
+  id: string
+  name: string
+  barcode: string
+  stockQuantity: number
+}
 
 export function InventoryListPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [message, setMessage] = useState('กำลังโหลดสินค้า')
+
+  useEffect(() => {
+    let active = true
+
+    apiGet<Product[]>('/products')
+      .then((apiProducts) => {
+        if (active) {
+          setProducts(apiProducts)
+          setMessage(apiProducts.length > 0 ? '' : 'ยังไม่มีสินค้าในฐานข้อมูล')
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(error instanceof Error ? error.message : 'โหลดสินค้าไม่สำเร็จ')
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <section className="route-page" aria-labelledby="inventory-title">
       <div className="page-header">
@@ -18,7 +47,7 @@ export function InventoryListPage() {
         </a>
       </div>
       <div className="panel inventory-list">
-        {inventory.map((product) => (
+        {products.length > 0 ? products.map((product) => (
           <div className="inventory-row" key={product.id}>
             <div>
               <strong>{product.name}</strong>
@@ -26,7 +55,9 @@ export function InventoryListPage() {
             </div>
             <strong>คงเหลือ {product.stockQuantity}</strong>
           </div>
-        ))}
+        )) : (
+          <p className="empty-hint">{message}</p>
+        )}
       </div>
     </section>
   )

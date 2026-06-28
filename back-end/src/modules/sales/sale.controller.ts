@@ -141,3 +141,39 @@ export function getReceiptController(deps?: { repository?: UserRepository }): Re
     }
   };
 }
+
+export function cancelSaleController(deps?: { repository?: UserRepository }): RequestHandler {
+  const repository = deps?.repository ?? defaultUserRepository;
+
+  return async (request, response, next) => {
+    try {
+      const user = requireLocalUser(response);
+      const sale = await repository.findSaleById(String(request.params.id));
+
+      if (!sale || sale.storeId !== user.storeId) {
+        throw new AppError(404, "SALE_NOT_FOUND", "Sale not found.");
+      }
+
+      if (sale.status !== "void") {
+        for (const item of sale.items) {
+          await repository.adjustInventory({
+            productId: item.productId,
+            type: "void",
+            quantityChange: item.quantity,
+            note: `Void sale ${sale.receiptNumber}`,
+            createdByUserId: user.id,
+          });
+        }
+      }
+
+      const voidedSale = await repository.voidSale(sale.id);
+      if (!voidedSale) {
+        throw new AppError(404, "SALE_NOT_FOUND", "Sale not found.");
+      }
+
+      response.json({ success: true, data: voidedSale });
+    } catch (error) {
+      next(error);
+    }
+  };
+}
