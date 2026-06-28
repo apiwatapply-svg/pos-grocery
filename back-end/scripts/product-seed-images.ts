@@ -4,16 +4,19 @@ export type GrocerySeedProduct = {
   name: string;
   barcode: string;
   sku: string;
+  imageSourceUrl: string;
+};
+
+export type GroceryStockSeedProduct = GrocerySeedProduct & {
   unit: string;
   costPriceSatang: number;
   salePriceSatang: number;
   stockQuantity: number;
-  imageSourceUrl: string;
 };
 
 type SeedProductImage = Omit<ProductImageRecord, "id" | "productId" | "createdAt">;
 
-export const grocerySeedProducts: GrocerySeedProduct[] = [
+export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Jasmine Rice 5kg",
     barcode: "8851000000001",
@@ -113,6 +116,21 @@ export const grocerySeedProducts: GrocerySeedProduct[] = [
     salePriceSatang: 5500,
     stockQuantity: 26,
     imageSourceUrl: "https://images.unsplash.com/photo-1587486913049-53fc88980cfc?auto=format&fit=crop&w=900&q=80",
+  },
+];
+
+export const demoSeedImageProducts: GrocerySeedProduct[] = [
+  {
+    name: "Drinking Water",
+    barcode: "8850002000010",
+    sku: "WATER-001",
+    imageSourceUrl: "https://images.unsplash.com/photo-1559839914-17aae19cec71?auto=format&fit=crop&w=900&q=80",
+  },
+  {
+    name: "Instant Noodles",
+    barcode: "8850001000011",
+    sku: "NOODLE-001",
+    imageSourceUrl: "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&w=900&q=80",
   },
 ];
 

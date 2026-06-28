@@ -1,6 +1,11 @@
 import { env } from "../src/config/env.js";
 import { defaultUserRepository, type ProductRecord } from "../src/modules/users/user.repository.js";
-import { buildSeedProductImage, grocerySeedProducts, type GrocerySeedProduct } from "./product-seed-images.js";
+import {
+  buildSeedProductImage,
+  demoSeedImageProducts,
+  grocerySeedProducts,
+  type GrocerySeedProduct,
+} from "./product-seed-images.js";
 
 async function ensureProductImage(product: ProductRecord, seedProduct: GrocerySeedProduct) {
   if (product.images.length > 0) {
@@ -63,6 +68,21 @@ async function main() {
     }
 
     const imageResult = await ensureProductImage(savedProduct, product);
+    if (imageResult === "created") {
+      imagesCreatedCount += 1;
+    } else {
+      imagesSkippedCount += 1;
+    }
+  }
+
+  for (const product of demoSeedImageProducts) {
+    const existing = await defaultUserRepository.findProductByBarcode(store.id, product.barcode);
+
+    if (!existing) {
+      continue;
+    }
+
+    const imageResult = await ensureProductImage(existing, product);
     if (imageResult === "created") {
       imagesCreatedCount += 1;
     } else {
