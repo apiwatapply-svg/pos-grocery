@@ -14,7 +14,9 @@ export function InventoryReceivingPage() {
         </select>
         <input aria-label="จำนวนรับเข้า" min="1" type="number" defaultValue="1" />
         <input aria-label="ราคาต้นทุนต่อหน่วย" min="0" step="0.01" type="number" defaultValue="4" />
-        <button type="submit">บันทึกรับของ</button>
+        <button className="success-button" type="submit">
+          บันทึกรับของ
+        </button>
       </form>
     </section>
   )

@@ -1,3 +1,7 @@
+import { Link } from 'react-router-dom'
+import { canAccessRoute } from '../../lib/auth/permissions'
+import { readSession } from '../../lib/auth/session'
+
 const products = [
   {
     id: 'product-water',
@@ -22,6 +26,9 @@ const products = [
 ]
 
 export function ProductListPage() {
+  const session = readSession()
+  const canCreateProduct = session ? canAccessRoute(session.user.role, 'product-create') : false
+
   return (
     <section className="route-page" aria-labelledby="products-title">
       <div className="page-header">
@@ -29,9 +36,11 @@ export function ProductListPage() {
           <p className="eyebrow">Catalog</p>
           <h1 id="products-title">สินค้า</h1>
         </div>
-        <a className="primary-button compact" href="/products/new">
-          เพิ่มสินค้า
-        </a>
+        {canCreateProduct ? (
+          <Link className="primary-button compact" to="/products/new">
+            เพิ่มสินค้า
+          </Link>
+        ) : null}
       </div>
       <div className="table-wrap panel">
         <table>

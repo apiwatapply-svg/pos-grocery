@@ -4,7 +4,7 @@ export function ReceiptListPage() {
       <div className="page-header">
         <div>
           <p className="eyebrow">Sales</p>
-          <h1 id="receipts-title">ใบเสร็จ</h1>
+          <h1 id="receipts-title">ประวัติใบเสร็จ</h1>
         </div>
       </div>
       <section className="panel">

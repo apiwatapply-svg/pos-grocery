@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
+import type { Role } from './lib/auth/permissions'
 import { saveSession, type Session } from './lib/auth/session'
 import { App } from './App'
 
@@ -25,6 +26,16 @@ const cashierSession: Session = {
   },
 }
 
+const stockSession: Session = {
+  ...ownerSession,
+  user: {
+    id: 'stock-1',
+    username: 'stock',
+    displayName: 'Stock One',
+    role: 'stock',
+  },
+}
+
 function renderApp(path: string, session: Session | null = ownerSession) {
   if (session) {
     saveSession(session)
@@ -36,6 +47,46 @@ function renderApp(path: string, session: Session | null = ownerSession) {
     </MemoryRouter>,
   )
 }
+
+function sessionForRole(role: Role): Session {
+  if (role === 'cashier') {
+    return cashierSession
+  }
+  if (role === 'stock') {
+    return stockSession
+  }
+  return {
+    ...ownerSession,
+    user: {
+      ...ownerSession.user,
+      role,
+    },
+  }
+}
+
+const protectedRouteCases: Array<{
+  path: string
+  heading: string
+  allowedRoles: Role[]
+}> = [
+  { path: '/dashboard', heading: 'Dashboard', allowedRoles: ['owner', 'admin', 'stock'] },
+  { path: '/pos', heading: 'ขายสินค้า / Scan barcode', allowedRoles: ['owner', 'admin', 'cashier'] },
+  { path: '/customer-display', heading: 'จอลูกค้า', allowedRoles: ['owner', 'admin', 'cashier'] },
+  { path: '/receipts', heading: 'ประวัติใบเสร็จ', allowedRoles: ['owner', 'admin', 'cashier'] },
+  { path: '/receipts/receipt-1', heading: 'รายละเอียดใบเสร็จ', allowedRoles: ['owner', 'admin', 'cashier'] },
+  { path: '/products', heading: 'สินค้า', allowedRoles: ['owner', 'admin', 'cashier', 'stock'] },
+  { path: '/products/new', heading: 'เพิ่มสินค้า', allowedRoles: ['owner', 'admin'] },
+  { path: '/products/product-water/edit', heading: 'แก้ไขสินค้า', allowedRoles: ['owner', 'admin'] },
+  { path: '/inventory', heading: 'สินค้าคงคลัง', allowedRoles: ['owner', 'admin', 'stock'] },
+  { path: '/inventory/receiving', heading: 'รับของเข้า', allowedRoles: ['owner', 'admin', 'stock'] },
+  { path: '/inventory/counting', heading: 'ตรวจนับ stock', allowedRoles: ['owner', 'admin', 'stock'] },
+  { path: '/reports/sales', heading: 'รายงานยอดขาย', allowedRoles: ['owner', 'admin'] },
+  { path: '/reports/best-sellers', heading: 'สินค้าขายดี', allowedRoles: ['owner', 'admin'] },
+  { path: '/settings/store', heading: 'ตั้งค่าร้าน', allowedRoles: ['owner', 'admin'] },
+  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', allowedRoles: ['owner', 'admin'] },
+]
+
+const roles: Role[] = ['owner', 'admin', 'cashier', 'stock']
 
 afterEach(() => {
   localStorage.clear()
@@ -68,5 +119,27 @@ describe('App routes', () => {
     localStorage.clear()
     renderApp('/inventory/receiving')
     expect(screen.getByRole('heading', { name: 'รับของเข้า' })).toBeInTheDocument()
+  })
+
+  it.each(protectedRouteCases)('renders allowed roles for $path', ({ path, heading, allowedRoles }) => {
+    allowedRoles.forEach((role) => {
+      cleanup()
+      localStorage.clear()
+      renderApp(path, sessionForRole(role))
+
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+  })
+
+  it.each(protectedRouteCases)('blocks forbidden roles for $path', ({ path, allowedRoles }) => {
+    const forbiddenRoles = roles.filter((role) => !allowedRoles.includes(role))
+
+    forbiddenRoles.forEach((role) => {
+      cleanup()
+      localStorage.clear()
+      renderApp(path, sessionForRole(role))
+
+      expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
+    })
   })
 })

@@ -10,7 +10,7 @@ export function StoreSettingsPage() {
     <section className="settings-panel" aria-labelledby="store-settings-title">
       <div>
         <p className="eyebrow">Store settings</p>
-        <h2 id="store-settings-title">ข้อมูลร้านค้า</h2>
+        <h2 id="store-settings-title">ตั้งค่าร้าน</h2>
       </div>
 
       <dl className="settings-list">

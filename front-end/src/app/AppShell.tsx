@@ -13,6 +13,7 @@ export function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate()
   const session = readSession()
   const user = session?.user
+  const canUsePos = user ? canAccessRoute(user.role, 'pos') : false
 
   function logout() {
     clearSession()
@@ -75,9 +76,11 @@ export function AppShell({ children }: AppShellProps) {
             <span>{user?.role ?? 'guest'}</span>
           </div>
           <div className="navbar-actions">
-            <Link className="primary-button compact" to="/pos">
-              ไปหน้า POS
-            </Link>
+            {canUsePos ? (
+              <Link className="primary-button compact" to="/pos">
+                ไปหน้า POS
+              </Link>
+            ) : null}
             <button className="ghost-button compact" onClick={logout} type="button">
               Logout
             </button>

@@ -20,7 +20,9 @@ export function ProductFormPage() {
         <input name="costPrice" placeholder="ต้นทุน" type="number" min="0" step="0.01" required />
         <input name="salePrice" placeholder="ราคาขาย" type="number" min="0" step="0.01" required />
         <input aria-label="Upload รูปสินค้าไป Cloudinary" type="file" />
-        <button type="submit">{isEditing ? 'บันทึกสินค้า' : 'เพิ่มสินค้า'}</button>
+        <button className="success-button" type="submit">
+          {isEditing ? 'บันทึกสินค้า' : 'เพิ่มสินค้า'}
+        </button>
       </form>
     </section>
   )

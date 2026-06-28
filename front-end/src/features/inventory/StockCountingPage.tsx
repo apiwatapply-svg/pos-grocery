@@ -15,7 +15,9 @@ export function StockCountingPage() {
           </div>
           <div className="stepper">
             <input aria-label="จำนวนที่นับได้ Drinking Water" type="number" defaultValue="24" />
-            <button type="button">ปรับยอด</button>
+            <button className="warning-button" type="button">
+              ปรับยอด
+            </button>
           </div>
         </div>
       </div>

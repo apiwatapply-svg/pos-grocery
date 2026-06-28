@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "ui:audit": "node scripts/ui-audit.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },

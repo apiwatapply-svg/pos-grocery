@@ -16,7 +16,7 @@ export function ReceiptDetailPage() {
         <span>{receiptId ?? 'receipt'}</span>
         <strong>ยอดรวม 0.00 บาท</strong>
       </div>
-      <button type="button" onClick={() => window.print()}>
+      <button className="info-button compact" type="button" onClick={() => window.print()}>
         Print receipt
       </button>
     </section>

@@ -59,7 +59,11 @@ export function CustomerDisplayPage() {
             />
             เปิดหน้าจอลูกค้า
           </label>
-          <button className="ghost-button" onClick={refreshCustomerDisplayAvailability} type="button">
+          <button
+            className="warning-button"
+            onClick={refreshCustomerDisplayAvailability}
+            type="button"
+          >
             ตรวจจออีกครั้ง
           </button>
         </div>

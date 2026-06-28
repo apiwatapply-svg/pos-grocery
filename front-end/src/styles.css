@@ -24,7 +24,7 @@ textarea {
 button,
 .export-link {
   align-items: center;
-  background: #285f45;
+  background: #1d4ed8;
   border: 0;
   border-radius: 6px;
   color: #ffffff;
@@ -40,7 +40,7 @@ button,
 
 button:hover,
 .export-link:hover {
-  background: #1f4d38;
+  background: #1e40af;
 }
 
 table {
@@ -320,6 +320,38 @@ td span {
   background: #dfe7df;
 }
 
+.success-button {
+  background: #15803d;
+}
+
+.success-button:hover {
+  background: #166534;
+}
+
+.warning-button {
+  background: #b45309;
+}
+
+.warning-button:hover {
+  background: #92400e;
+}
+
+.info-button {
+  background: #0f766e;
+}
+
+.info-button:hover {
+  background: #115e59;
+}
+
+.danger-button {
+  background: #b42318;
+}
+
+.danger-button:hover {
+  background: #8f1d14;
+}
+
 .product-thumb {
   aspect-ratio: 1;
   border-radius: 6px;
@@ -359,8 +391,6 @@ td span {
 }
 
 .stepper button {
-  background: #eef2ed;
-  color: #285f45;
   min-height: 32px;
 }
 
@@ -704,9 +734,12 @@ td span {
 @media (max-width: 900px) {
   .app-layout {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .sidebar {
+    gap: 0;
+    min-height: 0;
     padding: 0;
   }
 

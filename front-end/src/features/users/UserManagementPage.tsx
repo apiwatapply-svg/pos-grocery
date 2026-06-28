@@ -142,7 +142,7 @@ export function UserManagementPage() {
                 <td>{user.status}</td>
                 <td>
                   <button
-                    className="ghost-button"
+                    className="danger-button compact"
                     onClick={() => void deactivateUser(user)}
                     type="button"
                   >

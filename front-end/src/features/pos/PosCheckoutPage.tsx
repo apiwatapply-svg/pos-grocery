@@ -253,11 +253,15 @@ export function PosCheckoutPage() {
             />
             เปิดหน้าจอลูกค้า
           </label>
-          <button className="ghost-button" onClick={refreshCustomerDisplayAvailability} type="button">
+          <button
+            className="warning-button"
+            onClick={refreshCustomerDisplayAvailability}
+            type="button"
+          >
             ตรวจจออีกครั้ง
           </button>
           <button
-            className="ghost-button"
+            className="info-button"
             disabled={!customerDisplayEnabled}
             onClick={openCustomerDisplayWindow}
             type="button"
@@ -307,7 +311,7 @@ export function PosCheckoutPage() {
                 onChange={(event) => setSaleQuantity(Number(event.target.value))}
               />
             </Field>
-            <button type="button" onClick={addScannedItem}>
+            <button className="success-button" type="button" onClick={addScannedItem}>
               เพิ่มลงตะกร้า
             </button>
           </div>
@@ -350,7 +354,7 @@ export function PosCheckoutPage() {
                 <strong>ยอดรวม {baht(lastSale.total)} บาท</strong>
                 <strong>เงินทอน {baht(lastSale.changeDue)} บาท</strong>
               </div>
-              <button type="button" onClick={() => window.print()}>
+              <button className="info-button" type="button" onClick={() => window.print()}>
                 Print receipt
               </button>
             </>

@@ -15,6 +15,16 @@ const cashierSession: Session = {
   },
 }
 
+const stockSession: Session = {
+  token: 'token-stock',
+  user: {
+    id: 'stock-1',
+    username: 'stock',
+    displayName: 'Stock One',
+    role: 'stock',
+  },
+}
+
 afterEach(() => {
   localStorage.clear()
 })
@@ -50,6 +60,13 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'ไปหน้า POS' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Page Content' })).toBeInTheDocument()
+  })
+
+  it('hides the POS shortcut for roles that cannot use checkout', () => {
+    renderShell(stockSession)
+
+    expect(screen.queryByRole('link', { name: 'ไปหน้า POS' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
   })
 
   it('toggles the mobile sidebar', () => {
