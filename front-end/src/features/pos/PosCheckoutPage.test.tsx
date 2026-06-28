@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import Swal from 'sweetalert2'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveSession, type Session } from '../../lib/auth/session'
@@ -45,6 +45,12 @@ describe('PosCheckoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
   }
 
+  function expectStockMeter(productName: string, quantity: number, initialQuantity: number) {
+    expect(screen.getByRole('progressbar', {
+      name: `${productName} คงเหลือ ${quantity} จาก ${initialQuantity}`,
+    })).toHaveAttribute('aria-valuenow', String(quantity))
+  }
+
   it('adds scanned and selected products immediately, merges duplicates, checks out, and opens a receipt modal', () => {
     render(<PosCheckoutPage />)
 
@@ -63,8 +69,8 @@ describe('PosCheckoutPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
 
     expect(screen.getByText('ยอดรวม 26.00 บาท')).toBeInTheDocument()
-    expect(screen.getByText('คงเหลือ 22')).toBeInTheDocument()
-    expect(screen.getByText('คงเหลือ 17')).toBeInTheDocument()
+    expectStockMeter('Drinking Water', 22, 24)
+    expectStockMeter('Instant Noodles', 17, 18)
 
     fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
 
@@ -72,6 +78,22 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByText(/Drinking Water x2/)).toBeInTheDocument()
     expect(screen.getByText(/Instant Noodles x1/)).toBeInTheDocument()
     expect(screen.getByText('เงินทอน 74.00 บาท')).toBeInTheDocument()
+  })
+
+  it('renders stock remaining as POS status cards with quantity meters', () => {
+    render(<PosCheckoutPage />)
+
+    const stockList = screen.getByRole('list', { name: 'รายการสินค้าคงเหลือหลังขาย' })
+    const stockItems = within(stockList).getAllByRole('listitem')
+
+    expect(stockItems).toHaveLength(2)
+    expect(within(stockItems[0]).getByText('Drinking Water')).toBeInTheDocument()
+    expect(within(stockItems[0]).getByText('พร้อมขาย')).toBeInTheDocument()
+    expect(within(stockItems[0]).getByRole('progressbar', {
+      name: 'Drinking Water คงเหลือ 24 จาก 24',
+    })).toHaveAttribute('aria-valuenow', '24')
+    expect(within(stockItems[1]).getByText('Instant Noodles')).toBeInTheDocument()
+    expect(within(stockItems[1]).getByText('พร้อมขาย')).toBeInTheDocument()
   })
 
   it('does not allow a cashier to cancel a receipt', () => {
@@ -83,7 +105,7 @@ describe('PosCheckoutPage', () => {
 
     expect(screen.getByRole('dialog', { name: /รายละเอียดบิล/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
-    expect(screen.getByText('คงเหลือ 22')).toBeInTheDocument()
+    expectStockMeter('Drinking Water', 22, 24)
   })
 
   it('allows an admin to cancel a receipt after SweetAlert2 confirmation and restores stock', async () => {
@@ -110,7 +132,7 @@ describe('PosCheckoutPage', () => {
       )
     })
     expect(screen.getAllByText('ยกเลิกแล้ว')).toHaveLength(2)
-    expect(screen.getByText('คงเหลือ 24')).toBeInTheDocument()
+    expectStockMeter('Drinking Water', 24, 24)
     expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
   })
 

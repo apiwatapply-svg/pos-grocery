@@ -10,6 +10,7 @@ type Product = {
   barcode: string
   salePrice: number
   stockQuantity: number
+  initialStockQuantity: number
   status: 'active' | 'inactive'
 }
 
@@ -37,6 +38,7 @@ const initialProducts: Product[] = [
     barcode: '8850002000010',
     salePrice: 7,
     stockQuantity: 24,
+    initialStockQuantity: 24,
     status: 'active',
   },
   {
@@ -45,9 +47,24 @@ const initialProducts: Product[] = [
     barcode: '8850001000011',
     salePrice: 12,
     stockQuantity: 18,
+    initialStockQuantity: 18,
     status: 'active',
   },
 ]
+
+function stockStatus(product: Product) {
+  const stockRatio = product.stockQuantity / Math.max(product.initialStockQuantity, 1)
+
+  if (product.stockQuantity === 0) {
+    return { label: 'หมดสต็อก', tone: 'empty' }
+  }
+
+  if (stockRatio <= 0.35) {
+    return { label: 'ใกล้หมด', tone: 'low' }
+  }
+
+  return { label: 'พร้อมขาย', tone: 'ready' }
+}
 
 function Field(props: {
   label: string
@@ -309,14 +326,54 @@ export function PosCheckoutPage() {
             </div>
           </section>
 
-          <section className="panel pos-side-panel" aria-labelledby="stock-after-sale-title">
-            <h2 id="stock-after-sale-title">Stock หลังขาย</h2>
-            <div className="pos-scroll-area stock-list">
-              {products.map((product) => (
-                <p key={product.id}>
-                  {product.name}: <span>คงเหลือ {product.stockQuantity}</span>
-                </p>
-              ))}
+          <section className="panel pos-side-panel stock-panel" aria-labelledby="stock-after-sale-title">
+            <div className="stock-panel-header">
+              <div>
+                <h2 id="stock-after-sale-title">Stock หลังขาย</h2>
+                <span>{products.length} SKU พร้อมตรวจนับ</span>
+              </div>
+            </div>
+            <div
+              aria-label="รายการสินค้าคงเหลือหลังขาย"
+              className="pos-scroll-area stock-list"
+              role="list"
+            >
+              {products.map((product) => {
+                const status = stockStatus(product)
+                const stockPercent = Math.min(
+                  100,
+                  Math.round((product.stockQuantity / Math.max(product.initialStockQuantity, 1)) * 100),
+                )
+
+                return (
+                  <article className={`stock-card stock-card-${status.tone}`} key={product.id} role="listitem">
+                    <div className="stock-card-main">
+                      <div className="stock-product">
+                        <strong>{product.name}</strong>
+                        <span>{product.barcode}</span>
+                      </div>
+                      <div className="stock-quantity">
+                        <strong>{product.stockQuantity}</strong>
+                        <span>คงเหลือ</span>
+                      </div>
+                    </div>
+                    <div className="stock-card-footer">
+                      <span className="stock-status">{status.label}</span>
+                      <span>{stockPercent}% ของตั้งต้น</span>
+                    </div>
+                    <div
+                      aria-label={`${product.name} คงเหลือ ${product.stockQuantity} จาก ${product.initialStockQuantity}`}
+                      aria-valuemax={product.initialStockQuantity}
+                      aria-valuemin={0}
+                      aria-valuenow={product.stockQuantity}
+                      className="stock-meter"
+                      role="progressbar"
+                    >
+                      <span style={{ width: `${stockPercent}%` }} />
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           </section>
         </div>
