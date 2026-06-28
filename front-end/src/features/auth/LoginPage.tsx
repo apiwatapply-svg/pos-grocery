@@ -1,16 +1,32 @@
 import { type FormEvent, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiPost } from '../../lib/api/client'
+import { saveSession } from '../../lib/auth/session'
+import type { Role } from '../../lib/auth/permissions'
 
 type LoginResponse = {
   token: string
   user: {
+    id: string
     username: string
     displayName: string
-    role: string
+    role: Role
   }
 }
 
+function defaultPathForRole(role: Role) {
+  if (role === 'cashier') {
+    return '/pos'
+  }
+  if (role === 'stock') {
+    return '/inventory'
+  }
+
+  return '/dashboard'
+}
+
 export function LoginPage() {
+  const navigate = useNavigate()
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('admin')
   const [message, setMessage] = useState('เข้าสู่ระบบเพื่อเริ่มขายหน้าร้าน')
@@ -23,7 +39,17 @@ export function LoginPage() {
         username,
         password,
       })
+      saveSession({
+        token: result.token,
+        user: {
+          id: result.user.id,
+          username: result.user.username,
+          displayName: result.user.displayName,
+          role: result.user.role,
+        },
+      })
       setMessage(`พร้อมใช้งาน: ${result.user.displayName}`)
+      navigate(defaultPathForRole(result.user.role))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'เข้าสู่ระบบไม่สำเร็จ')
     }
