@@ -13,6 +13,7 @@ model Store {
   phone     String
   address   String
   ownerName String
+  logoUrl   String?
   status    String   @default("active")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -38,6 +39,7 @@ model User {
   sales Sale[]
 
   @@unique([storeId, username])
+  @@index([storeId, status])
 }
 
 model Category {
@@ -59,7 +61,6 @@ model Product {
   categoryId      String?
   name            String
   barcode         String
-  sku             String?
   unit            String
   costPriceSatang Int
   salePriceSatang Int
@@ -75,6 +76,8 @@ model Product {
   saleItems             SaleItem[]
 
   @@unique([storeId, barcode])
+  @@index([storeId, status, name])
+  @@index([storeId, name])
 }
 
 model ProductImage {
@@ -92,6 +95,8 @@ model ProductImage {
   createdAt    DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
 }
 
 model InventoryTransaction {
@@ -106,6 +111,8 @@ model InventoryTransaction {
   createdAt          DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, createdAt])
 }
 
 model Sale {
@@ -128,6 +135,8 @@ model Sale {
   receipt Receipt?
 
   @@unique([storeId, receiptNumber])
+  @@index([storeId, soldAt])
+  @@index([storeId, status, soldAt])
 }
 
 model SaleItem {
@@ -141,6 +150,10 @@ model SaleItem {
 
   sale    Sale    @relation(fields: [saleId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+  @@index([productId, saleId])
 }
 
 model Payment {

@@ -1,9 +1,8 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiGet, apiPost } from '../../lib/api/client'
-import { readSession } from '../../lib/auth/session'
-import type { ApiSale as ReportApiSale, SalesReport } from '../reports/reportApi'
+import { formatNumber } from '../../lib/format/number'
 import { baht, writeCustomerDisplayPayload } from './customerDisplay'
 
 type Product = {
@@ -29,8 +28,10 @@ type CartItem = {
 type Sale = {
   id?: string
   receiptNumber: string
+  soldAt?: string
   items: CartItem[]
   total: number
+  cashReceived: number
   changeDue: number
   status: 'completed' | 'cancelled'
   cancelledBy?: string
@@ -53,10 +54,12 @@ type ApiProduct = {
 type ApiSale = {
   id: string
   receiptNumber: string
+  soldAt?: string
   totalSatang: number
+  cashReceivedSatang?: number
   changeDueSatang: number
   status: 'completed' | 'void' | 'cancelled'
-  items: Array<{
+  items?: Array<{
     productId: string
     productName: string
     barcode: string
@@ -65,7 +68,46 @@ type ApiSale = {
   }>
 }
 
+type CurrentStore = {
+  id?: string
+  name: string
+  address?: string
+  logoUrl?: string
+  phone?: string
+}
+
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
+
+const posCartStorageKeyPrefix = 'pos-grocery:pos-cart'
+
+function posCartStorageKey(storeId: string) {
+  return `${posCartStorageKeyPrefix}:${storeId}`
+}
+
+function loadCartFromStorage(storeId: string): CartItem[] {
+  try {
+    const raw = localStorage.getItem(posCartStorageKey(storeId))
+    if (!raw) {
+      return []
+    }
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.filter(
+      (item): item is CartItem =>
+        item !== null &&
+        typeof item === 'object' &&
+        typeof (item as CartItem).productId === 'string' &&
+        typeof (item as CartItem).productName === 'string' &&
+        typeof (item as CartItem).barcode === 'string' &&
+        typeof (item as CartItem).quantity === 'number' &&
+        typeof (item as CartItem).unitPrice === 'number',
+    )
+  } catch {
+    return []
+  }
+}
 
 function mapApiProduct(product: ApiProduct, existingProduct?: Product): Product {
   return {
@@ -89,11 +131,61 @@ function mapApiProducts(apiProducts: ApiProduct[], currentProducts: Product[]) {
   )
 }
 
-function mapApiSale(sale: ApiSale | ReportApiSale): Sale {
+function buildSaleSummaryHtml(sale: Sale, cart: CartItem[]): string {
+  const itemRows = (sale.items.length > 0 ? sale.items : cart)
+    .map((item) => {
+      const lineTotal = item.quantity * item.unitPrice
+      return `
+        <tr>
+          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #e0e5dd;">${item.productName}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${formatNumber(item.quantity)}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(item.unitPrice)}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(lineTotal)}</td>
+        </tr>
+      `
+    })
+    .join('')
+
+  return `
+    <div style="text-align:left;font-size:14px;color:#17201b;">
+      <p style="margin:0 0 8px;color:#536259;">
+        เลขที่บิล <strong style="color:#102017;">${sale.receiptNumber}</strong>
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+        <thead>
+          <tr style="background:#eef2ed;">
+            <th style="text-align:left;padding:6px 8px;font-size:12px;color:#4a5a50;">สินค้า</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">จำนวน</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">ราคา</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">รวม</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div style="display:grid;gap:4px;padding:10px 12px;background:#f7faf7;border:1px solid #dfe7df;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span>ยอดรวม</span>
+          <strong>${baht(sale.total)} บาท</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>รับเงิน</span>
+          <strong>${baht(sale.cashReceived)} บาท</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#0f6b3b;">
+          <span>เงินทอน</span>
+          <strong>${baht(sale.changeDue)} บาท</strong>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function mapApiSale(sale: ApiSale): Sale {
   return {
     id: sale.id,
     receiptNumber: sale.receiptNumber,
-    items: sale.items.map((item) => ({
+    soldAt: sale.soldAt,
+    items: (sale.items ?? []).map((item) => ({
       productId: item.productId,
       productName: item.productName,
       barcode: item.barcode ?? '',
@@ -101,6 +193,7 @@ function mapApiSale(sale: ApiSale | ReportApiSale): Sale {
       unitPrice: item.unitPriceSatang / 100,
     })),
     total: sale.totalSatang / 100,
+    cashReceived: (sale.cashReceivedSatang ?? sale.totalSatang + sale.changeDueSatang) / 100,
     changeDue: sale.changeDueSatang / 100,
     status: sale.status === 'void' ? 'cancelled' : sale.status,
   }
@@ -124,20 +217,6 @@ function productsAreSame(current: Product[], next: Product[]) {
   )
 }
 
-function stockStatus(product: Product) {
-  const stockRatio = product.stockQuantity / Math.max(product.initialStockQuantity, 1)
-
-  if (product.stockQuantity === 0) {
-    return { label: 'หมดสต็อก', tone: 'empty' }
-  }
-
-  if (stockRatio <= 0.35) {
-    return { label: 'ใกล้หมด', tone: 'low' }
-  }
-
-  return { label: 'พร้อมขาย', tone: 'ready' }
-}
-
 function Field(props: {
   label: string
   children: ReactNode
@@ -151,75 +230,90 @@ function Field(props: {
 }
 
 export function PosCheckoutPage() {
-  const session = readSession()
+  const productQueryInputRef = useRef<HTMLInputElement>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
   const [cashReceived, setCashReceived] = useState(100)
-  const [receipts, setReceipts] = useState<Sale[]>([])
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+  const [lastSale, setLastSale] = useState<Sale | null>(null)
+  const [currentStore, setCurrentStore] = useState<CurrentStore>({ name: 'POS Grocery' })
   const [notice, setNotice] = useState('พร้อมขาย')
+  const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false)
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-  const changeDue = cashReceived - cartTotal
+  const hasCartItems = cart.length > 0
+  const displayCashReceived = hasCartItems ? cashReceived : 0
+  const changeDue = displayCashReceived - cartTotal
   const paymentStatusLabel =
-    changeDue < 0 ? 'ขาดอีก' : cartTotal > 0 && changeDue === 0 ? 'จ่ายพอดี' : 'เงินทอน'
-  const canCheckout = cart.length > 0 && cashReceived >= cartTotal
+    !hasCartItems ? 'รอสินค้า' : changeDue < 0 ? 'ขาดอีก' : changeDue === 0 ? 'จ่ายพอดี' : 'เงินทอน'
+  const canCheckout = hasCartItems && cashReceived >= cartTotal && !isCheckoutSubmitting
   const activeProducts = products.filter((product) => product.status === 'active')
-  const lastSale = receipts[0] ?? null
-  const canCancelReceipt =
-    session?.user.role === 'owner' || session?.user.role === 'admin'
+
+  function focusProductQuery() {
+    productQueryInputRef.current?.focus()
+  }
+
+  useEffect(() => {
+    focusProductQuery()
+  }, [])
 
   async function refreshProducts() {
-    const apiProducts = await apiGet<ApiProduct[]>('/products')
+    const apiProducts = await apiGet<ApiProduct[]>('/products?view=operation')
     setProducts((current) => {
       const nextProducts = mapApiProducts(apiProducts, current)
       return productsAreSame(current, nextProducts) ? current : nextProducts
     })
   }
 
-  async function refreshReceipts() {
-    const report = await apiGet<SalesReport>('/reports/sales')
-    setReceipts(report.sales.map(mapApiSale))
-  }
-
   useEffect(() => {
     let active = true
 
-    apiGet<ApiProduct[]>('/products')
-      .then((apiProducts) => {
-        if (active) {
+    function loadInitialPosData() {
+      const productsRequest = apiGet<ApiProduct[]>('/products?view=operation')
+      const storeRequest = apiGet<CurrentStore>('/store/current')
+
+      productsRequest
+        .then((apiProducts) => {
+          if (!active) {
+            return
+          }
+
           setProducts((current) => {
             const nextProducts = mapApiProducts(apiProducts, current)
             return productsAreSame(current, nextProducts) ? current : nextProducts
           })
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setNotice(error instanceof Error ? error.message : 'โหลดสินค้าไม่สำเร็จ')
-        }
-      })
+        })
+        .catch((error: unknown) => {
+          if (active) {
+            setNotice(error instanceof Error ? error.message : 'โหลดสินค้าไม่สำเร็จ')
+          }
+        })
 
-    return () => {
-      active = false
+      storeRequest
+        .then((store) => {
+          if (!active) {
+            return
+          }
+
+          setCurrentStore({
+            id: store.id,
+            address: store.address,
+            name: store.name || 'POS Grocery',
+            logoUrl: store.logoUrl,
+            phone: store.phone,
+          })
+          if (store.id) {
+            setCart(loadCartFromStorage(store.id))
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setCurrentStore({ name: 'POS Grocery' })
+          }
+        })
     }
-  }, [])
 
-  useEffect(() => {
-    let active = true
-
-    apiGet<SalesReport>('/reports/sales')
-      .then((report) => {
-        if (active) {
-          setReceipts(report.sales.map(mapApiSale))
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setNotice(error instanceof Error ? error.message : 'โหลดใบเสร็จไม่สำเร็จ')
-        }
-      })
+    loadInitialPosData()
 
     return () => {
       active = false
@@ -228,14 +322,27 @@ export function PosCheckoutPage() {
 
   useEffect(() => {
     writeCustomerDisplayPayload({
-      store: { name: 'POS Grocery' },
+      store: currentStore,
       cart,
       cartTotal,
-      cashReceived,
+      cashReceived: displayCashReceived,
       changeDue,
       lastSale,
     })
-  }, [cart, cartTotal, cashReceived, changeDue, lastSale])
+  }, [cart, cartTotal, displayCashReceived, changeDue, currentStore, lastSale])
+
+  useEffect(() => {
+    const storeId = currentStore.id
+    if (!storeId) {
+      return
+    }
+    const key = posCartStorageKey(storeId)
+    if (cart.length === 0) {
+      localStorage.removeItem(key)
+      return
+    }
+    localStorage.setItem(key, JSON.stringify(cart))
+  }, [cart, currentStore.id])
 
   function findProductByQuery(query: string) {
     const normalizedQuery = query.trim().toLowerCase()
@@ -267,7 +374,6 @@ export function PosCheckoutPage() {
       }
 
       return [
-        ...current,
         {
           productId: product.id,
           productName: product.name,
@@ -276,10 +382,12 @@ export function PosCheckoutPage() {
           quantity: 1,
           unitPrice: product.salePrice,
         },
+        ...current,
       ]
     })
     setProductQuery('')
     setNotice(`${product.name} added`)
+    focusProductQuery()
   }
 
   function handleProductQueryChange(value: string) {
@@ -300,7 +408,48 @@ export function PosCheckoutPage() {
     addProductToCart(product)
   }
 
+  function removeCartItem(productId: string) {
+    const productName = cart.find((item) => item.productId === productId)?.productName
+    setCart((current) => current.filter((item) => item.productId !== productId))
+    setNotice(productName ? `เอา ${productName} ออกจากตะกร้าแล้ว` : 'เอารายการออกจากตะกร้าแล้ว')
+    focusProductQuery()
+  }
+
+  function adjustCartItemQuantity(productId: string, delta: number) {
+    const cartItem = cart.find((item) => item.productId === productId)
+    const product = products.find((currentProduct) => currentProduct.id === productId)
+
+    if (!cartItem) {
+      return
+    }
+
+    const maxQuantity = product?.stockQuantity ?? cartItem.quantity
+    const nextQuantity = cartItem.quantity + delta
+
+    if (nextQuantity < 1) {
+      focusProductQuery()
+      return
+    }
+
+    if (nextQuantity > maxQuantity) {
+      setNotice('stock ไม่พอ')
+      focusProductQuery()
+      return
+    }
+
+    setCart((current) =>
+      current.map((item) =>
+        item.productId === productId ? { ...item, quantity: nextQuantity } : item,
+      ),
+    )
+    setNotice(`${cartItem.productName} จำนวน ${formatNumber(nextQuantity)}`)
+    focusProductQuery()
+  }
+
   async function checkout() {
+    if (isCheckoutSubmitting) {
+      return
+    }
     if (cart.length === 0) {
       setNotice('ตะกร้ายังว่าง')
       return
@@ -325,57 +474,46 @@ export function PosCheckoutPage() {
     }
 
     try {
+      setIsCheckoutSubmitting(true)
+      const soldCart = cart
       const sale = await apiPost<ApiSale>('/sales/checkout', {
-        barcodeItems: cart.map((item) => ({
+        barcodeItems: soldCart.map((item) => ({
           barcode: item.barcode,
           quantity: item.quantity,
         })),
         cashReceivedSatang: Math.round(cashReceived * 100),
         paymentMethod: 'cash',
       })
-      setReceipts((current) => [mapApiSale(sale), ...current])
+      setLastSale(mapApiSale(sale))
+      setProducts((current) =>
+        current.map((product) => {
+          const soldItem = soldCart.find((item) => item.productId === product.id)
+          return soldItem
+            ? { ...product, stockQuantity: Math.max(0, product.stockQuantity - soldItem.quantity) }
+            : product
+        }),
+      )
       setCart([])
       setNotice('ขายสำเร็จ')
-      await refreshProducts()
+      const completedSale = mapApiSale(sale)
+      void Swal.fire({
+        allowEscapeKey: false,
+        allowOutsideClick: false,
+        confirmButtonColor: '#15803d',
+        confirmButtonText: 'ยืนยัน',
+        html: buildSaleSummaryHtml(completedSale, soldCart),
+        icon: 'success',
+        title: 'บันทึกการขายเรียบร้อย',
+        width: 520,
+      })
+      void refreshProducts().catch((error: unknown) => {
+        setNotice(error instanceof Error ? error.message : 'โหลด stock ล่าสุดไม่สำเร็จ')
+      })
+      focusProductQuery()
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'ขายไม่สำเร็จ')
-    }
-  }
-
-  async function cancelSale(sale: Sale) {
-    if (!canCancelReceipt) {
-      setNotice('ไม่มีสิทธิ์ยกเลิกบิล')
-      return
-    }
-    if (sale.status === 'cancelled') {
-      return
-    }
-
-    const result = await Swal.fire({
-      cancelButtonText: 'ไม่ยกเลิก',
-      confirmButtonColor: '#b42318',
-      confirmButtonText: 'ยืนยันยกเลิก',
-      icon: 'warning',
-      showCancelButton: true,
-      text: `บิล ${sale.receiptNumber} จะถูกยกเลิกและคืน stock กลับเข้าคลัง`,
-      title: 'ยืนยันยกเลิกบิล',
-    })
-
-    if (!result.isConfirmed) {
-      return
-    }
-
-    try {
-      const cancelledSale = mapApiSale(await apiPost<ApiSale>(`/sales/${sale.id}/cancel`, {}))
-      setReceipts((current) =>
-        current.map((receipt) => (receipt.id === cancelledSale.id ? cancelledSale : receipt)),
-      )
-      setSelectedSale(cancelledSale)
-      setNotice('ยกเลิกบิลแล้ว')
-      await refreshProducts()
-      await refreshReceipts()
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'ยกเลิกบิลไม่สำเร็จ')
+    } finally {
+      setIsCheckoutSubmitting(false)
     }
   }
 
@@ -383,7 +521,6 @@ export function PosCheckoutPage() {
     <section className="route-page" aria-labelledby="pos-title">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Sales</p>
           <h1 id="pos-title">ขายสินค้า / Scan barcode</h1>
         </div>
         <div className="status-pill">{notice}</div>
@@ -394,12 +531,13 @@ export function PosCheckoutPage() {
           <h2 id="checkout-title">Checkout</h2>
           <div className="pos-scan-bar">
             <label className="field" htmlFor="pos-product-query">
-              <span>สแกนหรือค้นหาสินค้า</span>
               <input
+                aria-label="สแกนหรือค้นหาสินค้า"
                 autoComplete="off"
                 id="pos-product-query"
                 list="pos-product-options"
                 placeholder="สแกน barcode / QR หรือพิมพ์ชื่อสินค้า"
+                ref={productQueryInputRef}
                 value={productQuery}
                 onChange={(event) => handleProductQueryChange(event.target.value)}
                 onKeyDown={(event) => {
@@ -415,7 +553,7 @@ export function PosCheckoutPage() {
                 <option
                   key={product.id}
                   value={product.name}
-                >{`${product.barcode} - ${baht(product.salePrice)} บาท`}</option>
+                >{`${product.name} - ${product.barcode} - ${baht(product.salePrice)} บาท`}</option>
               ))}
             </datalist>
           </div>
@@ -430,28 +568,68 @@ export function PosCheckoutPage() {
                     <th scope="col">ราคา</th>
                     <th scope="col">จำนวน</th>
                     <th scope="col">ราคารวม</th>
+                    <th scope="col">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cart.map((item, index) => (
-                    <tr key={item.productId}>
-                      <td>{index + 1}</td>
-                      <td>
-                        {item.imageUrl ? (
-                          <img className="cart-product-image" src={item.imageUrl} alt="" />
-                        ) : (
-                          <span className="cart-product-image cart-product-image-empty" aria-label="ไม่มีรูป" />
-                        )}
-                      </td>
-                      <td>
-                        <strong>{item.productName}</strong>
-                        <span>{item.barcode}</span>
-                      </td>
-                      <td>{baht(item.unitPrice)}</td>
-                      <td>{item.quantity}</td>
-                      <td>{baht(item.quantity * item.unitPrice)}</td>
-                    </tr>
-                  ))}
+                  {cart.map((item, index) => {
+                    const product = products.find((currentProduct) => currentProduct.id === item.productId)
+                    const maxQuantity = product?.stockQuantity ?? item.quantity
+
+                    return (
+                      <tr key={item.productId}>
+                        <td>{formatNumber(index + 1)}</td>
+                        <td>
+                          {item.imageUrl ? (
+                            <img className="cart-product-image" src={item.imageUrl} alt="" />
+                          ) : (
+                            <span className="cart-product-image cart-product-image-empty" aria-label="ไม่มีรูป" />
+                          )}
+                        </td>
+                        <td>
+                          <strong>{item.productName}</strong>
+                          <span>{item.barcode}</span>
+                        </td>
+                        <td>{baht(item.unitPrice)}</td>
+                        <td>
+                          <div className="cart-quantity-control" aria-label={`ปรับจำนวน ${item.productName}`}>
+                            <button
+                              aria-label={`ลดจำนวน ${item.productName}`}
+                              className="quantity-step-button quantity-step-button-minus"
+                              disabled={item.quantity <= 1}
+                              onClick={() => adjustCartItemQuantity(item.productId, -1)}
+                              type="button"
+                            >
+                              -
+                            </button>
+                            <span className="cart-quantity-value" aria-label={`จำนวน ${item.productName}`}>
+                              {formatNumber(item.quantity)}
+                            </span>
+                            <button
+                              aria-label={`เพิ่มจำนวน ${item.productName}`}
+                              className="quantity-step-button quantity-step-button-plus"
+                              disabled={item.quantity >= maxQuantity}
+                              onClick={() => adjustCartItemQuantity(item.productId, 1)}
+                              type="button"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td>{baht(item.quantity * item.unitPrice)}</td>
+                        <td>
+                          <button
+                            aria-label={`เอา ${item.productName} ออกจากตะกร้า`}
+                            className="cart-remove-button"
+                            onClick={() => removeCartItem(item.productId)}
+                            type="button"
+                          >
+                            ลบ
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             ) : (
@@ -461,18 +639,29 @@ export function PosCheckoutPage() {
           <div className="pos-checkout-footer">
             <p className="total-line">ยอดรวม {baht(cartTotal)} บาท</p>
             <div className="payment-box">
-              <Field label="รับเงินสด">
-                <input
-                  min="0"
-                  type="number"
-                  value={cashReceived}
-                  onChange={(event) => setCashReceived(Number(event.target.value))}
-                />
-              </Field>
+              <div className="payment-input-row">
+                <Field label="รับเงินสด">
+                  <input
+                    disabled={!hasCartItems}
+                    min="0"
+                    type="number"
+                    value={displayCashReceived}
+                    onChange={(event) => setCashReceived(Number(event.target.value))}
+                  />
+                </Field>
+                <div
+                  aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
+                  className={!hasCartItems ? 'change-summary idle' : changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
+                  role="status"
+                >
+                  <span>{paymentStatusLabel}</span>
+                  <strong>{baht(Math.abs(changeDue))} บาท</strong>
+                </div>
+              </div>
               <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด">
                 <button
-                  className={cartTotal > 0 && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
-                  disabled={cartTotal <= 0}
+                  className={hasCartItems && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
+                  disabled={!hasCartItems}
                   type="button"
                   onClick={() => setCashReceived(cartTotal)}
                 >
@@ -480,154 +669,24 @@ export function PosCheckoutPage() {
                 </button>
                 {quickCashAmounts.map((amount) => (
                   <button
-                    className={cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
+                    className={hasCartItems && cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
+                    disabled={!hasCartItems}
                     key={amount}
                     type="button"
                     onClick={() => setCashReceived(amount)}
                   >
-                    {amount} บาท
+                    {formatNumber(amount)} บาท
                   </button>
                 ))}
               </div>
-              <div
-                aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
-                className={changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
-                role="status"
-              >
-                <span>{paymentStatusLabel}</span>
-                <strong>{baht(Math.abs(changeDue))} บาท</strong>
-              </div>
             </div>
             <button className="primary-button" disabled={!canCheckout} type="button" onClick={() => void checkout()}>
-              ชำระเงิน
+              {isCheckoutSubmitting ? 'กำลังบันทึก...' : 'ชำระเงิน'}
             </button>
           </div>
         </section>
 
-        <div className="pos-side-column">
-          <section className="panel receipt-panel pos-side-panel" aria-labelledby="receipt-title">
-            <h2 id="receipt-title">ใบเสร็จ</h2>
-            <div aria-label="รายการใบเสร็จล่าสุด" className="pos-scroll-area receipt-list" role="list">
-              {receipts.length > 0 ? (
-                receipts.map((receipt) => (
-                  <div className="receipt-row-wrap" key={receipt.receiptNumber} role="listitem">
-                    <button
-                      className={receipt.status === 'cancelled' ? 'receipt-row receipt-row-cancelled' : 'receipt-row'}
-                      type="button"
-                      onClick={() => setSelectedSale(receipt)}
-                    >
-                      <span>{receipt.receiptNumber}</span>
-                      <strong>{baht(receipt.total)} บาท</strong>
-                      <small>{receipt.status === 'cancelled' ? 'ยกเลิกแล้ว' : 'ขายสำเร็จ'}</small>
-                      <em>ดูรายละเอียดบิล</em>
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p className="empty-hint">ยังไม่มีบิลล่าสุด</p>
-              )}
-            </div>
-          </section>
-
-          <section className="panel pos-side-panel stock-panel" aria-labelledby="stock-after-sale-title">
-            <div className="stock-panel-header">
-              <div>
-                <h2 id="stock-after-sale-title">Stock หลังขาย</h2>
-                <span>{products.length} SKU พร้อมตรวจนับ</span>
-              </div>
-            </div>
-            <div
-              aria-label="รายการสินค้าคงเหลือหลังขาย"
-              className="pos-scroll-area stock-list"
-              role="list"
-            >
-              {products.length > 0 ? products.map((product) => {
-                const status = stockStatus(product)
-                const stockPercent = Math.min(
-                  100,
-                  Math.round((product.stockQuantity / Math.max(product.initialStockQuantity, 1)) * 100),
-                )
-
-                return (
-                  <article className={`stock-card stock-card-${status.tone}`} key={product.id} role="listitem">
-                    <div className="stock-card-main">
-                      <div className="stock-product">
-                        <strong>{product.name}</strong>
-                        <span>{product.barcode}</span>
-                      </div>
-                      <div className="stock-quantity">
-                        <strong>{product.stockQuantity}</strong>
-                        <span>คงเหลือ</span>
-                      </div>
-                    </div>
-                    <div className="stock-card-footer">
-                      <span className="stock-status">{status.label}</span>
-                      <span>{stockPercent}% ของตั้งต้น</span>
-                    </div>
-                    <div
-                      aria-label={`${product.name} คงเหลือ ${product.stockQuantity} จาก ${product.initialStockQuantity}`}
-                      aria-valuemax={product.initialStockQuantity}
-                      aria-valuemin={0}
-                      aria-valuenow={product.stockQuantity}
-                      className="stock-meter"
-                      role="progressbar"
-                    >
-                      <span style={{ width: `${stockPercent}%` }} />
-                    </div>
-                  </article>
-                )
-              }) : (
-                <p className="empty-hint">ยังไม่มีสินค้าในฐานข้อมูล</p>
-              )}
-            </div>
-          </section>
-        </div>
       </div>
-
-      {selectedSale ? (
-        <div className="modal-backdrop">
-          <section
-            aria-labelledby="receipt-modal-title"
-            aria-modal="true"
-            className="modal-panel receipt-modal"
-            role="dialog"
-          >
-            <div className="modal-header">
-              <h2 id="receipt-modal-title">รายละเอียดบิล {selectedSale.receiptNumber}</h2>
-              <button className="ghost-button compact" type="button" onClick={() => setSelectedSale(null)}>
-                ปิด
-              </button>
-            </div>
-            <div className="receipt-paper">
-              <strong>POS Grocery</strong>
-              <span>{selectedSale.receiptNumber}</span>
-              <span>{selectedSale.status === 'cancelled' ? 'ยกเลิกแล้ว' : 'ขายสำเร็จ'}</span>
-              {selectedSale.items.map((item) => (
-                <span key={item.productId}>
-                  {item.productName} x{item.quantity} = {baht(item.quantity * item.unitPrice)}
-                </span>
-              ))}
-              <strong>ยอดรวม {baht(selectedSale.total)} บาท</strong>
-              <strong>เงินทอน {baht(selectedSale.changeDue)} บาท</strong>
-              {selectedSale.cancelledBy ? <span>ยกเลิกโดย {selectedSale.cancelledBy}</span> : null}
-            </div>
-            <div className="modal-actions">
-              <button className="info-button compact" type="button" onClick={() => window.print()}>
-                Print receipt
-              </button>
-              {canCancelReceipt && selectedSale.status === 'completed' ? (
-                <button
-                  className="danger-button compact"
-                  type="button"
-                  onClick={() => void cancelSale(selectedSale)}
-                >
-                  ยกเลิกบิล
-                </button>
-              ) : null}
-            </div>
-          </section>
-        </div>
-      ) : null}
     </section>
   )
 }

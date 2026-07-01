@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { comparePassword } from "../auth/auth.service.js";
-import { seedInitialAdmin } from "./seed-admin.js";
-import { createInMemoryUserRepository } from "./user.repository.js";
+import { comparePassword } from "../auth/auth.service.ts";
+import { seedInitialAdmin } from "./seed-admin.ts";
+import { createInMemoryUserRepository } from "./user.repository.ts";
 
 describe("seedInitialAdmin", () => {
   it("creates the first store and owner user", async () => {

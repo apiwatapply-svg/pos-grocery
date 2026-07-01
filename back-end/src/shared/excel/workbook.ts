@@ -4,6 +4,15 @@ export type WorksheetColumn = {
   width: number;
 };
 
+type WorksheetInput = {
+  sheetName: string;
+  columns: WorksheetColumn[];
+  rows: Record<string, string | number | undefined>[];
+  title?: string;
+  metadataRows?: Array<[string, string | number | undefined]>;
+  summaryRows?: Array<[string, string | number | undefined]>;
+};
+
 type ZipEntry = {
   name: string;
   content: Buffer;
@@ -123,22 +132,35 @@ function cell(address: string, value: string | number | undefined, styleId = 1) 
   return `<c r="${address}" t="inlineStr" s="${styleId}"><is><t>${xml(value)}</t></is></c>`;
 }
 
-function worksheetXml(input: {
-  columns: WorksheetColumn[];
-  rows: Record<string, string | number | undefined>[];
-}) {
+function metadataRowXml(rowNumber: number, label: string, value: string | number | undefined, lastColumn: string) {
+  return `<row r="${rowNumber}">${cell(`A${rowNumber}`, label, 4)}${cell(`B${rowNumber}`, value, 1)}<c r="${lastColumn}${rowNumber}" s="1"/></row>`;
+}
+
+function worksheetXml(input: WorksheetInput) {
+  const reportRows = [...(input.metadataRows ?? []), ...(input.summaryRows ?? [])];
+  const hasReportHeader = Boolean(input.title || reportRows.length);
+  const tableHeaderRow = hasReportHeader ? reportRows.length + 3 : 1;
+  const firstDataRow = tableHeaderRow + 1;
+  const lastColumn = columnName(input.columns.length);
+  const lastRow = Math.max(tableHeaderRow, tableHeaderRow + input.rows.length);
   const cols = input.columns
     .map(
       (column, index) =>
         `<col min="${index + 1}" max="${index + 1}" width="${column.width}" customWidth="1"/>`,
     )
     .join("");
+  const titleRow = input.title
+    ? `<row r="1" ht="30" customHeight="1">${cell("A1", input.title, 3)}</row>`
+    : "";
+  const detailsRows = reportRows
+    .map(([label, value], index) => metadataRowXml(index + 2, label, value, lastColumn))
+    .join("");
   const headerCells = input.columns
-    .map((column, index) => cell(`${columnName(index + 1)}1`, column.header, 2))
+    .map((column, index) => cell(`${columnName(index + 1)}${tableHeaderRow}`, column.header, 2))
     .join("");
   const bodyRows = input.rows
     .map((row, rowIndex) => {
-      const excelRow = rowIndex + 2;
+      const excelRow = firstDataRow + rowIndex;
       const cells = input.columns
         .map((column, columnIndex) =>
           cell(`${columnName(columnIndex + 1)}${excelRow}`, row[column.key], 1),
@@ -147,21 +169,23 @@ function worksheetXml(input: {
       return `<row r="${excelRow}">${cells}</row>`;
     })
     .join("");
+  const mergeCells = input.title
+    ? `<mergeCells count="1"><mergeCell ref="A1:${lastColumn}1"/></mergeCells>`
+    : "";
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="${tableHeaderRow}" topLeftCell="A${firstDataRow}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
   <cols>${cols}</cols>
-  <sheetData><row r="1" ht="24" customHeight="1">${headerCells}</row>${bodyRows}</sheetData>
+  <sheetData>${titleRow}${detailsRows}<row r="${tableHeaderRow}" ht="24" customHeight="1">${headerCells}</row>${bodyRows}</sheetData>
+  ${mergeCells}
+  <autoFilter ref="A${tableHeaderRow}:${lastColumn}${lastRow}"/>
+  <pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>
   <pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>
 </worksheet>`;
 }
 
-export async function createStyledWorkbookBuffer(input: {
-  sheetName: string;
-  columns: WorksheetColumn[];
-  rows: Record<string, string | number | undefined>[];
-}): Promise<Buffer> {
+export async function createStyledWorkbookBuffer(input: WorksheetInput): Promise<Buffer> {
   const entries: ZipEntry[] = [
     {
       name: "[Content_Types].xml",
@@ -219,11 +243,11 @@ export async function createStyledWorkbookBuffer(input: {
       name: "xl/styles.xml",
       content: Buffer.from(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts>
-  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/><bgColor indexed="64"/></patternFill></fill></fills>
+  <fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="18"/><name val="Calibri"/></font><font><b/><color rgb="FF064E3B"/><sz val="11"/><name val="Calibri"/></font></fonts>
+  <fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFF6F0"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDF7E8"/><bgColor indexed="64"/></patternFill></fill></fills>
   <borders count="2"><border/><border><left style="thin"><color rgb="FFD1D5DB"/></left><right style="thin"><color rgb="FFD1D5DB"/></right><top style="thin"><color rgb="FFD1D5DB"/></top><bottom style="thin"><color rgb="FFD1D5DB"/></bottom></border></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="1" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs>
+  <cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="1" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs>
 </styleSheet>`),
     },
     {

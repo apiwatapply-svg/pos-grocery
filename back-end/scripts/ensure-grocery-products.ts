@@ -2,10 +2,18 @@ import { env } from "../src/config/env.js";
 import { defaultUserRepository, type ProductRecord } from "../src/modules/users/user.repository.js";
 import {
   buildSeedProductImage,
-  demoSeedImageProducts,
   grocerySeedProducts,
+  originalSeedImageProducts,
   type GrocerySeedProduct,
 } from "./product-seed-images.js";
+
+function getSeedCloudName() {
+  if (!env.CLOUDINARY_CLOUD_NAME) {
+    throw new Error("CLOUDINARY_CLOUD_NAME is required to seed product image metadata.");
+  }
+
+  return env.CLOUDINARY_CLOUD_NAME;
+}
 
 async function ensureProductImage(product: ProductRecord, seedProduct: GrocerySeedProduct) {
   if (product.images.length > 0) {
@@ -14,7 +22,7 @@ async function ensureProductImage(product: ProductRecord, seedProduct: GrocerySe
 
   const image = await defaultUserRepository.addProductImage({
     productId: product.id,
-    ...buildSeedProductImage(seedProduct, env.CLOUDINARY_CLOUD_NAME ?? "demo"),
+    ...buildSeedProductImage(seedProduct, getSeedCloudName()),
   });
 
   if (!image) {
@@ -48,7 +56,6 @@ async function main() {
         storeId: store.id,
         name: product.name,
         barcode: product.barcode,
-        sku: product.sku,
         unit: product.unit,
         costPriceSatang: product.costPriceSatang,
         salePriceSatang: product.salePriceSatang,
@@ -75,7 +82,7 @@ async function main() {
     }
   }
 
-  for (const product of demoSeedImageProducts) {
+  for (const product of originalSeedImageProducts) {
     const existing = await defaultUserRepository.findProductByBarcode(store.id, product.barcode);
 
     if (!existing) {

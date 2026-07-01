@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { AppError } from "../../shared/errors/app-error.js";
-import type { UserRecord } from "../users/user.repository.js";
+import { AppError } from "../../shared/errors/app-error.ts";
+import type { UserRecord } from "../users/user.repository.ts";
 
 export type AuthTokenPayload = {
   sub: string;
@@ -34,15 +34,18 @@ export function createAuthToken(user: UserRecord, jwtSecret: string): string {
       role: user.role,
     },
     jwtSecret,
-    {
-      expiresIn: "8h",
-      subject: user.id,
-    },
+    { subject: user.id },
   );
 }
 
 export function verifyAuthToken(token: string, jwtSecret: string): AuthTokenPayload {
-  const payload = jwt.verify(token, jwtSecret);
+  let payload: string | jwt.JwtPayload;
+
+  try {
+    payload = jwt.verify(token, jwtSecret);
+  } catch {
+    throw new AppError(401, "INVALID_TOKEN", "Invalid authentication token.");
+  }
 
   if (typeof payload === "string" || !payload.sub) {
     throw new AppError(401, "INVALID_TOKEN", "Invalid authentication token.");

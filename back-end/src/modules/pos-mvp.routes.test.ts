@@ -1,8 +1,8 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../app.js";
-import { createAuthToken, hashPassword } from "./auth/auth.service.js";
-import { createInMemoryUserRepository, type UserRecord } from "./users/user.repository.js";
+import { createApp } from "../app.ts";
+import { createAuthToken, hashPassword } from "./auth/auth.service.ts";
+import { createInMemoryUserRepository, type UserRecord } from "./users/user.repository.ts";
 
 const jwtSecret = "test-secret-that-is-long-enough-for-pos-mvp-tests";
 
@@ -38,6 +38,31 @@ function parseBinary(
   const chunks: Buffer[] = [];
   response.on("data", (chunk: Buffer) => chunks.push(chunk));
   response.on("end", () => callback(null, Buffer.concat(chunks)));
+}
+
+function zipEntryText(buffer: Buffer, entryName: string) {
+  let offset = 0;
+
+  while (offset < buffer.length) {
+    if (buffer.readUInt32LE(offset) !== 0x04034b50) {
+      break;
+    }
+
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraFieldLength = buffer.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + fileNameLength + extraFieldLength;
+    const name = buffer.subarray(nameStart, nameStart + fileNameLength).toString("utf8");
+
+    if (name === entryName) {
+      return buffer.subarray(dataStart, dataStart + compressedSize).toString("utf8");
+    }
+
+    offset = dataStart + compressedSize;
+  }
+
+  throw new Error(`Missing zip entry ${entryName}`);
 }
 
 describe("POS Grocery MVP API", () => {
@@ -99,7 +124,6 @@ describe("POS Grocery MVP API", () => {
       .send({
         name: "Instant Noodles",
         barcode: "8850001000011",
-        sku: "NOODLE-001",
         unit: "pack",
         costPriceSatang: 700,
         salePriceSatang: 1200,
@@ -154,6 +178,32 @@ describe("POS Grocery MVP API", () => {
     expect(counted.status).toBe(201);
     expect(counted.body.data.product.stockQuantity).toBe(22);
 
+    const transactions = await request(app)
+      .get("/api/inventory/transactions")
+      .set("Authorization", authHeader(owner));
+
+    expect(transactions.status).toBe(200);
+    expect(transactions.body.data).toEqual([
+      expect.objectContaining({
+        productId: product.body.data.id,
+        productName: "Instant Noodles",
+        barcode: "8850001000011",
+        type: "count",
+        quantityChange: -2,
+        balanceAfterChange: 22,
+        createdBy: "Owner",
+      }),
+      expect.objectContaining({
+        productId: product.body.data.id,
+        productName: "Instant Noodles",
+        barcode: "8850001000011",
+        type: "receive",
+        quantityChange: 24,
+        balanceAfterChange: 24,
+        createdBy: "Owner",
+      }),
+    ]);
+
     const exported = await request(app)
       .get("/api/inventory/export.xlsx")
       .set("Authorization", authHeader(owner))
@@ -165,6 +215,8 @@ describe("POS Grocery MVP API", () => {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     expect(exported.body.length).toBeGreaterThan(1000);
+    expect(exported.body.toString("utf8")).toContain("อันดับ");
+    expect(exported.body.toString("utf8")).not.toContain("SKU");
   });
 
   it("checks out barcode sales, deducts stock, returns receipt, and reports dashboard data", async () => {
@@ -202,7 +254,11 @@ describe("POS Grocery MVP API", () => {
       });
 
     expect(sale.status).toBe(201);
+    const expectedUnixSeconds = Math.floor(
+      new Date("2026-06-28T09:30:00.000Z").getTime() / 1000,
+    );
     expect(sale.body.data).toMatchObject({
+      receiptNumber: `R-${expectedUnixSeconds}`,
       subtotalSatang: 2100,
       totalSatang: 2100,
       cashReceivedSatang: 5000,
@@ -231,6 +287,18 @@ describe("POS Grocery MVP API", () => {
     const productsAfterCancel = await request(app).get("/api/products").set("Authorization", authHeader(owner));
     expect(productsAfterCancel.body.data[0].stockQuantity).toBe(10);
 
+    const activatedSale = await request(app)
+      .post(`/api/sales/${sale.body.data.id}/activate`)
+      .set("Authorization", authHeader(owner))
+      .send({});
+
+    expect(activatedSale.status).toBe(200);
+    expect(activatedSale.body.data.status).toBe("completed");
+
+    const productsAfterActivate = await request(app).get("/api/products").set("Authorization", authHeader(owner));
+    expect(productsAfterActivate.body.data[0].stockQuantity).toBe(7);
+    expect(productsAfterActivate.body.data[0].averageMonthlySalesQuantity).toBe(3);
+
     const receipt = await request(app)
       .get(`/api/sales/${sale.body.data.id}/receipt`)
       .set("Authorization", authHeader(owner));
@@ -245,19 +313,67 @@ describe("POS Grocery MVP API", () => {
 
     expect(report.status).toBe(200);
     expect(report.body.data.summary).toMatchObject({
-      orderCount: 0,
-      totalSalesSatang: 0,
-      itemsSold: 0,
+      orderCount: 1,
+      totalSalesSatang: 2100,
+      itemsSold: 3,
     });
-    expect(report.body.data.sales[0].status).toBe("void");
+    expect(report.body.data.productSales[0]).toMatchObject({
+      productName: "Drinking Water",
+      quantity: 3,
+      totalSalesSatang: 2100,
+    });
+
+    const productHistory = await request(app)
+      .get(
+        `/api/reports/products/${product.body.data.id}/sales-history?from=2026-06-27T00:00:00.000Z&to=2026-06-29T23:59:59.999Z`,
+      )
+      .set("Authorization", authHeader(owner));
+
+    expect(productHistory.status).toBe(200);
+    expect(productHistory.body.data).toEqual({
+      productId: product.body.data.id,
+      rows: [
+        {
+          date: "2026-06-27",
+          quantity: 0,
+          totalSalesSatang: 0,
+          totalCostSatang: 0,
+          profitSatang: 0,
+          profitMarginPercent: 0,
+        },
+        {
+          date: "2026-06-28",
+          quantity: 3,
+          totalSalesSatang: 2100,
+          totalCostSatang: 1200,
+          profitSatang: 900,
+          profitMarginPercent: 42.86,
+        },
+        {
+          date: "2026-06-29",
+          quantity: 0,
+          totalSalesSatang: 0,
+          totalCostSatang: 0,
+          profitSatang: 0,
+          profitMarginPercent: 0,
+        },
+      ],
+    });
 
     const dashboard = await request(app)
       .get("/api/reports/dashboard?from=2026-06-28T00:00:00.000Z&to=2026-06-28T23:59:59.999Z")
       .set("Authorization", authHeader(owner));
 
     expect(dashboard.status).toBe(200);
-    expect(dashboard.body.data.bestSellers).toEqual([]);
-    expect(dashboard.body.data.bestTimeSlots).toEqual([]);
+    expect(dashboard.body.data.bestSellers[0]).toMatchObject({
+      productName: "Drinking Water",
+      quantity: 3,
+      totalSalesSatang: 2100,
+    });
+    expect(dashboard.body.data.bestTimeSlots[0]).toMatchObject({
+      orderCount: 1,
+      totalSalesSatang: 2100,
+    });
 
     const exported = await request(app)
       .get("/api/reports/export.xlsx?from=2026-06-28T00:00:00.000Z&to=2026-06-28T23:59:59.999Z")
@@ -270,6 +386,24 @@ describe("POS Grocery MVP API", () => {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     expect(exported.body.length).toBeGreaterThan(1000);
+    const worksheet = zipEntryText(exported.body, "xl/worksheets/sheet1.xml");
+    const styles = zipEntryText(exported.body, "xl/styles.xml");
+    expect(worksheet).toContain("รายงานยอดขายรายสินค้า");
+    expect(worksheet).toContain("ช่วงวันที่");
+    expect(worksheet).toContain("สรุปยอดขาย");
+    expect(worksheet).toContain("ยอดขายรวม");
+    expect(worksheet).toContain("กำไรรวม");
+    expect(worksheet).toContain("<autoFilter ref=");
+    expect(worksheet).toContain("<pageMargins");
+    expect(styles).toContain("<borders count=");
+    expect(styles).toContain("style=\"thin\"");
+    expect(worksheet).toContain("Product");
+    expect(worksheet).toContain("Barcode");
+    expect(worksheet).toContain("Drinking Water");
+    expect(worksheet).toContain("8850002000010");
+    expect(worksheet).toContain("3");
+    expect(worksheet).toContain("21");
+    expect(worksheet).not.toContain("Receipt");
   });
 
   it("reports cost, profit, and margin for each completed bill", async () => {
@@ -286,6 +420,17 @@ describe("POS Grocery MVP API", () => {
         salePriceSatang: 700,
         status: "active",
       });
+    const premiumSnack = await request(app)
+      .post("/api/products")
+      .set("Authorization", authHeader(owner))
+      .send({
+        name: "Premium Snack",
+        barcode: "8850003000028",
+        unit: "pack",
+        costPriceSatang: 100,
+        salePriceSatang: 500,
+        status: "active",
+      });
 
     await request(app)
       .post("/api/inventory/receive")
@@ -295,6 +440,14 @@ describe("POS Grocery MVP API", () => {
         quantity: 10,
         unitCostSatang: 400,
       });
+    await request(app)
+      .post("/api/inventory/receive")
+      .set("Authorization", authHeader(owner))
+      .send({
+        productId: premiumSnack.body.data.id,
+        quantity: 10,
+        unitCostSatang: 100,
+      });
 
     await request(app)
       .post("/api/sales/checkout")
@@ -303,7 +456,16 @@ describe("POS Grocery MVP API", () => {
         barcodeItems: [{ barcode: "8850002000027", quantity: 3 }],
         cashReceivedSatang: 2100,
         paymentMethod: "cash",
-        soldAt: "2026-06-28T10:15:00.000Z",
+        soldAt: "2026-06-28T01:15:00.000Z",
+      });
+    await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850003000028", quantity: 2 }],
+        cashReceivedSatang: 1000,
+        paymentMethod: "cash",
+        soldAt: "2026-06-28T01:45:00.000Z",
       });
 
     const report = await request(app)
@@ -312,20 +474,52 @@ describe("POS Grocery MVP API", () => {
 
     expect(report.status).toBe(200);
     expect(report.body.data.summary).toMatchObject({
-      orderCount: 1,
+      orderCount: 2,
+      totalSalesSatang: 3100,
+      itemsSold: 5,
+      totalCostSatang: 1400,
+      profitSatang: 1700,
+      profitMarginPercent: 54.84,
+    });
+    expect(report.body.data.productSales[0]).toMatchObject({
+      productName: "Profit Water",
+      billCount: 1,
+      quantity: 3,
       totalSalesSatang: 2100,
-      itemsSold: 3,
       totalCostSatang: 1200,
       profitSatang: 900,
       profitMarginPercent: 42.86,
     });
-    expect(report.body.data.sales[0]).toMatchObject({
-      billNumber: 1,
-      orderCount: 1,
-      itemCount: 3,
-      totalCostSatang: 1200,
+
+    const dashboard = await request(app)
+      .get("/api/reports/dashboard?from=2026-06-28T00:00:00.000Z&to=2026-06-28T23:59:59.999Z")
+      .set("Authorization", authHeader(owner));
+
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.data.bestSellers[0]).toMatchObject({
+      productName: "Profit Water",
+      quantity: 3,
+      totalSalesSatang: 2100,
+    });
+    expect(dashboard.body.data.bestProfitProducts[0]).toMatchObject({
+      productName: "Profit Water",
       profitSatang: 900,
       profitMarginPercent: 42.86,
     });
+    expect(dashboard.body.data.hourlySales[0]).toMatchObject({
+      hour: 8,
+      orderCount: 2,
+      totalSalesSatang: 3100,
+    });
+    expect(dashboard.body.data.hourlySales[0].items).toEqual([
+      expect.objectContaining({
+        productName: "Profit Water",
+        quantity: 3,
+      }),
+      expect.objectContaining({
+        productName: "Premium Snack",
+        quantity: 2,
+      }),
+    ]);
   });
 });

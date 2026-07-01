@@ -1,0 +1,10 @@
+CREATE INDEX IF NOT EXISTS "User_storeId_status_idx" ON "User"("storeId", "status");
+CREATE INDEX IF NOT EXISTS "Product_storeId_status_name_idx" ON "Product"("storeId", "status", "name");
+CREATE INDEX IF NOT EXISTS "Product_storeId_name_idx" ON "Product"("storeId", "name");
+CREATE INDEX IF NOT EXISTS "ProductImage_productId_idx" ON "ProductImage"("productId");
+CREATE INDEX IF NOT EXISTS "InventoryTransaction_productId_createdAt_idx" ON "InventoryTransaction"("productId", "createdAt");
+CREATE INDEX IF NOT EXISTS "Sale_storeId_soldAt_idx" ON "Sale"("storeId", "soldAt");
+CREATE INDEX IF NOT EXISTS "Sale_storeId_status_soldAt_idx" ON "Sale"("storeId", "status", "soldAt");
+CREATE INDEX IF NOT EXISTS "SaleItem_saleId_idx" ON "SaleItem"("saleId");
+CREATE INDEX IF NOT EXISTS "SaleItem_productId_idx" ON "SaleItem"("productId");
+CREATE INDEX IF NOT EXISTS "SaleItem_productId_saleId_idx" ON "SaleItem"("productId", "saleId");

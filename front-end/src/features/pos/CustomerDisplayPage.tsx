@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatNumber } from '../../lib/format/number'
 import {
   baht,
   buildCustomerDisplayHtml,
@@ -9,6 +10,78 @@ import {
   hasSecondScreen,
   readCustomerDisplayPreference,
 } from './customerDisplay'
+import { displayReceiptNumber } from '../receipts/receiptNumber'
+
+type PlacementScreen = {
+  availHeight?: number
+  availLeft?: number
+  availTop?: number
+  availWidth?: number
+  height?: number
+  isPrimary?: boolean
+  left?: number
+  top?: number
+  width?: number
+}
+
+type ScreenDetails = {
+  currentScreen?: PlacementScreen
+  screens: PlacementScreen[]
+}
+
+type WindowWithScreenDetails = Window & {
+  getScreenDetails?: () => Promise<ScreenDetails>
+}
+
+function placementNumber(value: number | undefined, fallback: number) {
+  return Number.isFinite(value) ? Number(value) : fallback
+}
+
+async function customerDisplayWindowOptions(hasCustomerScreen: boolean) {
+  const fallback = { features: 'popup,width=900,height=700', usesSecondScreen: false }
+
+  if (!hasCustomerScreen) {
+    return fallback
+  }
+
+  const windowWithScreenDetails = window as WindowWithScreenDetails
+
+  if (!windowWithScreenDetails.getScreenDetails) {
+    return fallback
+  }
+
+  try {
+    const screenDetails = await windowWithScreenDetails.getScreenDetails()
+    const currentScreen = screenDetails.currentScreen
+    const secondScreen = screenDetails.screens.find((screen) => {
+      if (screen.isPrimary === false) {
+        return true
+      }
+
+      if (!currentScreen) {
+        return false
+      }
+
+      return screen.left !== currentScreen.left || screen.top !== currentScreen.top
+    })
+
+    if (!secondScreen) {
+      return fallback
+    }
+
+    const left = placementNumber(secondScreen.availLeft ?? secondScreen.left, 0)
+    const top = placementNumber(secondScreen.availTop ?? secondScreen.top, 0)
+    const width = placementNumber(secondScreen.availWidth ?? secondScreen.width, 900)
+    const height = placementNumber(secondScreen.availHeight ?? secondScreen.height, 700)
+
+    return {
+      features: `popup,left=${left},top=${top},width=${width},height=${height}`,
+      usesSecondScreen: true,
+    }
+  } catch {
+    return fallback
+  }
+}
 
 export function CustomerDisplayPage() {
   const customerDisplayWindowRef = useRef<Window | null>(null)
@@ -17,6 +90,8 @@ export function CustomerDisplayPage() {
     readCustomerDisplayPreference,
   )
   const [displayPayload, setDisplayPayload] = useState(readCustomerDisplayPayload)
+  const paymentBalanceLabel = displayPayload.changeDue < 0 ? 'ยังขาดอีก' : 'เงินทอน'
+  const paymentBalanceAmount = Math.abs(displayPayload.changeDue)
 
   useEffect(() => {
     function refreshDisplayPayload(event?: Event) {
@@ -71,29 +146,20 @@ export function CustomerDisplayPage() {
   }, [customerDisplayEnabled])
 
   function refreshCustomerDisplayAvailability() {
-    const nextHasCustomerScreen = hasSecondScreen()
-    setHasCustomerScreen(nextHasCustomerScreen)
-
-    if (!nextHasCustomerScreen) {
-      localStorage.removeItem(customerDisplayStorageKey)
-      setCustomerDisplayEnabled(false)
-    }
+    setHasCustomerScreen(hasSecondScreen())
   }
 
-  function openCustomerDisplayWindow() {
-    if (!hasCustomerScreen) {
-      return
-    }
-
+  async function openCustomerDisplayWindow() {
     if (!customerDisplayEnabled) {
       setCustomerDisplayEnabled(true)
       localStorage.setItem(customerDisplayStorageKey, 'true')
     }
 
+    const { features, usesSecondScreen } = await customerDisplayWindowOptions(hasCustomerScreen)
     const displayWindow = window.open(
       '',
       'pos-grocery-customer-display',
-      'popup,width=900,height=700',
+      features,
     )
 
     if (!displayWindow) {
@@ -113,6 +179,15 @@ export function CustomerDisplayPage() {
       }),
     )
     displayWindow.document.close()
+    displayWindow.focus?.()
+
+    if (usesSecondScreen) {
+      const requestFullscreen = displayWindow.document.documentElement.requestFullscreen
+
+      if (requestFullscreen) {
+        void requestFullscreen.call(displayWindow.document.documentElement).catch(() => undefined)
+      }
+    }
   }
 
   return (
@@ -127,11 +202,7 @@ export function CustomerDisplayPage() {
         <div>
           <h2 id="customer-display-control-title">หน้าจอลูกค้า</h2>
           <p>{hasCustomerScreen ? 'สถานะจอ: พบจอที่สอง' : 'สถานะจอ: ยังไม่พบจอที่สอง'}</p>
-          <p>
-            {hasCustomerScreen
-              ? 'พร้อมแสดงหน้าจอสำหรับลูกค้าเมื่อมีจอที่สอง'
-              : 'ใช้ได้เมื่อพบการต่อ 2 จอเท่านั้น'}
-          </p>
+          <p>เปิดได้ทันที และจะย้ายไปจอที่สองอัตโนมัติเมื่อระบบพบจอที่สอง</p>
         </div>
         <div className="customer-display-actions">
           <button
@@ -143,8 +214,7 @@ export function CustomerDisplayPage() {
           </button>
           <button
             className="info-button"
-            disabled={!hasCustomerScreen}
-            onClick={openCustomerDisplayWindow}
+            onClick={() => void openCustomerDisplayWindow()}
             type="button"
           >
             เปิดหน้าต่างจอลูกค้า
@@ -172,10 +242,10 @@ export function CustomerDisplayPage() {
                 <tbody>
                   {displayPayload.cart.map((item, index) => (
                     <tr key={item.productName}>
-                      <td>{index + 1}</td>
+                      <td>{formatNumber(index + 1)}</td>
                       <td>{item.productName}</td>
                       <td>{baht(item.unitPrice)} บาท</td>
-                      <td>{item.quantity}</td>
+                      <td>{formatNumber(item.quantity)}</td>
                       <td>{baht(item.quantity * item.unitPrice)} บาท</td>
                     </tr>
                   ))}
@@ -190,10 +260,10 @@ export function CustomerDisplayPage() {
               ยอดที่ต้องชำระ {baht(displayPayload.cartTotal)} บาท
             </strong>
             <span>รับเงิน {baht(displayPayload.cashReceived)} บาท</span>
-            <span>เงินทอน {baht(Math.max(displayPayload.changeDue, 0))} บาท</span>
+            <span>{paymentBalanceLabel} {baht(paymentBalanceAmount)} บาท</span>
           </div>
           {displayPayload.lastSale ? (
-            <span>บิลล่าสุด {displayPayload.lastSale.receiptNumber}</span>
+            <span>บิลล่าสุด {displayReceiptNumber(displayPayload.lastSale.receiptNumber)}</span>
           ) : null}
         </section>
       ) : null}

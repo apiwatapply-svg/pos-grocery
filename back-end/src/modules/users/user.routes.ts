@@ -1,12 +1,13 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../auth/auth.middleware.js";
+import { requireAuth, requireRole } from "../auth/auth.middleware.ts";
+import { readCacheMiddleware } from "../../shared/middleware/read-cache.middleware.ts";
 import {
   createUserController,
   deleteUserController,
   listUsersController,
   updateUserController,
-} from "./user.controller.js";
-import type { UserRepository } from "./user.repository.js";
+} from "./user.controller.ts";
+import type { UserRepository } from "./user.repository.ts";
 
 export function createUserRouter(deps?: {
   repository?: UserRepository;
@@ -16,7 +17,7 @@ export function createUserRouter(deps?: {
   const ownerOrAdmin = ["owner", "admin"] as const;
 
   router.use(requireAuth(deps), requireRole([...ownerOrAdmin]));
-  router.get("/", listUsersController(deps));
+  router.get("/", readCacheMiddleware(), listUsersController(deps));
   router.post("/", createUserController(deps));
   router.patch("/:id", updateUserController(deps));
   router.delete("/:id", deleteUserController(deps));

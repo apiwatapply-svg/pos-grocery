@@ -1,9 +1,9 @@
 import type { RequestHandler } from "express";
-import { AppError } from "../../shared/errors/app-error.js";
-import type { AuthenticatedUser } from "../auth/auth.middleware.js";
-import { hashPassword, toPublicUser } from "../auth/auth.service.js";
-import { createUserSchema, updateUserSchema } from "./user.schemas.js";
-import { defaultUserRepository, type UserRepository } from "./user.repository.js";
+import { AppError } from "../../shared/errors/app-error.ts";
+import type { AuthenticatedUser } from "../auth/auth.middleware.ts";
+import { hashPassword, toPublicUser } from "../auth/auth.service.ts";
+import { createUserSchema, updateUserSchema } from "./user.schemas.ts";
+import { defaultUserRepository, type UserRepository } from "./user.repository.ts";
 
 function requireLocalUser(response: Parameters<RequestHandler>[1]) {
   const user = response.locals.authUser as AuthenticatedUser | undefined;
@@ -15,13 +15,38 @@ function requireLocalUser(response: Parameters<RequestHandler>[1]) {
   return user;
 }
 
+async function resolveWritableStoreId(
+  repository: UserRepository,
+  authUser: AuthenticatedUser,
+  requestedStoreId: string | undefined,
+) {
+  if (authUser.role !== "admin") {
+    return authUser.storeId;
+  }
+
+  const storeId = requestedStoreId ?? authUser.storeId;
+  const store = await repository.findStoreById(storeId);
+
+  if (!store) {
+    throw new AppError(404, "STORE_NOT_FOUND", "Store not found.");
+  }
+
+  return storeId;
+}
+
+function canManageUser(authUser: AuthenticatedUser, target: { storeId: string }) {
+  return authUser.role === "admin" || target.storeId === authUser.storeId;
+}
+
 export function listUsersController(deps?: { repository?: UserRepository }): RequestHandler {
   const repository = deps?.repository ?? defaultUserRepository;
 
   return async (_request, response, next) => {
     try {
       const user = requireLocalUser(response);
-      const users = await repository.listUsers(user.storeId);
+      const users = user.role === "admin"
+        ? await repository.listAllUsers()
+        : await repository.listUsers(user.storeId);
 
       response.json({ success: true, data: users.map(toPublicUser) });
     } catch (error) {
@@ -42,13 +67,14 @@ export function createUserController(deps?: { repository?: UserRepository }): Re
         throw new AppError(400, "VALIDATION_ERROR", "User data is invalid.");
       }
 
+      const storeId = await resolveWritableStoreId(repository, user, result.data.storeId);
       const existing = await repository.findUserByUsername(result.data.username);
-      if (existing?.storeId === user.storeId) {
+      if (existing?.storeId === storeId) {
         throw new AppError(409, "USERNAME_EXISTS", "Username already exists.");
       }
 
       const created = await repository.createUser({
-        storeId: user.storeId,
+        storeId,
         username: result.data.username,
         passwordHash: await hashPassword(result.data.password),
         displayName: result.data.displayName,
@@ -77,13 +103,17 @@ export function updateUserController(deps?: { repository?: UserRepository }): Re
 
       const userId = String(request.params.id);
       const target = await repository.findUserById(userId);
-      if (!target || target.storeId !== authUser.storeId) {
+      if (!target || !canManageUser(authUser, target)) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found.");
       }
 
-      const { password, ...rest } = result.data;
+      const { password, storeId, ...rest } = result.data;
+      const nextStoreId = storeId
+        ? await resolveWritableStoreId(repository, authUser, storeId)
+        : undefined;
       const updated = await repository.updateUser(userId, {
         ...rest,
+        ...(nextStoreId ? { storeId: nextStoreId } : {}),
         ...(password ? { passwordHash: await hashPassword(password) } : {}),
       });
 
@@ -106,7 +136,7 @@ export function deleteUserController(deps?: { repository?: UserRepository }): Re
       const authUser = requireLocalUser(response);
       const userId = String(request.params.id);
       const target = await repository.findUserById(userId);
-      if (!target || target.storeId !== authUser.storeId) {
+      if (!target || !canManageUser(authUser, target)) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found.");
       }
 

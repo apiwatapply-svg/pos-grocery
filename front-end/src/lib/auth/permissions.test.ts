@@ -14,7 +14,6 @@ const routes: AppRouteId[] = [
   'inventory-receiving',
   'stock-counting',
   'sales-report',
-  'best-sellers-report',
   'store-settings',
   'user-management',
 ]
@@ -25,7 +24,12 @@ describe('route permissions', () => {
   })
 
   it.each([
-    ['owner', routes],
+    [
+      'owner',
+      routes.filter(
+        (route) => route !== 'store-settings' && route !== 'user-management',
+      ),
+    ],
     ['admin', routes],
     ['cashier', ['pos', 'customer-display', 'receipts', 'receipt-detail', 'products']],
     ['stock', ['dashboard', 'products', 'inventory', 'inventory-receiving', 'stock-counting']],

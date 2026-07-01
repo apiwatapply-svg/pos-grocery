@@ -1,9 +1,9 @@
 import type { RequestHandler } from "express";
-import { createStyledWorkbookBuffer, sendWorkbook } from "../../shared/excel/workbook.js";
-import { AppError } from "../../shared/errors/app-error.js";
-import type { AuthenticatedUser } from "../auth/auth.middleware.js";
-import { defaultUserRepository, type UserRepository } from "../users/user.repository.js";
-import { countInventorySchema, receiveInventorySchema } from "./inventory.schemas.js";
+import { createStyledWorkbookBuffer, sendWorkbook } from "../../shared/excel/workbook.ts";
+import { AppError } from "../../shared/errors/app-error.ts";
+import type { AuthenticatedUser } from "../auth/auth.middleware.ts";
+import { defaultUserRepository, type UserRepository } from "../users/user.repository.ts";
+import { countInventorySchema, receiveInventorySchema } from "./inventory.schemas.ts";
 
 function requireLocalUser(response: Parameters<RequestHandler>[1]) {
   const user = response.locals.authUser as AuthenticatedUser | undefined;
@@ -13,6 +13,22 @@ function requireLocalUser(response: Parameters<RequestHandler>[1]) {
   }
 
   return user;
+}
+
+function inventoryTransactionResponse(
+  transaction: Awaited<ReturnType<UserRepository["listInventoryTransactions"]>>[number],
+) {
+  return {
+    id: transaction.id,
+    productId: transaction.productId,
+    productName: transaction.product.name,
+    barcode: transaction.product.barcode,
+    type: transaction.type,
+    quantityChange: transaction.quantityChange,
+    balanceAfterChange: transaction.balanceAfterChange,
+    createdAt: transaction.createdAt,
+    createdBy: transaction.createdBy?.displayName ?? transaction.createdBy?.username,
+  };
 }
 
 export function receiveInventoryController(deps?: { repository?: UserRepository }): RequestHandler {
@@ -81,6 +97,25 @@ export function countInventoryController(deps?: { repository?: UserRepository })
   };
 }
 
+export function listInventoryTransactionsController(deps?: { repository?: UserRepository }): RequestHandler {
+  const repository = deps?.repository ?? defaultUserRepository;
+
+  return async (request, response, next) => {
+    try {
+      const user = requireLocalUser(response);
+      const requestedLimit = typeof request.query.limit === "string" ? Number(request.query.limit) : 50;
+      const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 100)
+        : 50;
+      const transactions = await repository.listInventoryTransactions(user.storeId, { limit });
+
+      response.json({ success: true, data: transactions.map(inventoryTransactionResponse) });
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
 export function exportInventoryController(deps?: { repository?: UserRepository }): RequestHandler {
   const repository = deps?.repository ?? defaultUserRepository;
 
@@ -91,8 +126,8 @@ export function exportInventoryController(deps?: { repository?: UserRepository }
       const buffer = await createStyledWorkbookBuffer({
         sheetName: "Inventory",
         columns: [
+          { header: "อันดับ", key: "rank", width: 10 },
           { header: "Barcode", key: "barcode", width: 20 },
-          { header: "SKU", key: "sku", width: 18 },
           { header: "Product", key: "name", width: 32 },
           { header: "Unit", key: "unit", width: 12 },
           { header: "Cost", key: "cost", width: 14 },
@@ -100,9 +135,9 @@ export function exportInventoryController(deps?: { repository?: UserRepository }
           { header: "Stock", key: "stock", width: 12 },
           { header: "Status", key: "status", width: 14 },
         ],
-        rows: products.map((product) => ({
+        rows: products.map((product, index) => ({
+          rank: index + 1,
           barcode: product.barcode,
-          sku: product.sku,
           name: product.name,
           unit: product.unit,
           cost: product.costPriceSatang / 100,

@@ -21,7 +21,6 @@ const collapsedNavLabels: Partial<Record<AppRouteId, string>> = {
   'inventory-receiving': 'รับ',
   'stock-counting': 'นับ',
   'sales-report': 'ยอด',
-  'best-sellers-report': 'ดี',
   'store-settings': 'ร้าน',
   'user-management': 'ผู้',
 }

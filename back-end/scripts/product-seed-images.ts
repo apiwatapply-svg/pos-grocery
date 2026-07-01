@@ -3,7 +3,6 @@ import type { ProductImageRecord } from "../src/modules/users/user.repository.js
 export type GrocerySeedProduct = {
   name: string;
   barcode: string;
-  sku: string;
   imageSourceUrl: string;
 };
 
@@ -20,7 +19,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Jasmine Rice 5kg",
     barcode: "8851000000001",
-    sku: "RICE-5KG",
     unit: "bag",
     costPriceSatang: 14500,
     salePriceSatang: 17900,
@@ -30,7 +28,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Sugar 1kg",
     barcode: "8851000000002",
-    sku: "SUGAR-1KG",
     unit: "bag",
     costPriceSatang: 2200,
     salePriceSatang: 2800,
@@ -40,7 +37,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Fish Sauce 700ml",
     barcode: "8851000000003",
-    sku: "FISHSAUCE-700",
     unit: "bottle",
     costPriceSatang: 2500,
     salePriceSatang: 3500,
@@ -50,7 +46,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Cooking Oil 1L",
     barcode: "8851000000004",
-    sku: "OIL-1L",
     unit: "bottle",
     costPriceSatang: 4800,
     salePriceSatang: 5900,
@@ -60,7 +55,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "UHT Milk 1L",
     barcode: "8851000000005",
-    sku: "MILK-1L",
     unit: "box",
     costPriceSatang: 3400,
     salePriceSatang: 4500,
@@ -70,7 +64,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Canned Sardines",
     barcode: "8851000000006",
-    sku: "SARDINE-CAN",
     unit: "can",
     costPriceSatang: 1700,
     salePriceSatang: 2500,
@@ -80,7 +73,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Dishwashing Liquid",
     barcode: "8851000000007",
-    sku: "DISH-LIQUID",
     unit: "bottle",
     costPriceSatang: 2800,
     salePriceSatang: 3900,
@@ -90,7 +82,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Toilet Paper 6 Rolls",
     barcode: "8851000000008",
-    sku: "TISSUE-6ROLL",
     unit: "pack",
     costPriceSatang: 4900,
     salePriceSatang: 6500,
@@ -100,7 +91,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Coffee Sachet Pack",
     barcode: "8851000000009",
-    sku: "COFFEE-SACHET",
     unit: "pack",
     costPriceSatang: 3600,
     salePriceSatang: 4900,
@@ -110,7 +100,6 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   {
     name: "Egg Pack 10 pcs",
     barcode: "8851000000010",
-    sku: "EGG-10",
     unit: "pack",
     costPriceSatang: 4200,
     salePriceSatang: 5500,
@@ -119,17 +108,15 @@ export const grocerySeedProducts: GroceryStockSeedProduct[] = [
   },
 ];
 
-export const demoSeedImageProducts: GrocerySeedProduct[] = [
+export const originalSeedImageProducts: GrocerySeedProduct[] = [
   {
     name: "Drinking Water",
     barcode: "8850002000010",
-    sku: "WATER-001",
     imageSourceUrl: "https://images.unsplash.com/photo-1559839914-17aae19cec71?auto=format&fit=crop&w=900&q=80",
   },
   {
     name: "Instant Noodles",
     barcode: "8850001000011",
-    sku: "NOODLE-001",
     imageSourceUrl: "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&w=900&q=80",
   },
 ];
@@ -138,8 +125,8 @@ function cloudinaryFetchUrl(cloudName: string, transform: string, sourceUrl: str
   return `https://res.cloudinary.com/${cloudName}/image/fetch/${transform}/${encodeURIComponent(sourceUrl)}`;
 }
 
-export function buildSeedProductImage(product: GrocerySeedProduct, cloudName = "demo"): SeedProductImage {
-  const publicId = `pos-grocery/products/seed/${product.sku.toLowerCase()}`;
+export function buildSeedProductImage(product: GrocerySeedProduct, cloudName: string): SeedProductImage {
+  const publicId = `pos-grocery/products/seed/${product.barcode}`;
 
   return {
     provider: "cloudinary",

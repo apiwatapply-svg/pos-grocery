@@ -6,7 +6,6 @@ export const createProductSchema = z.object({
   categoryId: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1),
   barcode: z.string().trim().min(1),
-  sku: z.string().trim().min(1).optional(),
   unit: z.string().trim().min(1),
   costPriceSatang: z.number().int().min(0),
   salePriceSatang: z.number().int().min(0),

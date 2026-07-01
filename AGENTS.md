@@ -127,11 +127,42 @@ an explicit stack choice from the user.
 - Keep reusable UI components focused and small.
 - Keep API calls and data-access helpers separate from presentation components.
 - Do not hardcode backend URLs when an environment variable is available.
+- Load only the data needed for the currently visible screen state. Do not fetch
+  hidden modal/detail payloads, full receipt items, full report detail, or the
+  next page of data before the user asks for it unless the workflow has a clear
+  performance reason.
+- Visible page data should be usable within 1 second on the local development
+  stack. Load the critical screen data first, then lazy-load secondary panels
+  such as history lists, receipt detail, logos, modal content, and report drill
+  downs after the main UI is interactive.
+- Avoid duplicate GET requests from React effects. Shared API helpers should
+  dedupe identical in-flight GET requests, and page components should avoid
+  fetching the same endpoint separately when one lightweight response can serve
+  the visible UI.
+- List screens must use lightweight list endpoints. Receipt/history/report
+  tables should show summary fields first, then fetch full detail only when the
+  user opens a detail modal or print view.
+- When a screen has pagination, request only the current page from the backend
+  with `page`/`pageSize` or a cursor. Do not fetch all rows and slice/filter in
+  React.
+- Keep frontend state shaped to the UI. Avoid storing large nested API payloads
+  when the page only renders counts, totals, names, status, or identifiers.
 - POS screens should prioritize fast repeated operation, clear totals, readable
   product search, cart editing, checkout state, and error recovery.
-- Frontend UI must be suitable for common device sizes in both portrait and
-  landscape orientation. At minimum, check phone, tablet, and desktop widths;
-  use the project responsive audit when available.
+- Frontend UI must support all practical POS device classes: desktop/laptop,
+  iPad/tablet, and mobile phone. Every UI feature must be usable in both
+  portrait and landscape orientation, including touch interaction, scanning
+  workflows, modals, tables, sidebars, dashboards, reports, receipts, and
+  checkout screens.
+- For every frontend UI/layout change, verify responsiveness across desktop,
+  tablet/iPad, and mobile breakpoints in both portrait and landscape. Capture
+  screenshots for the checked sizes and inspect them carefully for overflow,
+  clipped text, overlapping controls, unusable buttons, hidden table columns,
+  broken modals, unreadable receipt layouts, and incorrect scroll behavior.
+- Do not mark UI work complete until screenshots have been reviewed in detail.
+  If a screenshot cannot be captured because a local browser tool is blocked,
+  use the project UI audit script or an available Chrome/Playwright fallback and
+  explain the verification limitation in the final response.
 - The responsive audit target device list is maintained in
   `front-end/scripts/ui-audit.mjs` and includes iPhone SE, iPhone XR, iPhone 12
   Pro, iPhone 14 Pro Max, Pixel 7, Samsung Galaxy S8+, Samsung Galaxy S20
@@ -148,6 +179,43 @@ an explicit stack choice from the user.
 - Keep Cloudinary credentials in environment variables, never in committed
   files.
 - Do not commit generated databases, local dumps, or secret `.env` files.
+- Backend responses must include only the fields the frontend needs for the
+  current screen or workflow. Do not send extra data "just in case"; add fields
+  only when a frontend feature explicitly uses them.
+- Treat API payload size as part of backend correctness. Large optional fields
+  such as images, logos, receipt content, and nested detail records must be
+  omitted from list/current endpoints unless the request explicitly asks for
+  them.
+- Repository and Prisma queries must use explicit `select` projections for list
+  endpoints. Avoid broad `include` trees on pages that only need summary rows.
+- List endpoints must support server-side pagination or explicit limits and
+  apply those limits in the database query (`take`/`skip`, cursor, or equivalent)
+  before returning results.
+- Detail endpoints should be separate from list endpoints. For example, receipt
+  lists return receipt number, time, status, totals, and counts; receipt items,
+  payment detail, printable receipt content, and full product data are loaded by
+  a detail endpoint only when requested.
+- Report endpoints should aggregate in the backend/database and return the
+  already summarized rows required by the report UI. Do not send raw sales with
+  nested items to the frontend for client-side aggregation unless the UI is
+  explicitly a detail view.
+- Before adding data to any API response, confirm which component renders it.
+  If no current UI reads the field, do not send it.
+- For performance work, measure endpoint timings and payload sizes before and
+  after changes. Inspect whether slowness comes from duplicate frontend calls,
+  over-fetching, missing database indexes, sequential database round trips, or
+  remote database latency.
+- For hot POS write paths such as checkout, cancel receipt, receiving, and stock
+  adjustment, avoid many sequential ORM calls. Measure the route first, then use
+  a single transaction with batched database statements when it reduces Turso
+  round trips and keeps the response under the visible UI target.
+- API endpoints used by visible pages should target sub-1-second responses on
+  the local development stack. If a route is slower, identify whether the cause
+  is remote database latency, concurrent query queueing, over-fetching, missing
+  projections, missing limits, or frontend duplicate calls before changing UI.
+- Authentication tokens are session tokens for this local POS app and should
+  remain valid until logout. Do not introduce short automatic expiry unless the
+  user explicitly requests expiring sessions.
 - Keep sales, inventory, product catalog, customer, payment, and reporting logic
   explicit and covered by tests when behavior is non-trivial.
 
@@ -169,6 +237,16 @@ After code changes, run the available checks for the touched side:
   when Chrome or Edge is available locally. This audit checks route access,
   important screenshots, responsive device/orientation coverage, and horizontal
   overflow.
+- UI screenshot verification must include at least one desktop viewport, one
+  iPad/tablet portrait viewport, one iPad/tablet landscape viewport, one mobile
+  portrait viewport, and one mobile landscape viewport. Use the broader
+  `front-end/scripts/ui-audit.mjs` device matrix whenever the change can affect
+  shared layout, navigation, tables, modals, charts, receipts, or POS checkout.
+- Rendered localhost QA: if the Browser runtime refuses `localhost:5173` due to
+  tool policy, do not treat that as an app failure. Use Chrome runtime through
+  the Codex Chrome extension, or the project `ui:audit` script, to verify
+  `http://localhost:5173` routes instead. Record the Browser-runtime policy
+  rejection and the Chrome/Playwright fallback in the final QA notes.
 - Backend: lint, test, typecheck, Prisma validation/generation, and start/build
   checks when configured.
 

@@ -1,4 +1,4 @@
-import type { SaleRecord, StoreRecord } from "../users/user.repository.js";
+import type { SaleRecord, StoreRecord } from "../users/user.repository.ts";
 
 function formatBaht(valueSatang: number) {
   return (valueSatang / 100).toFixed(2);

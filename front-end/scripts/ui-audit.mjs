@@ -37,6 +37,8 @@ const screenshotRoutes = [
   { path: '/pos', role: 'cashier', name: 'pos-desktop' },
   { path: '/settings/users', role: 'owner', name: 'users-desktop' },
   { path: '/products', role: 'stock', name: 'products-mobile', width: 390, height: 900 },
+  { path: '/products', role: 'owner', name: 'products-ipad-portrait', width: 820, height: 1180 },
+  { path: '/products', role: 'owner', name: 'products-ipad-landscape', width: 1180, height: 820 },
 ]
 
 const responsiveDevices = [

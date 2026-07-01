@@ -1,17 +1,18 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import { createAuthRouter } from "./modules/auth/auth.routes.js";
-import { createInventoryRouter } from "./modules/inventory/inventory.routes.js";
-import { createProductRouter } from "./modules/products/product.routes.js";
-import { createReportRouter } from "./modules/reports/report.routes.js";
-import { createSaleRouter } from "./modules/sales/sale.routes.js";
-import { createStoreRouter } from "./modules/stores/store.routes.js";
-import { createUserRouter } from "./modules/users/user.routes.js";
-import { defaultUserRepository, type UserRepository } from "./modules/users/user.repository.js";
-import { errorMiddleware } from "./shared/errors/error.middleware.js";
-import { healthRouter } from "./shared/http/health.routes.js";
-import { notFoundMiddleware } from "./shared/middleware/not-found.middleware.js";
+import { createAuthRouter } from "./modules/auth/auth.routes.ts";
+import { createInventoryRouter } from "./modules/inventory/inventory.routes.ts";
+import { createProductRouter } from "./modules/products/product.routes.ts";
+import { createReportRouter } from "./modules/reports/report.routes.ts";
+import { createSaleRouter } from "./modules/sales/sale.routes.ts";
+import { createStoreRouter } from "./modules/stores/store.routes.ts";
+import { createUserRouter } from "./modules/users/user.routes.ts";
+import { defaultUserRepository, type UserRepository } from "./modules/users/user.repository.ts";
+import { errorMiddleware } from "./shared/errors/error.middleware.ts";
+import { healthRouter } from "./shared/http/health.routes.ts";
+import { notFoundMiddleware } from "./shared/middleware/not-found.middleware.ts";
+import { clearReadCacheOnMutationMiddleware } from "./shared/middleware/read-cache.middleware.ts";
 
 export function createApp(deps?: {
   repository?: UserRepository;
@@ -23,7 +24,8 @@ export function createApp(deps?: {
 
   app.use(helmet());
   app.use(cors());
-  app.use(express.json());
+  app.use(express.json({ limit: "5mb" }));
+  app.use(clearReadCacheOnMutationMiddleware());
 
   app.use("/api", healthRouter);
   app.use("/api/auth", createAuthRouter({ repository, jwtSecret }));

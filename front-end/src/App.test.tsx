@@ -81,9 +81,8 @@ const protectedRouteCases: Array<{
   { path: '/inventory/receiving', heading: 'รับของเข้า', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/inventory/counting', heading: 'ตรวจนับ stock', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/reports/sales', heading: 'รายงานยอดขาย', allowedRoles: ['owner', 'admin'] },
-  { path: '/reports/best-sellers', heading: 'สินค้าขายดี', allowedRoles: ['owner', 'admin'] },
-  { path: '/settings/store', heading: 'ตั้งค่าร้าน', allowedRoles: ['owner', 'admin'] },
-  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', allowedRoles: ['owner', 'admin'] },
+  { path: '/settings/store', heading: 'จัดการร้านค้า', allowedRoles: ['admin'] },
+  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', allowedRoles: ['admin'] },
 ]
 
 const roles: Role[] = ['owner', 'admin', 'cashier', 'stock']
@@ -119,6 +118,12 @@ describe('App routes', () => {
     localStorage.clear()
     renderApp('/inventory/receiving')
     expect(screen.getByRole('heading', { name: 'รับของเข้า' })).toBeInTheDocument()
+  })
+
+  it('uses Dashboard as the only page for best-seller insights', () => {
+    renderApp('/reports/best-sellers')
+
+    expect(screen.getByRole('heading', { name: 'ไม่พบหน้านี้' })).toBeInTheDocument()
   })
 
   it.each(protectedRouteCases)('renders allowed roles for $path', ({ path, heading, allowedRoles }) => {

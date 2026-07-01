@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { env } from "../../config/env.js";
+import { randomUUID } from "node:crypto";
+import { env } from "../../config/env.ts";
 
 export type UploadedImage = {
   publicId: string;
@@ -24,30 +25,43 @@ function createSignature(params: Record<string, string | number>, apiSecret: str
   return crypto.createHash("sha1").update(`${payload}${apiSecret}`).digest("hex");
 }
 
+function buildProductFolder(storeId: string) {
+  return `${env.CLOUDINARY_UPLOAD_FOLDER}/${storeId}/products`;
+}
+
 export async function uploadProductImageToCloudinary(input: {
+  storeId: string;
   fileName: string;
   dataUri: string;
 }): Promise<UploadedImage> {
-  if (!hasCloudinaryConfig() || env.NODE_ENV === "test") {
-    const publicId = `${env.CLOUDINARY_UPLOAD_FOLDER}/${input.fileName.replace(/\W+/g, "-")}`;
+  const folder = buildProductFolder(input.storeId);
+  const publicId = `${folder}/${randomUUID()}`;
+
+  if (env.NODE_ENV === "test") {
     return {
       publicId,
-      secureUrl: `https://res.cloudinary.com/demo/image/upload/${publicId}`,
-      thumbnailUrl: `https://res.cloudinary.com/demo/image/upload/c_thumb,w_240/${publicId}`,
+      secureUrl: `https://res.cloudinary.com/test-cloud/image/upload/${publicId}`,
+      thumbnailUrl: `https://res.cloudinary.com/test-cloud/image/upload/c_thumb,w_240/${publicId}`,
       format: input.fileName.split(".").at(-1),
     };
   }
 
+  if (!hasCloudinaryConfig()) {
+    throw new Error("Cloudinary configuration is required for product image uploads.");
+  }
+
   const timestamp = Math.floor(Date.now() / 1000);
   const params = {
-    folder: env.CLOUDINARY_UPLOAD_FOLDER,
+    folder,
+    public_id: publicId.split("/").pop() ?? "",
     timestamp,
   };
   const signature = createSignature(params, env.CLOUDINARY_API_SECRET ?? "");
   const form = new FormData();
   form.append("file", input.dataUri);
   form.append("api_key", env.CLOUDINARY_API_KEY ?? "");
-  form.append("folder", env.CLOUDINARY_UPLOAD_FOLDER);
+  form.append("folder", folder);
+  form.append("public_id", params.public_id);
   form.append("timestamp", String(timestamp));
   form.append("signature", signature);
 

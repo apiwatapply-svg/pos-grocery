@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, apiPatch, apiPost } from '../../lib/api/client'
+import { compressImageFile } from '../../lib/images/imageCompression'
 import { ProductFormPage } from './ProductFormPage'
 
 vi.mock('../../lib/api/client', () => ({
@@ -11,16 +12,32 @@ vi.mock('../../lib/api/client', () => ({
   apiPost: vi.fn(),
 }))
 
+vi.mock('../../lib/images/imageCompression', async () => {
+  const actual = await vi.importActual<typeof import('../../lib/images/imageCompression')>(
+    '../../lib/images/imageCompression',
+  )
+
+  return {
+    ...actual,
+    compressImageFile: vi.fn(async (file: File) => ({
+      dataUri: `data:image/webp;base64,compressed-${file.name}`,
+      fileName: file.name.replace(/\.[^.]+$/, '.webp'),
+      height: 800,
+      width: 800,
+    })),
+  }
+})
+
 const mockedApiGet = vi.mocked(apiGet)
 const mockedApiPatch = vi.mocked(apiPatch)
 const mockedApiPost = vi.mocked(apiPost)
+const mockedCompressImageFile = vi.mocked(compressImageFile)
 
 const sqlProducts = [
   {
     id: 'sql-product-1',
     name: 'SQL Product',
     barcode: 'SQL-001',
-    sku: 'SQL-SKU',
     unit: 'pack',
     costPriceSatang: 1200,
     salePriceSatang: 1800,
@@ -56,23 +73,35 @@ describe('ProductFormPage', () => {
 
     fireEvent.change(screen.getByPlaceholderText('ชื่อสินค้า'), { target: { value: 'New SQL Product' } })
     fireEvent.change(screen.getByPlaceholderText('barcode'), { target: { value: 'SQL-NEW-001' } })
-    fireEvent.change(screen.getByPlaceholderText('SKU'), { target: { value: 'SQL-NEW' } })
+    expect(screen.queryByPlaceholderText('SKU')).not.toBeInTheDocument()
     fireEvent.change(screen.getByPlaceholderText('หน่วย'), { target: { value: 'pack' } })
     fireEvent.change(screen.getByPlaceholderText('ต้นทุน'), { target: { value: '12.50' } })
     fireEvent.change(screen.getByPlaceholderText('ราคาขาย'), { target: { value: '19.75' } })
+    const productImage = new File(['new-product-image'], 'new-product.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Upload รูปสินค้าไป Cloudinary'), {
+      target: { files: [productImage] },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'เพิ่มสินค้า' }))
 
     await waitFor(() => {
       expect(mockedApiPost).toHaveBeenCalledWith('/products', {
         name: 'New SQL Product',
         barcode: 'SQL-NEW-001',
-        sku: 'SQL-NEW',
         unit: 'pack',
         costPriceSatang: 1250,
         salePriceSatang: 1975,
         status: 'active',
       })
+      expect(mockedApiPost).toHaveBeenCalledWith('/products/new-product/images', {
+        fileName: 'new-product.webp',
+        dataUri: 'data:image/webp;base64,compressed-new-product.png',
+        altText: 'New SQL Product',
+      })
     })
+    expect(mockedCompressImageFile).toHaveBeenCalledWith(
+      productImage,
+      expect.objectContaining({ maxHeight: 800, maxWidth: 800, mimeType: 'image/webp', quality: 0.78 }),
+    )
     expect(await screen.findByText('Product list')).toBeInTheDocument()
   })
 

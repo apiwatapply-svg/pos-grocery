@@ -13,7 +13,6 @@ import { ProductFormPage } from './features/products/ProductFormPage'
 import { ProductListPage } from './features/products/ProductListPage'
 import { ReceiptDetailPage } from './features/receipts/ReceiptDetailPage'
 import { ReceiptListPage } from './features/receipts/ReceiptListPage'
-import { BestSellersReportPage } from './features/reports/BestSellersReportPage'
 import { SalesReportPage } from './features/reports/SalesReportPage'
 import { NotFoundPage } from './features/shared/NotFoundPage'
 import { StoreSettingsPage } from './features/store/StoreSettingsPage'
@@ -77,10 +76,6 @@ export function App() {
         element={protectedPage('stock-counting', <StockCountingPage />)}
       />
       <Route path="/reports/sales" element={protectedPage('sales-report', <SalesReportPage />)} />
-      <Route
-        path="/reports/best-sellers"
-        element={protectedPage('best-sellers-report', <BestSellersReportPage />)}
-      />
       <Route path="/settings/store" element={protectedPage('store-settings', <StoreSettingsPage />)} />
       <Route path="/settings/users" element={protectedPage('user-management', <UserManagementPage />)} />
       <Route path="*" element={<NotFoundPage />} />

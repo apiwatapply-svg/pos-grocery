@@ -115,6 +115,21 @@ describe('AppShell', () => {
     expect(screen.queryByRole('link', { name: 'เพิ่มสินค้า' })).not.toBeInTheDocument()
   })
 
+  it('keeps best-seller insights inside Dashboard instead of a separate sidebar page', () => {
+    renderShell({
+      token: 'token-owner',
+      user: {
+        id: 'owner-1',
+        username: 'owner',
+        displayName: 'Owner One',
+        role: 'owner',
+      },
+    })
+
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'สินค้าขายดี' })).not.toBeInTheDocument()
+  })
+
   it('toggles the mobile sidebar', () => {
     renderShell()
 

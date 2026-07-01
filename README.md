@@ -51,6 +51,13 @@ Local URLs:
 - Frontend: `http://127.0.0.1:5173`
 - Backend health: `http://127.0.0.1:8787/api/health`
 
+Initial local login:
+
+- Username/password are stored as a hashed user record in the database.
+- On the first backend start, the app bootstraps `admin` / `admin` only if the
+  database does not already have that user. Login never reads the password from
+  `.env`.
+
 ## Deployment
 
 Production deployment is intentionally manual for now. Pushes to `main` run CI

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSeedProductImage, demoSeedImageProducts, grocerySeedProducts } from "./product-seed-images.js";
+import { buildSeedProductImage, originalSeedImageProducts, grocerySeedProducts } from "./product-seed-images.js";
 
 describe("grocery product seed images", () => {
   it("defines ten grocery products with image sources", () => {
@@ -7,8 +7,8 @@ describe("grocery product seed images", () => {
     expect(grocerySeedProducts.every((product) => product.imageSourceUrl.startsWith("https://"))).toBe(true);
   });
 
-  it("defines image backfills for the two original demo products", () => {
-    expect(demoSeedImageProducts.map((product) => product.barcode)).toEqual([
+  it("defines image backfills for the two original starter products", () => {
+    expect(originalSeedImageProducts.map((product) => product.barcode)).toEqual([
       "8850002000010",
       "8850001000011",
     ]);
@@ -20,7 +20,7 @@ describe("grocery product seed images", () => {
     expect(image).toEqual(
       expect.objectContaining({
         provider: "cloudinary",
-        publicId: "pos-grocery/products/seed/rice-5kg",
+        publicId: "pos-grocery/products/seed/8851000000001",
         altText: "Jasmine Rice 5kg",
         format: "jpg",
       }),

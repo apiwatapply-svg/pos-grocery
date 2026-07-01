@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import Swal from 'sweetalert2'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, apiPost } from '../../lib/api/client'
-import { saveSession, type Session } from '../../lib/auth/session'
 import { PosCheckoutPage } from './PosCheckoutPage'
 import { customerDisplayPayloadStorageKey } from './customerDisplay'
 
@@ -27,13 +26,16 @@ const confirmedDialog = {
   isDismissed: false,
 }
 
+function cashButtonLabel(amount: number) {
+  return `${new Intl.NumberFormat('th-TH').format(amount)} บาท`
+}
+
 const apiProducts = [
   {
     id: 'product-water',
     storeId: 'store-1',
     name: 'Drinking Water',
     barcode: '8850002000010',
-    sku: 'WATER-001',
     unit: 'bottle',
     costPriceSatang: 400,
     salePriceSatang: 700,
@@ -46,7 +48,6 @@ const apiProducts = [
     storeId: 'store-1',
     name: 'Instant Noodles',
     barcode: '8850001000011',
-    sku: 'NOODLE-001',
     unit: 'pack',
     costPriceSatang: 700,
     salePriceSatang: 1200,
@@ -59,6 +60,7 @@ const apiProducts = [
 const apiWaterSale = {
   id: 'sale-1',
   receiptNumber: 'RC20260628-1',
+  soldAt: '2026-06-29T01:35:00.000Z',
   totalSatang: 1400,
   changeDueSatang: 8600,
   status: 'completed',
@@ -76,48 +78,36 @@ const apiWaterSale = {
   ],
 }
 
-const apiProductsAfterWaterSale = [
-  { ...apiProducts[0], stockQuantity: 22 },
-  apiProducts[1],
-]
-
 const apiProductsAfterMixedSale = [
   { ...apiProducts[0], stockQuantity: 22 },
   { ...apiProducts[1], stockQuantity: 17 },
 ]
 
-function salesReport(sales: Array<typeof apiWaterSale> = []) {
-  return {
-    summary: {
-      orderCount: sales.filter((sale) => sale.status === 'completed').length,
-      totalSalesSatang: sales
-        .filter((sale) => sale.status === 'completed')
-        .reduce((sum, sale) => sum + sale.totalSatang, 0),
-      itemsSold: sales
-        .filter((sale) => sale.status === 'completed')
-        .reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
-    },
-    sales,
-  }
+const currentStore = {
+  id: 'store-1',
+  name: 'POS Grocery',
+  phone: '0800000000',
+  address: 'Bangkok',
+  ownerName: 'Owner',
+  logoUrl: 'https://example.com/pos-logo.png',
+  status: 'active',
 }
 
 function mockApiResponses(input?: {
   productResponses?: Array<typeof apiProducts>
-  sales?: () => Array<typeof apiWaterSale>
 }) {
   const productResponses = input?.productResponses ?? [apiProducts]
-  const getSales = input?.sales ?? (() => [])
   let productCallIndex = 0
 
   mockedApiGet.mockImplementation(async (path: string) => {
-    if (path === '/products') {
+    if (path === '/store/current') {
+      return currentStore
+    }
+
+    if (path === '/products?view=operation') {
       const response = productResponses[Math.min(productCallIndex, productResponses.length - 1)]
       productCallIndex += 1
       return response
-    }
-
-    if (path.startsWith('/reports/sales')) {
-      return salesReport(getSales())
     }
 
     throw new Error(`Unexpected GET ${path}`)
@@ -135,59 +125,23 @@ afterEach(() => {
 })
 
 describe('PosCheckoutPage', () => {
-  function sessionForRole(role: Session['user']['role']): Session {
-    return {
-      token: `${role}-token`,
-      user: {
-        id: `${role}-user`,
-        username: role,
-        displayName: role,
-        role,
-      },
-    }
-  }
-
   function confirmNextDialog() {
     mockedSwal.fire.mockResolvedValueOnce(confirmedDialog)
   }
 
-  async function createWaterSale() {
-    confirmNextDialog()
-    mockedApiPost.mockResolvedValueOnce(apiWaterSale)
-    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
-      target: { value: '8850002000010' },
-    })
-    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
-      target: { value: 'Drinking Water' },
-    })
-    fireEvent.change(screen.getByLabelText('รับเงินสด'), {
-      target: { value: '100' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
-    await waitFor(() => {
-      expect(screen.getAllByText('ขายสำเร็จ').length).toBeGreaterThan(0)
-    })
-  }
-
-  function expectStockMeter(productName: string, quantity: number, initialQuantity: number) {
-    expect(screen.getByRole('progressbar', {
-      name: `${productName} คงเหลือ ${quantity} จาก ${initialQuantity}`,
-    })).toHaveAttribute('aria-valuenow', String(quantity))
-  }
-
   async function waitForProductsLoaded() {
     await waitFor(() => {
-      expect(screen.getByText('Drinking Water')).toBeInTheDocument()
+      expect(document.querySelector('#pos-product-options option[value="Drinking Water"]')).not.toBeNull()
     })
   }
 
   it('does not render fallback mock products before SQL products load', async () => {
     mockedApiGet.mockImplementation(async (path: string) => {
-      if (path === '/products') {
+      if (path === '/store/current') {
         return new Promise(() => undefined)
       }
 
-      if (path === '/reports/sales') {
+      if (path === '/products?view=operation') {
         return new Promise(() => undefined)
       }
 
@@ -198,15 +152,97 @@ describe('PosCheckoutPage', () => {
 
     expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
     expect(screen.queryByText('Instant Noodles')).not.toBeInTheDocument()
-    expect(screen.getByText('ยังไม่มีสินค้าในฐานข้อมูล')).toBeInTheDocument()
+    expect(screen.getByText('สแกนหรือเลือกสินค้าจากช่องค้นหา')).toBeInTheDocument()
   })
 
-  it('adds scanned and selected products immediately, merges duplicates, confirms checkout, and opens a receipt modal', async () => {
-    mockApiResponses({ productResponses: [apiProducts, apiProductsAfterMixedSale] })
+  it('keeps checkout full page and does not preload receipts or stock side panels', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    expect(screen.getByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'ใบเสร็จ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Stock หลังขาย' })).not.toBeInTheDocument()
+    expect(mockedApiGet).not.toHaveBeenCalledWith(expect.stringMatching(/^\/sales\?/))
+  })
+
+  it('disables cash controls and checkout while the cart is empty', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    expect(screen.getByLabelText('รับเงินสด')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'จ่ายพอดี' })).toBeDisabled()
+    for (const amount of [5, 10, 20, 50, 100, 500, 1000]) {
+      expect(screen.getByRole('button', { name: cashButtonLabel(amount) })).toBeDisabled()
+    }
+    expect(screen.getByRole('status', { name: 'รอสินค้า 0.00 บาท' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ชำระเงิน' })).toBeDisabled()
+  })
+
+  it('keeps cash input and payment status in one horizontal row', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const cashInputRow = screen.getByLabelText('รับเงินสด').closest('.payment-input-row')
+    const paymentStatusRow = screen
+      .getByRole('status', { name: 'รอสินค้า 0.00 บาท' })
+      .closest('.payment-input-row')
+
+    expect(cashInputRow).not.toBeNull()
+    expect(paymentStatusRow).toBe(cashInputRow)
+  })
+
+  it('keeps the scan field focused for barcode scanner input', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    expect(scanInput).toHaveFocus()
+    expect(scanInput).toHaveAttribute('placeholder', 'สแกน barcode / QR หรือพิมพ์ชื่อสินค้า')
+    const productOptions = Array.from(document.querySelectorAll('#pos-product-options option'))
+    expect(productOptions.map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
+      ['Drinking Water', 'Drinking Water - 8850002000010 - 7.00 บาท'],
+      ['Instant Noodles', 'Instant Noodles - 8850001000011 - 12.00 บาท'],
+    ])
+    expect(productOptions.some((option) => option.textContent?.includes('SKU'))).toBe(false)
+
+    fireEvent.change(scanInput, {
+      target: { value: '8850002000010' },
+    })
+
+    expect(scanInput).toHaveFocus()
+    expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+  })
+
+  it('keeps inactive products out of the searchable POS dropdown', async () => {
+    mockApiResponses({
+      productResponses: [[
+        ...apiProducts,
+        {
+          ...apiProducts[0],
+          id: 'product-archived',
+          name: 'Archived Product',
+          barcode: 'ARCHIVED-001',
+          status: 'inactive',
+        },
+      ]],
+    })
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const productOptions = Array.from(document.querySelectorAll('#pos-product-options option'))
+    expect(productOptions.map((option) => option.textContent)).not.toContain(
+      'Archived Product - ARCHIVED-001 - 7.00 บาท',
+    )
+  })
+
+  it('adds scanned and selected products immediately, merges duplicates, confirms checkout, and syncs the latest sale to customer display', async () => {
+    mockApiResponses({
+      productResponses: [apiProducts, apiProductsAfterMixedSale],
+    })
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
     confirmNextDialog()
-    mockedApiPost.mockResolvedValueOnce({
+    const mixedSale = {
       ...apiWaterSale,
       totalSatang: 2600,
       changeDueSatang: 7400,
@@ -223,6 +259,9 @@ describe('PosCheckoutPage', () => {
           totalSatang: 1200,
         },
       ],
+    }
+    mockedApiPost.mockImplementationOnce(async () => {
+      return mixedSale
     })
 
     fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
@@ -235,13 +274,19 @@ describe('PosCheckoutPage', () => {
       target: { value: 'Instant Noodles' },
     })
     const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
-    for (const column of ['No', 'ภาพ', 'สินค้า', 'ราคา', 'จำนวน', 'ราคารวม']) {
+    for (const column of ['No', 'ภาพ', 'สินค้า', 'ราคา', 'จำนวน', 'ราคารวม', 'จัดการ']) {
       expect(within(cartTable).getByRole('columnheader', { name: column })).toBeInTheDocument()
     }
     const cartRows = within(cartTable).getAllByRole('row')
+    // Row 1 = newest scan (Instant Noodles, unshift order)
     expect(within(cartRows[1]).getByRole('cell', { name: '1' })).toBeInTheDocument()
-    expect(within(cartRows[1]).getByRole('cell', { name: 'Drinking Water 8850002000010' })).toBeInTheDocument()
-    expect(within(cartRows[1]).getByRole('cell', { name: '14.00' })).toBeInTheDocument()
+    expect(within(cartRows[1]).getByRole('cell', { name: 'Instant Noodles 8850001000011' })).toBeInTheDocument()
+    expect(within(cartRows[1]).getAllByText('12.00').length).toBeGreaterThanOrEqual(1)
+    // Row 2 = older scan (Drinking Water, merged to q2)
+    expect(within(cartRows[2]).getByRole('cell', { name: '2' })).toBeInTheDocument()
+    expect(within(cartRows[2]).getByRole('cell', { name: 'Drinking Water 8850002000010' })).toBeInTheDocument()
+    expect(within(cartRows[2]).getByText('7.00')).toBeInTheDocument()
+    expect(within(cartRows[2]).getByText('14.00')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('รับเงินสด'), {
       target: { value: '100' },
@@ -257,54 +302,90 @@ describe('PosCheckoutPage', () => {
         }),
       )
     })
-    expect(screen.getByRole('button', { name: /26.00 บาท/ })).toHaveClass('receipt-row')
     await waitFor(() => {
-      expectStockMeter('Drinking Water', 22, 24)
-      expectStockMeter('Instant Noodles', 17, 18)
+      expect(screen.getByText('สแกนหรือเลือกสินค้าจากช่องค้นหา')).toBeInTheDocument()
     })
-
-    fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
-
-    expect(screen.getByRole('dialog', { name: /รายละเอียดบิล/ })).toBeInTheDocument()
-    expect(screen.getByText(/Drinking Water x2/)).toBeInTheDocument()
-    expect(screen.getByText(/Instant Noodles x1/)).toBeInTheDocument()
-    expect(screen.getByText('เงินทอน 74.00 บาท')).toBeInTheDocument()
+    await waitFor(() => {
+      const displayPayload = JSON.parse(
+        localStorage.getItem(customerDisplayPayloadStorageKey) ?? '{}',
+      )
+      expect(displayPayload.cart).toEqual([])
+      expect(displayPayload.lastSale).toEqual(
+        expect.objectContaining({
+          receiptNumber: mixedSale.receiptNumber,
+          total: 26,
+          cashReceived: 100,
+          changeDue: 74,
+        }),
+      )
+    })
   })
 
-  it('loads receipts from backend after refresh and renders each receipt as one list row', async () => {
-    let sqlSales: Array<typeof apiWaterSale> = []
-    mockApiResponses({
-      productResponses: [apiProducts, apiProductsAfterWaterSale],
-      sales: () => sqlSales,
-    })
-    const { unmount } = render(<PosCheckoutPage />)
+  it('removes a scanned product line from the cart and recalculates totals before checkout', async () => {
+    render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
-    await createWaterSale()
-    const receiptButton = screen.getByRole('button', { name: /ดูรายละเอียดบิล/ })
-    expect(receiptButton).toHaveClass('receipt-row')
-    await waitFor(() => {
-      expectStockMeter('Drinking Water', 22, 24)
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: 'Instant Noodles' },
     })
 
-    unmount()
-    sqlSales = [apiWaterSale]
+    expect(screen.getByText('ยอดรวม 19.00 บาท')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'เอา Drinking Water ออกจากตะกร้า' }))
+
+    const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+    expect(within(cartTable).queryByText('Drinking Water')).not.toBeInTheDocument()
+    expect(within(cartTable).getByText('Instant Noodles')).toBeInTheDocument()
+    expect(screen.getByText('ยอดรวม 12.00 บาท')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'เงินทอน 88.00 บาท' })).toBeInTheDocument()
+
+    await waitFor(() => {
+      const displayPayload = JSON.parse(
+        localStorage.getItem(customerDisplayPayloadStorageKey) ?? '{}',
+      )
+      expect(displayPayload.cart).toEqual([
+        {
+          barcode: '8850001000011',
+          productId: 'product-noodle',
+          productName: 'Instant Noodles',
+          quantity: 1,
+          unitPrice: 12,
+        },
+      ])
+      expect(displayPayload.cartTotal).toBe(12)
+      expect(displayPayload.changeDue).toBe(88)
+    })
+  })
+
+  it('adjusts cart item quantities with plus and minus buttons', async () => {
     render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
 
-    const receiptList = screen.getByRole('list', { name: 'รายการใบเสร็จล่าสุด' })
-    const receiptItems = await within(receiptList).findAllByRole('listitem')
-
-    expect(receiptItems).toHaveLength(1)
-    expect(within(receiptItems[0]).getByText(/RC/)).toBeInTheDocument()
-    expect(within(receiptItems[0]).getByText('14.00 บาท')).toBeInTheDocument()
-    expect(within(receiptItems[0]).getByText('ขายสำเร็จ')).toBeInTheDocument()
-    await waitFor(() => {
-      expectStockMeter('Drinking Water', 22, 22)
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
     })
-    expectStockMeter('Instant Noodles', 18, 18)
+
+    const decreaseButton = screen.getByRole('button', { name: 'ลดจำนวน Drinking Water' })
+    const increaseButton = screen.getByRole('button', { name: 'เพิ่มจำนวน Drinking Water' })
+
+    expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('1')
+    expect(decreaseButton).toBeDisabled()
+    fireEvent.click(increaseButton)
+
+    expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('2')
+    expect(screen.getByText('ยอดรวม 14.00 บาท')).toBeInTheDocument()
+    expect(decreaseButton).not.toBeDisabled()
+
+    fireEvent.click(decreaseButton)
+
+    expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('1')
+    expect(screen.getByText('ยอดรวม 7.00 บาท')).toBeInTheDocument()
   })
 
   it('checks out through the backend and reloads shared stock from products API', async () => {
+    localStorage.clear()
     mockApiResponses({
       productResponses: [
         apiProducts,
@@ -323,7 +404,7 @@ describe('PosCheckoutPage', () => {
 
     render(<PosCheckoutPage />)
     await waitFor(() => {
-      expect(mockedApiGet).toHaveBeenCalledWith('/products')
+      expect(mockedApiGet).toHaveBeenCalledWith('/products?view=operation')
     })
     confirmNextDialog()
 
@@ -340,11 +421,24 @@ describe('PosCheckoutPage', () => {
       })
     })
     await waitFor(() => {
-      expectStockMeter('Drinking Water', 23, 24)
+      expect(screen.getByText('สแกนหรือเลือกสินค้าจากช่องค้นหา')).toBeInTheDocument()
+    })
+    await waitFor(() => {
+      const displayPayload = JSON.parse(
+        localStorage.getItem(customerDisplayPayloadStorageKey) ?? '{}',
+      )
+      expect(displayPayload.lastSale).toEqual(
+        expect.objectContaining({
+          receiptNumber: apiWaterSale.receiptNumber,
+          total: 7,
+          changeDue: 93,
+        }),
+      )
     })
   })
 
   it('supports quick cash amounts, custom cash, live change, and blocks underpaid checkout confirmation', async () => {
+    localStorage.clear()
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
@@ -356,7 +450,7 @@ describe('PosCheckoutPage', () => {
     })
 
     for (const amount of [5, 10, 20, 50, 100, 500, 1000]) {
-      expect(screen.getByRole('button', { name: `${amount} บาท` })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: cashButtonLabel(amount) })).toBeInTheDocument()
     }
     expect(screen.getByRole('button', { name: 'จ่ายพอดี' })).toBeInTheDocument()
 
@@ -374,75 +468,6 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByRole('status', { name: 'ขาดอีก 4.00 บาท' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ชำระเงิน' })).toBeDisabled()
     expect(mockedSwal.fire).not.toHaveBeenCalled()
-  })
-
-  it('renders stock remaining as POS status cards with quantity meters', async () => {
-    render(<PosCheckoutPage />)
-    await waitForProductsLoaded()
-
-    const stockList = screen.getByRole('list', { name: 'รายการสินค้าคงเหลือหลังขาย' })
-    const stockItems = within(stockList).getAllByRole('listitem')
-
-    expect(stockItems).toHaveLength(2)
-    expect(within(stockItems[0]).getByText('Drinking Water')).toBeInTheDocument()
-    expect(within(stockItems[0]).getByText('พร้อมขาย')).toBeInTheDocument()
-    expect(within(stockItems[0]).getByRole('progressbar', {
-      name: 'Drinking Water คงเหลือ 24 จาก 24',
-    })).toHaveAttribute('aria-valuenow', '24')
-    expect(within(stockItems[1]).getByText('Instant Noodles')).toBeInTheDocument()
-    expect(within(stockItems[1]).getByText('พร้อมขาย')).toBeInTheDocument()
-  })
-
-  it('does not allow a cashier to cancel a receipt', async () => {
-    saveSession(sessionForRole('cashier'))
-    mockApiResponses({ productResponses: [apiProducts, apiProductsAfterWaterSale] })
-    render(<PosCheckoutPage />)
-    await waitForProductsLoaded()
-
-    await createWaterSale()
-    fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
-
-    expect(screen.getByRole('dialog', { name: /รายละเอียดบิล/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
-    await waitFor(() => {
-      expectStockMeter('Drinking Water', 22, 24)
-    })
-  })
-
-  it('allows an admin to cancel a receipt after SweetAlert2 confirmation and restores stock', async () => {
-    saveSession(sessionForRole('admin'))
-    let sqlSales: Array<typeof apiWaterSale> = []
-    mockApiResponses({
-      productResponses: [apiProducts, apiProductsAfterWaterSale, apiProducts],
-      sales: () => sqlSales,
-    })
-    render(<PosCheckoutPage />)
-    await waitForProductsLoaded()
-
-    await createWaterSale()
-    confirmNextDialog()
-    sqlSales = [{ ...apiWaterSale, status: 'void' }]
-    mockedApiPost.mockResolvedValueOnce({ ...apiWaterSale, status: 'void' })
-    fireEvent.click(screen.getByRole('button', { name: /ดูรายละเอียดบิล/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'ยกเลิกบิล' }))
-
-    await waitFor(() => {
-      expect(mockedSwal.fire).toHaveBeenCalledWith(
-        expect.objectContaining({
-          confirmButtonText: 'ยืนยันยกเลิก',
-          icon: 'warning',
-          showCancelButton: true,
-          title: 'ยืนยันยกเลิกบิล',
-        }),
-      )
-    })
-    await waitFor(() => {
-      expect(screen.getAllByText('ยกเลิกแล้ว').length).toBeGreaterThan(0)
-    })
-    expectStockMeter('Drinking Water', 24, 24)
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'ยกเลิกบิล' })).not.toBeInTheDocument()
-    })
   })
 
   it('keeps the checkout page focused by not rendering customer display controls', async () => {
@@ -487,5 +512,103 @@ describe('PosCheckoutPage', () => {
     })
 
     expect(screen.queryByRole('checkbox', { name: 'เปิดหน้าจอลูกค้า' })).not.toBeInTheDocument()
+  })
+
+  it('resets customer display payment amounts to zero when the cart is empty', async () => {
+    localStorage.setItem(customerDisplayPayloadStorageKey, JSON.stringify({
+      store: { name: 'POS Grocery' },
+      cart: [],
+      cartTotal: 0,
+      cashReceived: 100,
+      changeDue: 0,
+      lastSale: null,
+    }))
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    await waitFor(() => {
+      const displayPayload = JSON.parse(
+        localStorage.getItem(customerDisplayPayloadStorageKey) ?? '{}',
+      )
+      expect(displayPayload.cart).toEqual([])
+      expect(displayPayload.cartTotal).toBe(0)
+      expect(displayPayload.cashReceived).toBe(0)
+      expect(displayPayload.changeDue).toBe(0)
+    })
+  })
+
+  it('persists the cart under a storeId-scoped localStorage key and restores it on remount', async () => {
+    localStorage.clear()
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+
+    await waitFor(() => {
+      const stored = localStorage.getItem('pos-grocery:pos-cart:store-1')
+      expect(stored).not.toBeNull()
+      expect(JSON.parse(stored ?? '[]')).toHaveLength(1)
+    })
+
+    cleanup()
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    expect(screen.getByText('Drinking Water')).toBeInTheDocument()
+    expect(screen.getByText('ยอดรวม 7.00 บาท')).toBeInTheDocument()
+  })
+
+  it('switches to the new store cart without leaking the previous store items when the current store changes', async () => {
+    localStorage.clear()
+    localStorage.setItem(
+      'pos-grocery:pos-cart:store-other',
+      JSON.stringify([{
+        barcode: '8850001000011',
+        productId: 'product-noodle',
+        productName: 'Instant Noodles',
+        quantity: 1,
+        unitPrice: 12,
+      }]),
+    )
+
+    let storeRequestCount = 0
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path === '/store/current') {
+        storeRequestCount += 1
+        if (storeRequestCount === 1) {
+          return { ...currentStore, id: 'store-1' }
+        }
+        return { ...currentStore, id: 'store-other' }
+      }
+
+      if (path === '/products?view=operation') {
+        return apiProducts
+      }
+
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+
+    await waitFor(() => {
+      const stored = localStorage.getItem('pos-grocery:pos-cart:store-1')
+      expect(JSON.parse(stored ?? '[]')).toHaveLength(1)
+    })
+
+    cleanup()
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    expect(screen.getByText('ยอดรวม 12.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText('Instant Noodles')).toBeInTheDocument()
+    expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
   })
 })

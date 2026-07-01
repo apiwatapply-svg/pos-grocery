@@ -24,6 +24,36 @@ export type ApiSale = {
   }>
 }
 
+export type ApiSaleSummary = Omit<ApiSale, 'items'> & {
+  itemCount: number
+  lineItemCount?: number
+  totalCostSatang: number
+  profitSatang: number
+  profitMarginPercent: number
+  items?: ApiSale['items']
+}
+
+export type PaginatedApiResponse<T> = {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export type ProductSalesReportRow = {
+  no?: number
+  productKey?: string
+  productId?: string
+  productName: string
+  barcode: string
+  billCount: number
+  quantity: number
+  totalSalesSatang: number
+  totalCostSatang: number
+  profitSatang: number
+  profitMarginPercent: number
+}
+
 export type SalesReport = {
   summary: {
     orderCount: number
@@ -33,7 +63,8 @@ export type SalesReport = {
     profitSatang?: number
     profitMarginPercent?: number
   }
-  sales: ApiSale[]
+  sales?: ApiSale[]
+  productSales?: ProductSalesReportRow[]
 }
 
 export type DashboardReport = {
@@ -44,15 +75,36 @@ export type DashboardReport = {
     quantity: number
     totalSalesSatang: number
   }>
+  bestProfitProducts?: Array<{
+    productId: string
+    productName: string
+    quantity: number
+    totalSalesSatang: number
+    totalCostSatang: number
+    profitSatang: number
+    profitMarginPercent: number
+  }>
   bestTimeSlots: Array<{
     hour: number
     orderCount: number
     totalSalesSatang: number
   }>
+  hourlySales?: Array<{
+    hour: number
+    orderCount: number
+    totalSalesSatang: number
+    items: Array<{
+      productId: string
+      productName: string
+      quantity: number
+      totalSalesSatang: number
+      profitSatang?: number
+    }>
+  }>
 }
 
 export function bahtFromSatang(value: number) {
-  return (value / 100).toFixed(2)
+  return formatBaht(value / 100)
 }
 
 export function todayDateInputValue() {
@@ -73,3 +125,4 @@ export function dateRangeQuery(from: string, to: string) {
   const query = params.toString()
   return query ? `?${query}` : ''
 }
+import { formatBaht } from '../../lib/format/number'

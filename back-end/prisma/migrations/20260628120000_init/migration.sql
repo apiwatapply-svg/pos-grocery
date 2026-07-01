@@ -41,7 +41,6 @@ CREATE TABLE "Product" (
     "categoryId" TEXT,
     "name" TEXT NOT NULL,
     "barcode" TEXT NOT NULL,
-    "sku" TEXT,
     "unit" TEXT NOT NULL,
     "costPriceSatang" INTEGER NOT NULL,
     "salePriceSatang" INTEGER NOT NULL,

@@ -13,7 +13,6 @@ export type AppRouteId =
   | 'inventory-receiving'
   | 'stock-counting'
   | 'sales-report'
-  | 'best-sellers-report'
   | 'store-settings'
   | 'user-management'
 
@@ -30,9 +29,8 @@ export const routePermissions: Record<AppRouteId, Role[]> = {
   'inventory-receiving': ['owner', 'admin', 'stock'],
   'stock-counting': ['owner', 'admin', 'stock'],
   'sales-report': ['owner', 'admin'],
-  'best-sellers-report': ['owner', 'admin'],
-  'store-settings': ['owner', 'admin'],
-  'user-management': ['owner', 'admin'],
+  'store-settings': ['admin'],
+  'user-management': ['admin'],
 }
 
 export function canAccessRoute(role: Role, routeId: AppRouteId) {

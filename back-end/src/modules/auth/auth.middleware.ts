@@ -1,8 +1,8 @@
 import type { RequestHandler } from "express";
-import { env } from "../../config/env.js";
-import { AppError } from "../../shared/errors/app-error.js";
-import { verifyAuthToken } from "./auth.service.js";
-import { defaultUserRepository, type UserRepository, type UserRole } from "../users/user.repository.js";
+import { env } from "../../config/env.ts";
+import { AppError } from "../../shared/errors/app-error.ts";
+import { verifyAuthToken } from "./auth.service.ts";
+import type { UserRepository, UserRole } from "../users/user.repository.ts";
 
 export type AuthenticatedUser = {
   id: string;
@@ -24,8 +24,15 @@ function readBearerToken(header: string | undefined): string {
   return header.slice("Bearer ".length).trim();
 }
 
+function tokenRole(role: string): UserRole {
+  if (role === "admin" || role === "owner" || role === "cashier" || role === "stock") {
+    return role;
+  }
+
+  throw new AppError(401, "INVALID_TOKEN", "Authentication token is invalid.");
+}
+
 export function requireAuth(deps?: AuthMiddlewareDeps): RequestHandler {
-  const repository = deps?.repository ?? defaultUserRepository;
   const jwtSecret = deps?.jwtSecret ?? env.JWT_SECRET;
 
   return async (request, response, next) => {
@@ -35,17 +42,12 @@ export function requireAuth(deps?: AuthMiddlewareDeps): RequestHandler {
       }
 
       const payload = verifyAuthToken(readBearerToken(request.header("authorization")), jwtSecret);
-      const user = await repository.findUserById(payload.sub);
-
-      if (!user || user.status !== "active") {
-        throw new AppError(401, "UNAUTHENTICATED", "Authentication required.");
-      }
 
       response.locals.authUser = {
-        id: user.id,
-        storeId: user.storeId,
-        username: user.username,
-        role: user.role,
+        id: payload.sub,
+        storeId: payload.storeId,
+        username: payload.username,
+        role: tokenRole(payload.role),
       } satisfies AuthenticatedUser;
       next();
     } catch (error) {

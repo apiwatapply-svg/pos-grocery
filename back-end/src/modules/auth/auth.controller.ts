@@ -1,9 +1,9 @@
 import type { RequestHandler } from "express";
-import { env } from "../../config/env.js";
-import { AppError } from "../../shared/errors/app-error.js";
-import { comparePassword, createAuthToken, requireActiveUser, toPublicUser } from "./auth.service.js";
-import { loginSchema } from "./auth.schemas.js";
-import { defaultUserRepository, type UserRepository } from "../users/user.repository.js";
+import { env } from "../../config/env.ts";
+import { AppError } from "../../shared/errors/app-error.ts";
+import { comparePassword, createAuthToken, requireActiveUser, toPublicUser } from "./auth.service.ts";
+import { loginSchema } from "./auth.schemas.ts";
+import { defaultUserRepository, type UserRepository } from "../users/user.repository.ts";
 
 export function createAuthController(deps?: {
   repository?: UserRepository;

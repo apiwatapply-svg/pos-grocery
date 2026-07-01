@@ -1,11 +1,11 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiGet, apiPatch, apiPost } from '../../lib/api/client'
+import { compressImageFile, productImageCompression } from '../../lib/images/imageCompression'
 
 type ProductForm = {
   name: string
   barcode: string
-  sku: string
   unit: string
   costPrice: string
   salePrice: string
@@ -16,7 +16,6 @@ type ApiProduct = {
   id: string
   name: string
   barcode: string
-  sku?: string
   unit: string
   costPriceSatang: number
   salePriceSatang: number
@@ -26,7 +25,6 @@ type ApiProduct = {
 const emptyForm: ProductForm = {
   name: '',
   barcode: '',
-  sku: '',
   unit: '',
   costPrice: '',
   salePrice: '',
@@ -35,15 +33,6 @@ const emptyForm: ProductForm = {
 
 function satangFromBaht(value: string) {
   return Math.round(Number(value || 0) * 100)
-}
-
-function fileToDataUri(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
 }
 
 export function ProductFormPage() {
@@ -74,7 +63,6 @@ export function ProductFormPage() {
         setForm({
           name: product.name,
           barcode: product.barcode,
-          sku: product.sku ?? '',
           unit: product.unit,
           costPrice: (product.costPriceSatang / 100).toFixed(2),
           salePrice: (product.salePriceSatang / 100).toFixed(2),
@@ -103,7 +91,6 @@ export function ProductFormPage() {
     const payload = {
       name: form.name,
       barcode: form.barcode,
-      ...(form.sku.trim() ? { sku: form.sku } : {}),
       unit: form.unit,
       costPriceSatang: satangFromBaht(form.costPrice),
       salePriceSatang: satangFromBaht(form.salePrice),
@@ -116,9 +103,10 @@ export function ProductFormPage() {
         : await apiPost<ApiProduct>('/products', payload)
 
       if (imageFile) {
+        const compressedImage = await compressImageFile(imageFile, productImageCompression)
         await apiPost(`/products/${saved.id}/images`, {
-          fileName: imageFile.name,
-          dataUri: await fileToDataUri(imageFile),
+          fileName: compressedImage.fileName,
+          dataUri: compressedImage.dataUri,
           altText: saved.name,
         })
       }
@@ -140,7 +128,6 @@ export function ProductFormPage() {
       <form className="panel compact-form product-form" onSubmit={(event) => void saveProduct(event)}>
         <input name="name" placeholder="ชื่อสินค้า" required value={form.name} onChange={(event) => updateField('name', event.target.value)} />
         <input name="barcode" placeholder="barcode" required value={form.barcode} onChange={(event) => updateField('barcode', event.target.value)} />
-        <input name="sku" placeholder="SKU" value={form.sku} onChange={(event) => updateField('sku', event.target.value)} />
         <input name="unit" placeholder="หน่วย" required value={form.unit} onChange={(event) => updateField('unit', event.target.value)} />
         <input name="costPrice" placeholder="ต้นทุน" type="number" min="0" step="0.01" required value={form.costPrice} onChange={(event) => updateField('costPrice', event.target.value)} />
         <input name="salePrice" placeholder="ราคาขาย" type="number" min="0" step="0.01" required value={form.salePrice} onChange={(event) => updateField('salePrice', event.target.value)} />

@@ -1,11 +1,11 @@
-import { createApp } from "./app.js";
-import { env } from "./config/env.js";
-import { seedInitialAdmin } from "./modules/users/seed-admin.js";
+import { createApp } from "./app.ts";
+import { env } from "./config/env.ts";
+import { seedInitialAdmin } from "./modules/users/seed-admin.ts";
 
 async function startServer() {
   await seedInitialAdmin({
-    adminUsername: env.ADMIN_USERNAME,
-    adminPassword: env.ADMIN_PASSWORD,
+    adminUsername: "admin",
+    adminPassword: "admin",
     storeName: "POS Grocery",
   });
 

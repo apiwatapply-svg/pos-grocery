@@ -3,7 +3,8 @@ import { appRoutes, navGroups, protectedRoutes } from './routes'
 
 describe('app routes', () => {
   it('defines the expected number of route pages', () => {
-    expect(appRoutes).toHaveLength(16)
+    expect(appRoutes).toHaveLength(15)
+    expect(appRoutes.some((route) => route.path === '/reports/best-sellers')).toBe(false)
   })
 
   it('gives every protected route metadata for guards and navigation', () => {

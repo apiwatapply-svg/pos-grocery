@@ -1,11 +1,10 @@
-import { hashPassword } from "../auth/auth.service.js";
-import { defaultUserRepository, type UserRepository } from "./user.repository.js";
+import { hashPassword } from "../auth/auth.service.ts";
+import { defaultUserRepository, type UserRepository } from "./user.repository.ts";
 
 const seedProducts = [
   {
     name: "Drinking Water",
     barcode: "8850002000010",
-    sku: "WATER-001",
     unit: "bottle",
     costPriceSatang: 400,
     salePriceSatang: 700,
@@ -14,7 +13,6 @@ const seedProducts = [
   {
     name: "Instant Noodles",
     barcode: "8850001000011",
-    sku: "NOODLE-001",
     unit: "pack",
     costPriceSatang: 700,
     salePriceSatang: 1200,
@@ -64,7 +62,6 @@ export async function seedInitialAdmin(deps: {
       storeId: store.id,
       name: seedProduct.name,
       barcode: seedProduct.barcode,
-      sku: seedProduct.sku,
       unit: seedProduct.unit,
       costPriceSatang: seedProduct.costPriceSatang,
       salePriceSatang: seedProduct.salePriceSatang,
@@ -75,7 +72,7 @@ export async function seedInitialAdmin(deps: {
       type: "receive",
       quantityChange: seedProduct.stockQuantity,
       unitCostSatang: seedProduct.costPriceSatang,
-      note: "Initial demo stock",
+      note: "Initial SQL seed stock",
     });
   }
 }

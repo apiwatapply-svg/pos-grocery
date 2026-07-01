@@ -103,13 +103,6 @@ export const protectedRoutes: AppRoute[] = [
     roles: routePermissions['sales-report'],
   },
   {
-    id: 'best-sellers-report',
-    path: '/reports/best-sellers',
-    label: 'สินค้าขายดี',
-    navGroup: 'reports',
-    roles: routePermissions['best-sellers-report'],
-  },
-  {
     id: 'store-settings',
     path: '/settings/store',
     label: 'ข้อมูลร้าน',

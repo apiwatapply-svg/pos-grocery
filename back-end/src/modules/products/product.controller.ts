@@ -1,9 +1,9 @@
 import type { RequestHandler } from "express";
-import { AppError } from "../../shared/errors/app-error.js";
-import type { AuthenticatedUser } from "../auth/auth.middleware.js";
-import { defaultUserRepository, type UserRepository } from "../users/user.repository.js";
-import { uploadProductImageToCloudinary } from "./cloudinary.service.js";
-import { createProductSchema, updateProductSchema, uploadProductImageSchema } from "./product.schemas.js";
+import { AppError } from "../../shared/errors/app-error.ts";
+import type { AuthenticatedUser } from "../auth/auth.middleware.ts";
+import { defaultUserRepository, type UserRepository } from "../users/user.repository.ts";
+import { uploadProductImageToCloudinary } from "./cloudinary.service.ts";
+import { createProductSchema, updateProductSchema, uploadProductImageSchema } from "./product.schemas.ts";
 
 function requireLocalUser(response: Parameters<RequestHandler>[1]) {
   const user = response.locals.authUser as AuthenticatedUser | undefined;
@@ -18,10 +18,14 @@ function requireLocalUser(response: Parameters<RequestHandler>[1]) {
 export function listProductsController(deps?: { repository?: UserRepository }): RequestHandler {
   const repository = deps?.repository ?? defaultUserRepository;
 
-  return async (_request, response, next) => {
+  return async (request, response, next) => {
     try {
       const user = requireLocalUser(response);
-      const products = await repository.listProducts(user.storeId);
+      const view = typeof request.query.view === "string" ? request.query.view : "catalog";
+      const products = await repository.listProducts(user.storeId, {
+        includeImages: view !== "inventory",
+        includeSalesStats: view !== "operation" && view !== "inventory",
+      });
 
       response.json({ success: true, data: products });
     } catch (error) {
@@ -104,7 +108,10 @@ export function uploadProductImageController(deps?: { repository?: UserRepositor
         throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
       }
 
-      const uploaded = await uploadProductImageToCloudinary(result.data);
+      const uploaded = await uploadProductImageToCloudinary({
+        ...result.data,
+        storeId: product.storeId,
+      });
       const image = await repository.addProductImage({
         productId: product.id,
         provider: "cloudinary",

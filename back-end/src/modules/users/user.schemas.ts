@@ -4,6 +4,7 @@ export const userRoleSchema = z.enum(["owner", "admin", "cashier", "stock"]);
 export const userStatusSchema = z.enum(["active", "inactive"]);
 
 export const createUserSchema = z.object({
+  storeId: z.string().trim().min(1).optional(),
   username: z.string().trim().min(3),
   password: z.string().min(6),
   displayName: z.string().trim().min(1),
@@ -13,6 +14,7 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = z
   .object({
+    storeId: z.string().trim().min(1).optional(),
     username: z.string().trim().min(3).optional(),
     password: z.string().min(6).optional(),
     displayName: z.string().trim().min(1).optional(),
