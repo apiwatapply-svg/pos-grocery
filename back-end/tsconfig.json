@@ -9,8 +9,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "outDir": "dist",
-    "types": ["node"]
+    "outDir": "dist"
   },
   "include": ["src"],
   "exclude": ["**/*.test.ts", "**/*.spec.ts", "src/**/__tests__/**", "vitest.config.ts"]
