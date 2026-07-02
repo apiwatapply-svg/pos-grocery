@@ -619,6 +619,15 @@ export function PosCheckoutPage() {
           <div className="cart-table-wrap pos-scroll-area">
             {cart.length > 0 ? (
               <table className="cart-table" aria-label="รายการสินค้าในตะกร้า">
+                <colgroup>
+                  <col className="col-no" />
+                  <col className="col-image" />
+                  <col className="col-product" />
+                  <col className="col-price" />
+                  <col className="col-quantity" />
+                  <col className="col-total" />
+                  <col className="col-action" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th scope="col">No</th>

@@ -1086,11 +1086,20 @@ td span {
 }
 
 .receiving-table {
-  min-width: 1120px;
+  min-width: 760px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.receiving-table th,
+.receiving-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .receiving-table-wrap-full .receiving-table {
-  min-width: 1320px;
+  min-width: 960px;
 }
 
 .receiving-workspace-full .receiving-table-wrap-full .receiving-table {
@@ -1669,8 +1678,16 @@ td span {
 }
 
 .store-admin-table {
-  min-width: 1320px;
+  min-width: 960px;
+  table-layout: fixed;
   width: 100%;
+}
+
+.store-admin-table th,
+.store-admin-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .store-admin-table td:first-child,
@@ -1864,7 +1881,15 @@ button.table-action-link {
 }
 
 .sales-report-table {
-  min-width: 1080px;
+  min-width: 820px;
+  table-layout: fixed;
+}
+
+.sales-report-table th,
+.sales-report-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sales-report-table td:nth-child(1),
@@ -1955,7 +1980,15 @@ button.table-action-link {
 }
 
 .sales-detail-table {
-  min-width: 960px;
+  min-width: 720px;
+  table-layout: fixed;
+}
+
+.sales-detail-table th,
+.sales-detail-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sales-detail-table th {
@@ -1985,11 +2018,14 @@ button.table-action-link {
 }
 
 .receipt-history-table {
-  min-width: 1320px;
+  min-width: 820px;
+  table-layout: fixed;
 }
 
 .receipt-history-table th,
 .receipt-history-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2250,7 +2286,15 @@ button.table-action-link {
 }
 
 .product-inventory-table {
-  min-width: 1120px;
+  min-width: 880px;
+  table-layout: fixed;
+}
+
+.product-inventory-table th,
+.product-inventory-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .table-sort-button {
@@ -2681,15 +2725,43 @@ button.table-action-link {
 
 .cart-table {
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 720px;
+  table-layout: fixed;
   width: 100%;
+}
+
+.cart-table col.col-no {
+  width: 44px;
+}
+
+.cart-table col.col-image {
+  width: 64px;
+}
+
+.cart-table col.col-product {
+  width: auto;
+}
+
+.cart-table col.col-price,
+.cart-table col.col-total {
+  width: 86px;
+}
+
+.cart-table col.col-quantity {
+  width: 140px;
+}
+
+.cart-table col.col-action {
+  width: 76px;
 }
 
 .cart-table th,
 .cart-table td {
   border-bottom: 1px solid #edf0eb;
-  padding: 10px 12px;
+  overflow: hidden;
+  padding: 10px 8px;
   text-align: left;
+  text-overflow: ellipsis;
   vertical-align: top;
   white-space: nowrap;
 }
@@ -2730,6 +2802,9 @@ button.table-action-link {
 .cart-table td:nth-child(3) strong,
 .cart-table td:nth-child(3) span {
   display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cart-table td:nth-child(3) span {
@@ -5000,6 +5075,40 @@ button.table-action-link {
   .product-edit-actions {
     grid-column: auto;
   }
+
+  .cart-table {
+    min-width: 640px;
+  }
+
+  .cart-table col.col-no {
+    width: 36px;
+  }
+
+  .cart-table col.col-image {
+    width: 56px;
+  }
+
+  .cart-table col.col-price,
+  .cart-table col.col-total {
+    width: 72px;
+  }
+
+  .cart-table col.col-quantity {
+    width: 124px;
+  }
+
+  .cart-table col.col-action {
+    width: 68px;
+  }
+
+  .cart-table th,
+  .cart-table td {
+    padding: 8px 6px;
+  }
+
+  .quick-cash-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 819px) {
@@ -5107,5 +5216,45 @@ button.table-action-link {
 
   .app-layout[data-sidebar-collapsed='true'] .nav-link-short {
     display: none;
+  }
+
+  .cart-table {
+    min-width: 560px;
+  }
+
+  .cart-table col.col-no {
+    width: 32px;
+  }
+
+  .cart-table col.col-image {
+    width: 48px;
+  }
+
+  .cart-table col.col-price,
+  .cart-table col.col-total {
+    width: 64px;
+  }
+
+  .cart-table col.col-quantity {
+    width: 116px;
+  }
+
+  .cart-table col.col-action {
+    width: 60px;
+  }
+
+  .cart-table th,
+  .cart-table td {
+    padding: 6px 4px;
+  }
+
+  .quick-cash-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .quick-cash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
