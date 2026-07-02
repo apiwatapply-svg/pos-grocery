@@ -2341,6 +2341,12 @@ button.table-action-link {
   white-space: nowrap;
 }
 
+.product-inventory-table th:last-child,
+.product-inventory-table td:last-child {
+  min-width: 196px;
+  overflow: visible;
+}
+
 .table-sort-button {
   align-items: center;
   background: transparent;
@@ -4074,6 +4080,13 @@ button.table-action-link {
     width: 86px;
   }
 
+  .product-inventory-table th:last-child,
+  .product-inventory-table td:last-child {
+    min-width: 196px;
+    overflow: visible;
+    width: auto;
+  }
+
   .table-sort-button {
     font-size: 11px;
     gap: 3px;
@@ -4223,7 +4236,9 @@ button.table-action-link {
   .store-admin-table td:last-child,
   .receiving-table th:last-child,
   .receiving-table td:last-child {
-    width: 82px !important;
+    min-width: 196px;
+    overflow: visible;
+    width: auto !important;
   }
 
   .sales-report-table th:nth-child(2),
