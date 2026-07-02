@@ -1177,15 +1177,69 @@ td span {
   text-align: right;
 }
 
+.receiving-quantity-group {
+  align-items: stretch;
+  border: 1px solid #c9d2c5;
+  border-radius: 8px;
+  display: inline-flex;
+  overflow: hidden;
+}
+
+.receiving-quantity-step {
+  align-items: center;
+  background: #eef3ec;
+  border: 0;
+  color: #1f3a25;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 900;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+  transition: background 120ms ease;
+  width: 30px;
+}
+
+.receiving-quantity-step:hover {
+  background: #d6e3d2;
+}
+
+.receiving-quantity-step:focus-visible {
+  outline: 2px solid #2f7a3a;
+  outline-offset: 1px;
+}
+
+.receiving-quantity-input {
+  border: 0;
+  border-left: 1px solid #c9d2c5;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 56px;
+  outline: none;
+  padding: 4px 6px;
+  text-align: center;
+  width: 64px;
+}
+
+.receiving-quantity-input:focus {
+  background: #fff8eb;
+}
+
 .receiving-table .receiving-cost-input {
   background: #fff8eb;
   border: 1px solid #f0c674;
   border-radius: 6px;
+  box-sizing: border-box;
   color: #5a3a05;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 900;
-  min-width: 120px;
-  padding: 7px 10px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  text-align: right;
+  width: 100%;
 }
 
 .receiving-table .receiving-cost-input:focus {

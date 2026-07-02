@@ -19,6 +19,8 @@ type ReceivingLine = {
   unitCost: string
 }
 
+const RECEIVING_QUEUE_STORAGE_KEY = 'pos-grocery:receiving-queue'
+
 type ReceivingHistory = {
   id: string
   productName: string
@@ -71,12 +73,49 @@ function previousStock(history: ReceivingHistory) {
   return history.balanceAfterChange - history.quantityChange
 }
 
+function loadPersistedQueue(): ReceivingLine[] {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const raw = window.localStorage.getItem(RECEIVING_QUEUE_STORAGE_KEY)
+    if (!raw) return []
+
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+
+    const restored: ReceivingLine[] = []
+    for (const entry of parsed) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        'product' in entry &&
+        'quantity' in entry &&
+        'unitCost' in entry
+      ) {
+        const product = (entry as ReceivingLine).product
+        if (product && typeof product.id === 'string') {
+          restored.push({
+            product,
+            quantity: String((entry as ReceivingLine).quantity ?? ''),
+            unitCost: String((entry as ReceivingLine).unitCost ?? ''),
+          })
+        }
+      }
+    }
+    return restored
+  } catch {
+    return []
+  }
+}
+
 export function InventoryReceivingPage() {
   const scanInputRef = useRef<HTMLInputElement>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<ReceivingHistory[]>([])
   const [scanValue, setScanValue] = useState('')
-  const [lines, setLines] = useState<ReceivingLine[]>([])
+  const [lines, setLines] = useState<ReceivingLine[]>(() => loadPersistedQueue())
   const [message, setMessage] = useState('กำลังโหลดสินค้า')
 
   async function loadProducts() {
@@ -122,6 +161,15 @@ export function InventoryReceivingPage() {
   useEffect(() => {
     scanInputRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    if (lines.length === 0) {
+      window.localStorage.removeItem(RECEIVING_QUEUE_STORAGE_KEY)
+      return
+    }
+
+    window.localStorage.setItem(RECEIVING_QUEUE_STORAGE_KEY, JSON.stringify(lines))
+  }, [lines])
 
   const totalQuantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0)
   const totalValue = lines.reduce((sum, line) => sum + lineTotal(line), 0)
@@ -191,6 +239,20 @@ export function InventoryReceivingPage() {
         }
 
         return { ...line, unitCost: value }
+      }),
+    )
+  }
+
+  function stepQuantity(productId: string, delta: number) {
+    setLines((current) =>
+      current.map((line) => {
+        if (line.product.id !== productId) {
+          return line
+        }
+
+        const currentQty = Number(line.quantity || 0)
+        const nextQty = Math.max(0, currentQty + delta)
+        return { ...line, quantity: String(nextQty) }
       }),
     )
   }
@@ -355,14 +417,32 @@ export function InventoryReceivingPage() {
                         <td><strong>{line.product.name}</strong></td>
                         <td>{formatNumber(line.product.stockQuantity)}</td>
                         <td>
-                          <input
-                            aria-label={`จำนวนรับเข้า ${line.product.name}`}
-                            className="receiving-quantity-input"
-                            min="0"
-                            type="number"
-                            value={line.quantity}
-                            onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
-                          />
+                          <div className="receiving-quantity-group">
+                            <button
+                              aria-label={`ลดจำนวนรับเข้า ${line.product.name}`}
+                              className="receiving-quantity-step"
+                              type="button"
+                              onClick={() => stepQuantity(line.product.id, -1)}
+                            >
+                              −
+                            </button>
+                            <input
+                              aria-label={`จำนวนรับเข้า ${line.product.name}`}
+                              className="receiving-quantity-input"
+                              min="0"
+                              type="number"
+                              value={line.quantity}
+                              onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
+                            />
+                            <button
+                              aria-label={`เพิ่มจำนวนรับเข้า ${line.product.name}`}
+                              className="receiving-quantity-step"
+                              type="button"
+                              onClick={() => stepQuantity(line.product.id, 1)}
+                            >
+                              +
+                            </button>
+                          </div>
                         </td>
                         <td>{formatNumber(line.product.stockQuantity + Number(line.quantity || 0))}</td>
                         <td>
