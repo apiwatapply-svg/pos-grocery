@@ -1074,6 +1074,27 @@ td span {
 .receiving-table-wrap {
   max-height: clamp(320px, calc(100vh - 430px), 560px);
   overflow: auto;
+  scrollbar-color: #94a89a #f3f7f1;
+  scrollbar-width: thin;
+}
+
+.receiving-table-wrap::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.receiving-table-wrap::-webkit-scrollbar-track {
+  background: #f3f7f1;
+  border-radius: 4px;
+}
+
+.receiving-table-wrap::-webkit-scrollbar-thumb {
+  background: #94a89a;
+  border-radius: 4px;
+}
+
+.receiving-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #6f8576;
 }
 
 .receiving-table-wrap-full {
@@ -1372,7 +1393,7 @@ td span {
 
 .stock-counting-workspace .receiving-table-wrap-full,
 .stock-counting-workspace .receiving-history-scroll {
-  max-height: clamp(260px, calc(100vh - 560px), 480px);
+  max-height: clamp(280px, calc(100vh - 460px), 480px);
 }
 
 .stock-counting-workspace .receiving-table-wrap-full .receiving-table,
@@ -1454,8 +1475,30 @@ td span {
 }
 
 .stock-counting-history-scroll {
+  max-height: clamp(320px, calc(100vh - 460px), 560px);
   min-height: 0;
-  overflow-x: auto;
+  overflow: auto;
+  scrollbar-color: #94a89a #f3f7f1;
+  scrollbar-width: thin;
+}
+
+.stock-counting-history-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.stock-counting-history-scroll::-webkit-scrollbar-track {
+  background: #f3f7f1;
+  border-radius: 4px;
+}
+
+.stock-counting-history-scroll::-webkit-scrollbar-thumb {
+  background: #94a89a;
+  border-radius: 4px;
+}
+
+.stock-counting-history-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6f8576;
 }
 
 .stock-reference-row {
