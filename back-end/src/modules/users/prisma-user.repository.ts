@@ -213,6 +213,13 @@ function mapInventoryTransactionWithProduct(transaction: Parameters<typeof mapIn
   };
 }
 
+function saleItemUnitCostSatang(item: { unitCostSatang?: number | null; product?: { costPriceSatang?: number } }): number {
+  if (typeof item.unitCostSatang === "number" && item.unitCostSatang > 0) {
+    return item.unitCostSatang;
+  }
+  return item.product?.costPriceSatang ?? 0;
+}
+
 function mapSale(sale: {
   id: string;
   storeId: string;
@@ -232,9 +239,9 @@ function mapSale(sale: {
     productName: string;
     quantity: number;
     unitPriceSatang: number;
-    unitCostSatang?: number;
+    unitCostSatang?: number | null;
     totalSatang: number;
-    totalCostSatang?: number;
+    totalCostSatang?: number | null;
     product?: { barcode: string; costPriceSatang?: number };
   }>;
   payment: {
@@ -275,11 +282,12 @@ function mapSale(sale: {
       barcode: item.product?.barcode ?? "",
       quantity: item.quantity,
       unitPriceSatang: item.unitPriceSatang,
-      unitCostSatang: item.unitCostSatang ?? item.product?.costPriceSatang ?? 0,
+      unitCostSatang: saleItemUnitCostSatang(item),
       totalSatang: item.totalSatang,
       totalCostSatang:
-        item.totalCostSatang
-        ?? (item.unitCostSatang ?? item.product?.costPriceSatang ?? 0) * item.quantity,
+        (item.totalCostSatang && item.totalCostSatang > 0)
+          ? item.totalCostSatang
+          : saleItemUnitCostSatang(item) * item.quantity,
     })),
     payment: {
       id: sale.payment.id,
@@ -321,11 +329,12 @@ function mapSaleForReport(sale: Omit<Parameters<typeof mapSale>[0], "payment" | 
       barcode: item.product?.barcode ?? "",
       quantity: item.quantity,
       unitPriceSatang: item.unitPriceSatang,
-      unitCostSatang: item.unitCostSatang ?? item.product?.costPriceSatang ?? 0,
+      unitCostSatang: saleItemUnitCostSatang(item),
       totalSatang: item.totalSatang,
       totalCostSatang:
-        item.totalCostSatang
-        ?? (item.unitCostSatang ?? item.product?.costPriceSatang ?? 0) * item.quantity,
+        (item.totalCostSatang && item.totalCostSatang > 0)
+          ? item.totalCostSatang
+          : saleItemUnitCostSatang(item) * item.quantity,
     })),
     payment: {
       id: "",
@@ -1342,8 +1351,11 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         for (const item of sale.items) {
           const current = rows.get(date) ?? emptyProductSalesHistoryRow(date);
           const totalSalesSatang = current.totalSalesSatang + item.totalSatang;
-          const itemUnitCostSatang = item.unitCostSatang ?? item.product.costPriceSatang;
-          const itemTotalCostSatang = item.totalCostSatang ?? itemUnitCostSatang * item.quantity;
+          const itemUnitCostSatang = saleItemUnitCostSatang(item);
+          const itemTotalCostSatang =
+            (item.totalCostSatang && item.totalCostSatang > 0)
+              ? item.totalCostSatang
+              : itemUnitCostSatang * item.quantity;
           const totalCostSatang = current.totalCostSatang + itemTotalCostSatang;
           const profitSatang = totalSalesSatang - totalCostSatang;
 
