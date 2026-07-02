@@ -1835,7 +1835,7 @@ button.table-action-link {
   border: 1px dashed #cfe0d2;
   border-radius: 6px;
   color: #536259;
-  display: none;
+  display: flex;
   flex-wrap: wrap;
   font-size: 12px;
   font-weight: 800;
@@ -4135,10 +4135,6 @@ button.table-action-link {
   .product-action-icon-svg {
     width: 16px;
     height: 16px;
-  }
-
-  .product-action-legend {
-    display: flex;
   }
 
   .sales-report-table th:nth-child(2),
