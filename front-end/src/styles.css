@@ -2788,8 +2788,14 @@ button.table-action-link {
 }
 
 .pos-panel-large .cart-table-wrap {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #dce4da;
+  border-radius: 0;
   flex: 1 1 auto;
-  margin: 12px 0;
+  margin: 12px 0 0;
+  max-height: clamp(280px, 48vh, 560px);
+  min-height: clamp(280px, 48vh, 560px);
 }
 
 .cart-table-wrap {
