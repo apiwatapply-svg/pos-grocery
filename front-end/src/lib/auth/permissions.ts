@@ -29,8 +29,8 @@ export const routePermissions: Record<AppRouteId, Role[]> = {
   'inventory-receiving': ['owner', 'admin', 'stock'],
   'stock-counting': ['owner', 'admin', 'stock'],
   'sales-report': ['owner', 'admin'],
-  'store-settings': ['admin'],
-  'user-management': ['admin'],
+  'store-settings': ['owner', 'admin'],
+  'user-management': ['owner', 'admin'],
 }
 
 export function canAccessRoute(role: Role, routeId: AppRouteId) {

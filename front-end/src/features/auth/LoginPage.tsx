@@ -3,6 +3,11 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiPost } from '../../lib/api/client'
+import {
+  clearRememberedUsername,
+  readRememberedUsername,
+  rememberUsername,
+} from '../../lib/auth/credentials'
 import { readSession, saveSession } from '../../lib/auth/session'
 import type { Role } from '../../lib/auth/permissions'
 
@@ -30,7 +35,7 @@ function defaultPathForRole(role: Role) {
 export function LoginPage() {
   const navigate = useNavigate()
   const currentSession = readSession()
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState(readRememberedUsername)
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('เข้าสู่ระบบเพื่อเริ่มขายหน้าร้าน')
 
@@ -55,6 +60,7 @@ export function LoginPage() {
           role: result.user.role,
         },
       })
+      rememberUsername(result.user.username)
       setMessage(`พร้อมใช้งาน: ${result.user.displayName}`)
       await Swal.fire({
         icon: 'success',
@@ -67,6 +73,7 @@ export function LoginPage() {
       navigate(defaultPathForRole(result.user.role))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'เข้าสู่ระบบไม่สำเร็จ')
+      clearRememberedUsername()
     }
   }
 
