@@ -46,7 +46,6 @@ if (process.env.NODE_ENV !== "production") {
 
   for (const dir of candidateDirs) {
     loadLocalEnvFile(path.join(dir, ".env"));
-    loadLocalEnvFile(path.join(dir, ".dev.vars"));
   }
 }
 
