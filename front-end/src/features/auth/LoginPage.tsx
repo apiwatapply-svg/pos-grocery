@@ -38,6 +38,7 @@ export function LoginPage() {
   const [username, setUsername] = useState(readRememberedUsername)
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('เข้าสู่ระบบเพื่อเริ่มขายหน้าร้าน')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (currentSession) {
     return <Navigate replace to={defaultPathForRole(currentSession.user.role)} />
@@ -45,6 +46,20 @@ export function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+    setMessage('กำลังเข้าสู่ระบบ...')
+    Swal.fire({
+      title: 'กำลังเข้าสู่ระบบ',
+      text: 'กรุณารอสักครู่',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+    })
+    Swal.showLoading()
 
     try {
       const result = await apiPost<LoginResponse>('/auth/login', {
@@ -62,6 +77,7 @@ export function LoginPage() {
       })
       rememberUsername(result.user.username)
       setMessage(`พร้อมใช้งาน: ${result.user.displayName}`)
+      Swal.close()
       await Swal.fire({
         icon: 'success',
         title: 'เข้าสู่ระบบสำเร็จ',
@@ -72,8 +88,19 @@ export function LoginPage() {
       })
       navigate(defaultPathForRole(result.user.role))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'เข้าสู่ระบบไม่สำเร็จ')
+      const errorMessage =
+        error instanceof Error ? error.message : 'เข้าสู่ระบบไม่สำเร็จ'
+      setMessage(errorMessage)
       clearRememberedUsername()
+      Swal.close()
+      await Swal.fire({
+        icon: 'error',
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        text: errorMessage,
+        confirmButtonText: 'ลองอีกครั้ง',
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -116,8 +143,12 @@ export function LoginPage() {
               value={password}
             />
           </label>
-          <button className="primary-button" type="submit">
-            Login
+          <button
+            className="primary-button"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? 'กำลังเข้าสู่ระบบ...' : 'Login'}
           </button>
         </form>
       </div>

@@ -14,6 +14,8 @@ vi.mock('../../lib/api/client', () => ({
 vi.mock('sweetalert2', () => ({
   default: {
     fire: vi.fn().mockResolvedValue({}),
+    close: vi.fn(),
+    showLoading: vi.fn(),
   },
 }))
 
@@ -108,5 +110,55 @@ describe('LoginPage', () => {
     })
     expect(screen.queryByRole('button', { name: /login/i })).not.toBeInTheDocument()
     expect(mockedApiPost).not.toHaveBeenCalled()
+  })
+
+  it('shows a loading swal while the login request is in flight', async () => {
+    let resolveLogin!: (value: ReturnType<typeof loginResponse>) => void
+    mockedApiPost.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveLogin = resolve
+      }),
+    )
+
+    renderLogin()
+    await submitLogin()
+
+    expect(mockedSwal.fire).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'กำลังเข้าสู่ระบบ',
+        showConfirmButton: false,
+      }),
+    )
+    expect(mockedSwal.showLoading).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /กำลังเข้าสู่ระบบ/i })).toBeDisabled()
+
+    await act(async () => {
+      resolveLogin(loginResponse('admin'))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'POS Checkout' })).toBeInTheDocument()
+    })
+    expect(mockedSwal.close).toHaveBeenCalled()
+  })
+
+  it('shows an error swal and clears the remembered username when login fails', async () => {
+    localStorage.setItem('pos-grocery:last-username', 'admin')
+    mockedApiPost.mockRejectedValueOnce(new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'))
+
+    renderLogin()
+    await submitLogin()
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          icon: 'error',
+          title: 'เข้าสู่ระบบไม่สำเร็จ',
+          text: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+        }),
+      )
+    })
+    expect(localStorage.getItem('pos-grocery:last-username')).toBeNull()
+    expect(screen.getByRole('button', { name: /^login$/i })).not.toBeDisabled()
   })
 })
