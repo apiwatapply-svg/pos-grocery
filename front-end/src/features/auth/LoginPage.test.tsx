@@ -67,7 +67,7 @@ describe('LoginPage', () => {
 
   it.each([
     ['owner', 'Dashboard'],
-    ['admin', 'Dashboard'],
+    ['admin', 'POS Checkout'],
     ['cashier', 'POS Checkout'],
     ['stock', 'Inventory'],
   ] as const)('redirects %s to the correct starting page', async (role, heading) => {
@@ -95,7 +95,7 @@ describe('LoginPage', () => {
 
   it.each([
     ['owner', 'Dashboard'],
-    ['admin', 'Dashboard'],
+    ['admin', 'POS Checkout'],
     ['cashier', 'POS Checkout'],
     ['stock', 'Inventory'],
   ] as const)('redirects already authenticated %s users away from login', async (role, heading) => {

@@ -17,7 +17,7 @@ type LoginResponse = {
 }
 
 function defaultPathForRole(role: Role) {
-  if (role === 'cashier') {
+  if (role === 'admin' || role === 'cashier') {
     return '/pos'
   }
   if (role === 'stock') {
@@ -30,8 +30,8 @@ function defaultPathForRole(role: Role) {
 export function LoginPage() {
   const navigate = useNavigate()
   const currentSession = readSession()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [message, setMessage] = useState('เข้าสู่ระบบเพื่อเริ่มขายหน้าร้าน')
 
   if (currentSession) {
