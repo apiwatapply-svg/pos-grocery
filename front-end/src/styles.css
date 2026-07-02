@@ -1366,7 +1366,7 @@ td span {
 
 .stock-counting-workspace .receiving-table-wrap-full .receiving-table,
 .stock-counting-history-table {
-  min-width: 480px;
+  min-width: 720px;
 }
 
 .stock-counting-workspace .receiving-table-wrap-full .receiving-table {
@@ -1432,7 +1432,10 @@ td span {
 .stock-counting-history-table td:nth-child(7),
 .stock-counting-history-table th:nth-child(8),
 .stock-counting-history-table td:nth-child(8) {
-  width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 76px;
 }
 
 .stock-counting-history-panel {
@@ -1441,6 +1444,7 @@ td span {
 
 .stock-counting-history-scroll {
   min-height: 0;
+  overflow-x: auto;
 }
 
 .stock-reference-row {
