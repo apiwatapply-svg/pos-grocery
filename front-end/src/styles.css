@@ -1350,7 +1350,7 @@ td span {
 .stock-counting-main-layout {
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(0, 1.2fr) minmax(380px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   width: 100%;
 }
 
@@ -3746,7 +3746,7 @@ button.table-action-link {
   }
 
   .stock-counting-main-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .receiving-main-layout {
