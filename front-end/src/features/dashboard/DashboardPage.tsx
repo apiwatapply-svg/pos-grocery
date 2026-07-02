@@ -9,6 +9,7 @@ const dashboardDateFilterStorageKey = 'pos-grocery:dashboard-date-filter'
 const dashboardLimitOptions = [3, 5, 10, 20, 50]
 type DashboardItemLimit = number | 'all'
 type HourlySalesSlot = NonNullable<DashboardReport['hourlySales']>[number]
+type HourlySalesItem = HourlySalesSlot['items'][number]
 type HourlyMetric = 'sales' | 'orders' | 'items'
 type DashboardDateFilter = {
   from: string
@@ -82,6 +83,28 @@ function hourlyMetricValue(slot: HourlySalesSlot, metric: HourlyMetric) {
   }
 
   return slot.totalSalesSatang
+}
+
+function hourProductMetricValue(item: HourlySalesItem, slot: HourlySalesSlot, metric: HourlyMetric) {
+  if (metric === 'orders') {
+    if (slot.totalSalesSatang > 0) {
+      return (item.totalSalesSatang / slot.totalSalesSatang) * slot.orderCount
+    }
+    return 0
+  }
+
+  if (metric === 'items') {
+    return item.quantity
+  }
+
+  return item.totalSalesSatang
+}
+
+function formatHourProductMetricValue(value: number, metric: HourlyMetric) {
+  if (metric === 'orders') {
+    return formatNumber(Math.round(value))
+  }
+  return formatHourlyMetricValue(value, metric)
 }
 
 function hourlyMetricLabel(metric: HourlyMetric) {
@@ -187,10 +210,22 @@ export function DashboardPage() {
     ? fillEmptyHourlySalesSlots(dashboard.hourlySales ?? dashboard.bestTimeSlots.map((slot) => ({ ...slot, items: [] })))
     : []
   const selectedHourSales = hourlySales.find((slot) => slot.hour === selectedHour) ?? hourlySales[0]
-  const selectedHourItems = limitDashboardItems(selectedHourSales?.items ?? [], itemLimit)
+  const sortedSelectedHourItems = selectedHourSales
+    ? [...selectedHourSales.items].sort(
+        (leftItem, rightItem) =>
+          hourProductMetricValue(rightItem, selectedHourSales, hourlyMetric) -
+          hourProductMetricValue(leftItem, selectedHourSales, hourlyMetric),
+      )
+    : []
+  const selectedHourItems = limitDashboardItems(sortedSelectedHourItems, itemLimit)
   const maxSellerQuantity = Math.max(...bestSellers.map((item) => item.quantity), 1)
   const maxProfitSatang = Math.max(...bestProfitProducts.map((item) => item.profitSatang), 1)
-  const maxSelectedHourQuantity = Math.max(...selectedHourItems.map((item) => item.quantity), 1)
+  const maxSelectedHourMetricValue = selectedHourSales
+    ? Math.max(
+        ...sortedSelectedHourItems.map((item) => hourProductMetricValue(item, selectedHourSales, hourlyMetric)),
+        1,
+      )
+    : 1
   const maxHourlyMetricValue = Math.max(...hourlySales.map((slot) => hourlyMetricValue(slot, hourlyMetric)), 1)
   const hourlySalesTicks = hourlyAxisTicks(maxHourlyMetricValue)
   const averageOrderSatang = dashboard?.summary.orderCount
@@ -432,18 +467,24 @@ export function DashboardPage() {
             {selectedHourItems.length ? (
               <div className="hour-product-detail-layout" aria-label="กราฟและตารางสินค้าที่มีการขายในชั่วโมงที่เลือก">
                 <div className="hour-product-chart-column" role="group" aria-label="กราฟแท่งแนวนอนสินค้าที่มีการขาย">
-                  {selectedHourItems.map((item, index) => (
-                    <article className="hour-product-bar-row" key={item.productId}>
-                      <div className="hour-product-bar-label">
-                        <span>#{formatNumber(index + 1)}</span>
-                        <strong>{item.productName}</strong>
-                        <small>{formatNumber(item.quantity)} ชิ้น / {bahtFromSatang(item.totalSalesSatang)} บาท</small>
-                      </div>
-                      <div className="hour-product-bar-track" aria-hidden="true">
-                        <span style={{ width: `${Math.max(8, (item.quantity / maxSelectedHourQuantity) * 100)}%` }} />
-                      </div>
-                    </article>
-                  ))}
+                  {selectedHourItems.map((item, index) => {
+                    const metricValue = hourProductMetricValue(item, selectedHourSales, hourlyMetric)
+                    return (
+                      <article className="hour-product-bar-row" key={item.productId}>
+                        <div className="hour-product-bar-label">
+                          <span>#{formatNumber(index + 1)}</span>
+                          <strong>{item.productName}</strong>
+                          <small>
+                            {hourlyMetricLabel(hourlyMetric)} {formatHourProductMetricValue(metricValue, hourlyMetric)}
+                            {hourlyMetric === 'sales' ? ' บาท' : ''}
+                          </small>
+                        </div>
+                        <div className="hour-product-bar-track" aria-hidden="true">
+                          <span style={{ width: `${Math.max(8, (metricValue / maxSelectedHourMetricValue) * 100)}%` }} />
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
                 <div className="hour-product-table-column">
                   <table aria-label="ตารางรายละเอียดสินค้าที่มีการขาย">

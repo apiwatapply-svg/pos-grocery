@@ -334,7 +334,7 @@ describe('backend connected report pages', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ดูรายละเอียดช่วง 09:00 ยอดขาย 27.00 บาท' }))
     const hourPanel = screen.getByRole('region', { name: 'สินค้าที่มีการขายในช่วง 09:00' })
     expect(within(hourPanel).getAllByText('SQL Sale Product')).toHaveLength(2)
-    expect(within(hourPanel).getByText('3 ชิ้น / 27.00 บาท')).toBeInTheDocument()
+    expect(within(hourPanel).getByText('ยอดขาย 27.00 บาท')).toBeInTheDocument()
     expect(within(hourPanel).getByRole('table', { name: 'ตารางรายละเอียดสินค้าที่มีการขาย' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'สินค้าขายดี' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'ช่วงเวลาขายดี' })).not.toBeInTheDocument()
@@ -415,7 +415,7 @@ describe('backend connected report pages', () => {
 
     const updatedHourPanel = await screen.findByRole('region', { name: 'สินค้าที่มีการขายในช่วง 14:00' })
     expect(within(updatedHourPanel).getAllByText('Range Sale Product')).toHaveLength(2)
-    expect(within(updatedHourPanel).getByText('4 ชิ้น / 154.00 บาท')).toBeInTheDocument()
+    expect(within(updatedHourPanel).getByText('ยอดขาย 154.00 บาท')).toBeInTheDocument()
 
     const hourlyChart = screen.getByRole('group', { name: 'กราฟแท่งยอดขายรายชั่วโมงพร้อมแกน X และ Y' })
     expect(within(hourlyChart).getByRole('tooltip', {
@@ -474,23 +474,88 @@ describe('backend connected report pages', () => {
     expect(layout.children[1]).toHaveClass('hour-product-table-column')
 
     const chart = within(layout as HTMLElement).getByRole('group', { name: 'กราฟแท่งแนวนอนสินค้าที่มีการขาย' })
-    expect(within(chart).getByText('SQL Sale Product')).toBeInTheDocument()
-    expect(within(chart).getByText('3 ชิ้น / 27.00 บาท')).toBeInTheDocument()
     expect(within(chart).getByText('SQL Second Product')).toBeInTheDocument()
-    expect(within(chart).getByText('1 ชิ้น / 100.00 บาท')).toBeInTheDocument()
-    expect(
-      within(chart).getByText('SQL Sale Product').closest('.hour-product-bar-row')?.querySelector('.hour-product-bar-track span'),
-    ).toHaveStyle({ width: '100%' })
+    expect(within(chart).getByText('SQL Sale Product')).toBeInTheDocument()
+    expect(within(chart).getByText('ยอดขาย 100.00 บาท')).toBeInTheDocument()
+    expect(within(chart).getByText('ยอดขาย 27.00 บาท')).toBeInTheDocument()
     expect(
       within(chart).getByText('SQL Second Product').closest('.hour-product-bar-row')?.querySelector('.hour-product-bar-track span'),
-    ).toHaveStyle({ width: '33.33333333333333%' })
+    ).toHaveStyle({ width: '100%' })
+    expect(
+      within(chart).getByText('SQL Sale Product').closest('.hour-product-bar-row')?.querySelector('.hour-product-bar-track span'),
+    ).toHaveStyle({ width: `${(2700 / 10000) * 100}%` })
 
     const detailTable = within(layout as HTMLElement).getByRole('table', { name: 'ตารางรายละเอียดสินค้าที่มีการขาย' })
     for (const column of ['อันดับ', 'สินค้า', 'จำนวน', 'ยอดขาย', 'กำไร']) {
       expect(within(detailTable).getByRole('columnheader', { name: column })).toBeInTheDocument()
     }
-    expect(within(detailTable).getByRole('row', { name: /1 SQL Sale Product 3 ชิ้น 27.00 บาท 9.00 บาท/ })).toBeInTheDocument()
-    expect(within(detailTable).getByRole('row', { name: /2 SQL Second Product 1 ชิ้น 100.00 บาท 25.00 บาท/ })).toBeInTheDocument()
+    expect(within(detailTable).getByRole('row', { name: /1 SQL Second Product 1 ชิ้น 100.00 บาท 25.00 บาท/ })).toBeInTheDocument()
+    expect(within(detailTable).getByRole('row', { name: /2 SQL Sale Product 3 ชิ้น 27.00 บาท 9.00 บาท/ })).toBeInTheDocument()
+  })
+
+  it('sorts the selected-hour sold products by the chosen hourly metric and shows that metric value', async () => {
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/reports/dashboard')) {
+        return {
+          ...dashboardReport,
+          hourlySales: [
+            {
+              hour: 10,
+              orderCount: 3,
+              totalSalesSatang: 8000,
+              items: [
+                {
+                  productId: 'sql-product-low-revenue',
+                  productName: 'Low Revenue High Volume',
+                  quantity: 9,
+                  totalSalesSatang: 3000,
+                  profitSatang: 600,
+                },
+                {
+                  productId: 'sql-product-high-revenue',
+                  productName: 'High Revenue Low Volume',
+                  quantity: 1,
+                  totalSalesSatang: 5000,
+                  profitSatang: 1000,
+                },
+              ],
+            },
+          ],
+        }
+      }
+
+      if (path === '/store/current' || path === '/store/current?includeLogo=true') {
+        return currentStore
+      }
+
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<DashboardPage />)
+    const metricToggle = await screen.findByRole('group', { name: 'เลือกข้อมูลที่แสดงในกราฟรายชั่วโมง' })
+    const hourPanel = await screen.findByRole('region', { name: 'สินค้าที่มีการขายในช่วง 10:00' })
+    const chart = within(hourPanel).getByRole('group', { name: 'กราฟแท่งแนวนอนสินค้าที่มีการขาย' })
+    const detailTable = within(hourPanel).getByRole('table', { name: 'ตารางรายละเอียดสินค้าที่มีการขาย' })
+
+    function chartHeadingsInOrder() {
+      return Array.from(chart.querySelectorAll('.hour-product-bar-row strong')).map((node) => node.textContent)
+    }
+
+    // default metric is 'sales' — sort by totalSalesSatang DESC
+    expect(chartHeadingsInOrder().slice(0, 2)).toEqual(['High Revenue Low Volume', 'Low Revenue High Volume'])
+    expect(within(chart).getByText('ยอดขาย 50.00 บาท')).toBeInTheDocument()
+    expect(within(detailTable).getByRole('row', { name: /1 High Revenue Low Volume/ })).toBeInTheDocument()
+
+    fireEvent.click(within(metricToggle).getByRole('button', { name: 'จำนวนชิ้น' }))
+    expect(chartHeadingsInOrder().slice(0, 2)).toEqual(['Low Revenue High Volume', 'High Revenue Low Volume'])
+    expect(within(chart).getByText('จำนวนชิ้น 9')).toBeInTheDocument()
+    expect(within(detailTable).getByRole('row', { name: /1 Low Revenue High Volume/ })).toBeInTheDocument()
+
+    fireEvent.click(within(metricToggle).getByRole('button', { name: 'จำนวนบิล' }))
+    const ordersLabels = within(chart).getAllByText(/จำนวนบิล \d/)
+    expect(ordersLabels.length).toBeGreaterThanOrEqual(2)
+    expect(ordersLabels[0].textContent).toBe('จำนวนบิล 2')
+    expect(ordersLabels[1].textContent).toBe('จำนวนบิล 1')
   })
 
   it('keeps every hour from midnight to 23:00 on the hourly sales x axis', async () => {
