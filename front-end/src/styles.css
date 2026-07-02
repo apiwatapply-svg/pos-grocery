@@ -1816,6 +1816,19 @@ button.table-action-link {
   flex-shrink: 0;
 }
 
+.product-action-icon-label {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .product-action-legend {
   align-items: center;
   background: #f7faf7;
@@ -4122,19 +4135,6 @@ button.table-action-link {
   .product-action-icon-svg {
     width: 16px;
     height: 16px;
-  }
-
-  .product-action-icon-label {
-    border: 0;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
   }
 
   .product-action-legend {
