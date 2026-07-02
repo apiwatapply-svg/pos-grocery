@@ -81,8 +81,8 @@ const protectedRouteCases: Array<{
   { path: '/inventory/receiving', heading: 'รับของเข้า', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/inventory/counting', heading: 'ตรวจนับ stock', allowedRoles: ['owner', 'admin', 'stock'] },
   { path: '/reports/sales', heading: 'รายงานยอดขาย', allowedRoles: ['owner', 'admin'] },
-  { path: '/settings/store', heading: 'จัดการร้านค้า', allowedRoles: ['owner', 'admin'] },
-  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', allowedRoles: ['owner', 'admin'] },
+  { path: '/settings/store', heading: 'จัดการร้านค้า', allowedRoles: ['admin'] },
+  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', allowedRoles: ['admin'] },
 ]
 
 const roles: Role[] = ['owner', 'admin', 'cashier', 'stock']

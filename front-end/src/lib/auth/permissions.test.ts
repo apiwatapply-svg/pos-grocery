@@ -24,7 +24,12 @@ describe('route permissions', () => {
   })
 
   it.each([
-    ['owner', routes],
+    [
+      'owner',
+      routes.filter(
+        (route) => route !== 'store-settings' && route !== 'user-management',
+      ),
+    ],
     ['admin', routes],
     ['cashier', ['pos', 'customer-display', 'receipts', 'receipt-detail', 'products']],
     ['stock', ['dashboard', 'products', 'inventory', 'inventory-receiving', 'stock-counting']],
