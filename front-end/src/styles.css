@@ -875,6 +875,7 @@ td span {
 
 .pos-panel-large {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
@@ -2655,6 +2656,27 @@ button.table-action-link {
   max-height: clamp(280px, 48vh, 560px);
   overflow-x: auto;
   overflow-y: auto;
+  scrollbar-color: #94a89a #f3f7f1;
+  scrollbar-width: thin;
+}
+
+.cart-table-wrap::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.cart-table-wrap::-webkit-scrollbar-track {
+  background: #f3f7f1;
+  border-radius: 4px;
+}
+
+.cart-table-wrap::-webkit-scrollbar-thumb {
+  background: #94a89a;
+  border-radius: 4px;
+}
+
+.cart-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #6f8576;
 }
 
 .cart-table {
