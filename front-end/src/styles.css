@@ -1421,6 +1421,44 @@ td span {
   width: 56px;
 }
 
+.stock-counting-workspace .receiving-table th:nth-child(5),
+.stock-counting-workspace .receiving-table td:nth-child(5) {
+  width: 80px;
+}
+
+.stock-counting-workspace .receiving-table th:nth-child(6),
+.stock-counting-workspace .receiving-table td:nth-child(6) {
+  min-width: 112px;
+  width: 112px;
+}
+
+.stock-counting-workspace .receiving-table th:nth-child(7),
+.stock-counting-workspace .receiving-table td:nth-child(7) {
+  width: 72px;
+}
+
+.stock-counting-workspace .receiving-table th:nth-child(8),
+.stock-counting-workspace .receiving-table td:nth-child(8) {
+  width: 88px;
+}
+
+.stock-counting-workspace .receiving-table td:has(input[type="number"]) {
+  overflow: visible;
+}
+
+.stock-counting-workspace .receiving-table input[type="number"] {
+  background: #ffffff;
+  border: 1px solid #b8eccf;
+  border-radius: 6px;
+  color: #102017;
+  font-size: 14px;
+  font-weight: 800;
+  min-width: 96px;
+  padding: 6px 8px;
+  text-align: right;
+  width: 100%;
+}
+
 .stock-counting-history-table {
   table-layout: fixed;
   width: 100%;
@@ -3844,17 +3882,30 @@ button.table-action-link {
   }
 
   .stock-counting-workspace .receiving-table th:nth-child(5),
-  .stock-counting-workspace .receiving-table td:nth-child(5),
+  .stock-counting-workspace .receiving-table td:nth-child(5) {
+    width: 64px !important;
+  }
+
   .stock-counting-workspace .receiving-table th:nth-child(6),
-  .stock-counting-workspace .receiving-table td:nth-child(6),
+  .stock-counting-workspace .receiving-table td:nth-child(6) {
+    min-width: 104px;
+    width: 104px !important;
+  }
+
   .stock-counting-workspace .receiving-table th:nth-child(7),
   .stock-counting-workspace .receiving-table td:nth-child(7) {
-    width: 56px !important;
+    width: 60px !important;
   }
 
   .stock-counting-workspace .receiving-table th:nth-child(8),
   .stock-counting-workspace .receiving-table td:nth-child(8) {
     width: 80px !important;
+  }
+
+  .stock-counting-workspace .receiving-table input[type="number"] {
+    font-size: 12px;
+    min-width: 88px;
+    padding: 4px 6px;
   }
 
   .stock-counting-history-table th:nth-child(4),
