@@ -2865,7 +2865,7 @@ button.table-action-link {
 .cart-table td {
   border-bottom: 1px solid #edf0eb;
   overflow: hidden;
-  padding: 10px 8px;
+  padding: 5px 8px;
   text-align: left;
   text-overflow: ellipsis;
   vertical-align: top;

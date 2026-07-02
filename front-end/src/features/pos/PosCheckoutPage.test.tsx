@@ -333,7 +333,7 @@ describe('PosCheckoutPage', () => {
       target: { value: 'Instant Noodles' },
     })
 
-    expect(screen.getByText('ยอดรวม 19.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText(/ยอดรวม 19\.00 บาท/)).toBeInTheDocument()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'เอา Drinking Water ออกจากตะกร้า' }))
     })
@@ -341,7 +341,7 @@ describe('PosCheckoutPage', () => {
     const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
     expect(within(cartTable).queryByText('Drinking Water')).not.toBeInTheDocument()
     expect(within(cartTable).getByText('Instant Noodles')).toBeInTheDocument()
-    expect(screen.getByText('ยอดรวม 12.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText(/ยอดรวม 12\.00 บาท/)).toBeInTheDocument()
     expect(screen.getByRole('status', { name: 'เงินทอน 88.00 บาท' })).toBeInTheDocument()
 
     await waitFor(() => {
@@ -378,13 +378,13 @@ describe('PosCheckoutPage', () => {
     fireEvent.click(increaseButton)
 
     expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('2')
-    expect(screen.getByText('ยอดรวม 14.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText(/ยอดรวม 14\.00 บาท/)).toBeInTheDocument()
     expect(decreaseButton).not.toBeDisabled()
 
     fireEvent.click(decreaseButton)
 
     expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('1')
-    expect(screen.getByText('ยอดรวม 7.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText(/ยอดรวม 7\.00 บาท/)).toBeInTheDocument()
   })
 
   it('checks out through the backend and reloads shared stock from products API', async () => {
@@ -561,7 +561,7 @@ describe('PosCheckoutPage', () => {
     await waitForProductsLoaded()
 
     expect(screen.getByText('Drinking Water')).toBeInTheDocument()
-    expect(screen.getByText('ยอดรวม 7.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText(/ยอดรวม 7\.00 บาท/)).toBeInTheDocument()
   })
 
   it('switches to the new store cart without leaking the previous store items when the current store changes', async () => {
@@ -610,7 +610,7 @@ describe('PosCheckoutPage', () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
-    expect(screen.getByText('ยอดรวม 12.00 บาท')).toBeInTheDocument()
+    expect(screen.getByText(/ยอดรวม 12\.00 บาท/)).toBeInTheDocument()
     expect(screen.getByText('Instant Noodles')).toBeInTheDocument()
     expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
   })

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiGet, apiPost } from '../../lib/api/client'
@@ -265,18 +265,6 @@ function productsAreSame(current: Product[], next: Product[]) {
   )
 }
 
-function Field(props: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <label className="field">
-      <span>{props.label}</span>
-      {props.children}
-    </label>
-  )
-}
-
 export function PosCheckoutPage() {
   const productQueryInputRef = useRef<HTMLInputElement>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -289,6 +277,7 @@ export function PosCheckoutPage() {
   const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false)
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const hasCartItems = cart.length > 0
   const displayCashReceived = hasCartItems ? cashReceived : 0
   const changeDue = displayCashReceived - cartTotal
@@ -780,7 +769,7 @@ export function PosCheckoutPage() {
             )}
           </div>
           <div className="pos-checkout-footer">
-            <p className="total-line">ยอดรวม {baht(cartTotal)} บาท</p>
+            <p className="total-line">ยอดรวม {baht(cartTotal)} บาท ({formatNumber(cartItemCount)} ชิ้น)</p>
             <div className="payment-box">
               <div className="payment-input-row">
                 <input
