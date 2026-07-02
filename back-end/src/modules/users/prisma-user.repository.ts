@@ -607,7 +607,9 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       const includeSalesStats = input?.includeSalesStats ?? true;
       const products = await prisma.product.findMany({
         where: { storeId },
-        include: { images: includeImages },
+        include: {
+          images: includeImages ? { orderBy: { createdAt: "desc" } } : false,
+        },
         orderBy: { name: "asc" },
       });
 
@@ -649,13 +651,16 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       }));
     },
     async findProductById(id) {
-      const product = await prisma.product.findUnique({ where: { id }, include: { images: true } });
+      const product = await prisma.product.findUnique({
+        where: { id },
+        include: { images: { orderBy: { createdAt: "desc" } } },
+      });
       return product ? mapProduct(product) : null;
     },
     async findProductByBarcode(storeId, barcode) {
       const product = await prisma.product.findUnique({
         where: { storeId_barcode: { storeId, barcode: barcode.trim() } },
-        include: { images: true },
+        include: { images: { orderBy: { createdAt: "desc" } } },
       });
       return product ? mapProduct(product) : null;
     },
@@ -687,7 +692,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
           stockQuantity: input.stockQuantity ?? 0,
           status: input.status,
         },
-        include: { images: true },
+        include: { images: { orderBy: { createdAt: "desc" } } },
       });
       return mapProduct(product);
     },
@@ -696,7 +701,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         const product = await prisma.product.update({
           where: { id },
           data: input,
-          include: { images: true },
+          include: { images: { orderBy: { createdAt: "desc" } } },
         });
         return mapProduct(product);
       } catch {
@@ -714,7 +719,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const product = await tx.product.findUnique({
           where: { id: input.productId },
-          include: { images: true },
+          include: { images: { orderBy: { createdAt: "desc" } } },
         });
 
         if (!product) {
@@ -744,7 +749,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
 
         const updatedProduct = await tx.product.findUniqueOrThrow({
           where: { id: input.productId },
-          include: { images: true },
+          include: { images: { orderBy: { createdAt: "desc" } } },
         });
         const transaction = await tx.inventoryTransaction.create({
           data: {
