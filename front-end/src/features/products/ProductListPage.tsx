@@ -179,7 +179,7 @@ function bahtFromSatang(value: number) {
 }
 
 function profitMarginPercent(product: Product) {
-  if (product.salePriceSatang <= 0) {
+  if (product.costPriceSatang <= 0) {
     return '0.0%'
   }
 

@@ -103,7 +103,7 @@ const productHistoryResponse = {
       totalSalesSatang: 1200,
       totalCostSatang: 369,
       profitSatang: 831,
-      profitMarginPercent: 69.25,
+      profitMarginPercent: 225.2,
     },
   ],
 }
@@ -434,7 +434,7 @@ describe('ProductListPage', () => {
     })).toBeInTheDocument()
     expect(
       within(dialog).getByRole('row', {
-        name: /2026-06-28 3 ชิ้น 12\.00 บาท 3\.69 บาท 8\.31 บาท 69\.25% 4\.20 บาท/,
+        name: /2026-06-28 3 ชิ้น 12\.00 บาท 3\.69 บาท 8\.31 บาท 225\.20% 4\.20 บาท/,
       }),
     ).toBeInTheDocument()
     expect(mockedApiGet).toHaveBeenCalledWith(
