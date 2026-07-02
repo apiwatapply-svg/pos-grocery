@@ -1376,7 +1376,7 @@ td span {
 
 .stock-counting-workspace .receiving-table-wrap-full .receiving-table,
 .stock-counting-history-table {
-  min-width: 720px;
+  min-width: 600px;
 }
 
 .stock-counting-workspace .receiving-table-wrap-full .receiving-table {
@@ -1412,7 +1412,7 @@ td span {
 
 .stock-counting-history-table th:first-child,
 .stock-counting-history-table td:first-child {
-  width: 32px;
+  width: 36px;
 }
 
 .stock-counting-history-table th:nth-child(2),
@@ -1423,17 +1423,17 @@ td span {
 .stock-counting-history-table th:nth-child(3),
 .stock-counting-history-table td:nth-child(3) {
   overflow-wrap: anywhere;
-  width: 128px;
+  width: 110px;
 }
 
 .stock-counting-history-table th:nth-child(4),
 .stock-counting-history-table td:nth-child(4) {
-  width: 108px;
+  width: 96px;
 }
 
 .stock-counting-history-table th:nth-child(5),
 .stock-counting-history-table td:nth-child(5) {
-  width: 80px;
+  width: 72px;
 }
 
 .stock-counting-history-table th:nth-child(6),
@@ -1445,7 +1445,7 @@ td span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 76px;
+  width: 64px;
 }
 
 .stock-counting-history-panel {
@@ -3799,44 +3799,48 @@ button.table-action-link {
     display: none;
   }
 
+  .stock-counting-history-table {
+    min-width: 480px;
+  }
+
   .stock-counting-history-table th,
   .stock-counting-history-table td {
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
     padding: 5px 4px;
   }
 
   .stock-counting-history-table th:first-child,
   .stock-counting-history-table td:first-child {
-    width: 22px;
+    width: 26px;
   }
 
   .stock-counting-history-table th:nth-child(2),
   .stock-counting-history-table td:nth-child(2) {
-    width: 104px;
+    width: 96px;
   }
 
   .stock-counting-history-table th:nth-child(3),
   .stock-counting-history-table td:nth-child(3) {
     overflow-wrap: anywhere;
-    width: 140px;
+    width: 116px;
   }
 
   .stock-counting-history-table th:nth-child(5),
   .stock-counting-history-table td:nth-child(5) {
-    width: 48px;
+    width: 56px;
   }
 
   .stock-counting-history-table th:nth-child(6),
   .stock-counting-history-table td:nth-child(6),
   .stock-counting-history-table th:nth-child(7),
   .stock-counting-history-table td:nth-child(7) {
-    width: 42px;
+    width: 48px;
   }
 
   .stock-counting-history-table th:nth-child(8),
   .stock-counting-history-table td:nth-child(8) {
-    width: 50px;
+    width: 64px;
   }
 
   .receiving-summary-panel {
@@ -3851,7 +3855,8 @@ button.table-action-link {
   .receiving-table-wrap,
   .receiving-history-scroll,
   .sales-detail-items-scroll {
-    overflow-x: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .table-wrap:has(.product-inventory-table) {
@@ -5025,6 +5030,10 @@ button.table-action-link {
   .stock-counting-main-layout,
   .receiving-main-layout {
     grid-template-columns: 1fr;
+  }
+
+  .stock-counting-history-panel {
+    grid-column: auto;
   }
 
   .product-history-modal {
