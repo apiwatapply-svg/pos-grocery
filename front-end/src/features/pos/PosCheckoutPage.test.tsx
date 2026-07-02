@@ -614,4 +614,63 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByText('Instant Noodles')).toBeInTheDocument()
     expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
   })
+
+  it('shows SweetAlert when scanning a product with zero stock, blocks adding to cart, and refocuses scan input after OK', async () => {
+    const outOfStockProduct = {
+      id: 'product-out-of-stock',
+      storeId: 'store-1',
+      name: 'Out Of Stock Item',
+      barcode: 'OUT-OF-STOCK-001',
+      unit: 'pack',
+      costPriceSatang: 500,
+      salePriceSatang: 900,
+      stockQuantity: 0,
+      status: 'active',
+      images: [],
+    }
+    mockApiResponses({
+      productResponses: [[...apiProducts, outOfStockProduct]],
+    })
+    mockedSwal.fire.mockResolvedValueOnce(confirmedDialog)
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scan = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.change(scan, {
+      target: { value: 'OUT-OF-STOCK-001' },
+    })
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'สินค้าหมด stock',
+          confirmButtonText: 'OK',
+          icon: 'warning',
+        }),
+      )
+    })
+    expect(screen.queryByText('Out Of Stock Item')).not.toBeInTheDocument()
+    expect(screen.getByText('สแกนหรือเลือกสินค้าจากช่องค้นหา')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(scan).toHaveValue('')
+      expect(scan).toHaveFocus()
+    })
+  })
+
+  it('keeps the scan field focused when clicking outside allowed controls', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scan = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.change(scan, {
+      target: { value: '8850002000010' },
+    })
+    expect(scan).toHaveFocus()
+
+    fireEvent.mouseDown(document.body)
+    await waitFor(() => {
+      expect(scan).toHaveFocus()
+    })
+  })
 })

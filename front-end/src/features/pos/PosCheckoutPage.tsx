@@ -305,6 +305,61 @@ export function PosCheckoutPage() {
     focusProductQuery()
   }, [])
 
+  useEffect(() => {
+    function handleDocumentMouseDown(event: MouseEvent) {
+      const target = event.target
+      if (!(target instanceof Element)) {
+        focusProductQuery()
+        return
+      }
+
+      if (productQueryInputRef.current?.contains(target)) {
+        return
+      }
+
+      if (target.closest('.swal2-container')) {
+        return
+      }
+
+      if (target.closest('[data-keep-focus="allow"]')) {
+        return
+      }
+
+      if (target.closest('a, [role="link"]')) {
+        return
+      }
+
+      event.preventDefault()
+      focusProductQuery()
+    }
+
+    function handleWindowBlur() {
+      window.setTimeout(() => {
+        if (document.activeElement instanceof HTMLElement) {
+          if (productQueryInputRef.current?.contains(document.activeElement)) {
+            return
+          }
+          if (document.activeElement.closest('.swal2-container')) {
+            return
+          }
+          if (document.activeElement.closest('[data-keep-focus="allow"]')) {
+            return
+          }
+          focusProductQuery()
+        } else {
+          focusProductQuery()
+        }
+      }, 0)
+    }
+
+    document.addEventListener('mousedown', handleDocumentMouseDown)
+    window.addEventListener('blur', handleWindowBlur)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown)
+      window.removeEventListener('blur', handleWindowBlur)
+    }
+  }, [])
+
   async function refreshProducts() {
     const apiProducts = await apiGet<ApiProduct[]>('/products?view=operation')
     setProducts((current) => {
@@ -406,10 +461,29 @@ export function PosCheckoutPage() {
     )
   }
 
-  function addProductToCart(product: Product) {
+  async function addProductToCart(product: Product) {
+    if (product.stockQuantity <= 0) {
+      setProductQuery('')
+      setNotice(`สินค้า "${product.name}" หมด stock`)
+      await Swal.fire({
+        title: 'สินค้าหมด stock',
+        text: `"${product.name}" หมด stock แล้ว กรุณาไปเพิ่ม stock ที่หน้ารับสินค้าเข้าก่อน`,
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#15803d',
+        allowEscapeKey: false,
+        allowOutsideClick: false,
+      })
+      setProductQuery('')
+      focusProductQuery()
+      return
+    }
+
     const existingQuantity = cart.find((item) => item.productId === product.id)?.quantity ?? 0
     if (product.stockQuantity < existingQuantity + 1) {
       setNotice('stock ไม่พอ')
+      setProductQuery('')
+      focusProductQuery()
       return
     }
 
@@ -660,7 +734,7 @@ export function PosCheckoutPage() {
                         </td>
                         <td>{baht(item.unitPrice)}</td>
                         <td>
-                          <div className="cart-quantity-control" aria-label={`ปรับจำนวน ${item.productName}`}>
+                          <div className="cart-quantity-control" aria-label={`ปรับจำนวน ${item.productName}`} data-keep-focus="allow">
                             <button
                               aria-label={`ลดจำนวน ${item.productName}`}
                               className="quantity-step-button quantity-step-button-minus"
@@ -689,6 +763,7 @@ export function PosCheckoutPage() {
                           <button
                             aria-label={`เอา ${item.productName} ออกจากตะกร้า`}
                             className="cart-remove-button"
+                            data-keep-focus="allow"
                             onClick={() => removeCartItem(item.productId)}
                             type="button"
                           >
@@ -710,6 +785,7 @@ export function PosCheckoutPage() {
               <div className="payment-input-row">
                 <Field label="รับเงินสด">
                   <input
+                    data-keep-focus="allow"
                     disabled={!hasCartItems}
                     min="0"
                     type="number"
@@ -726,7 +802,7 @@ export function PosCheckoutPage() {
                   <strong>{baht(Math.abs(changeDue))} บาท</strong>
                 </div>
               </div>
-              <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด">
+              <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด" data-keep-focus="allow">
                 <button
                   className={hasCartItems && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
                   disabled={!hasCartItems}
@@ -748,7 +824,7 @@ export function PosCheckoutPage() {
                 ))}
               </div>
             </div>
-            <button className="primary-button" disabled={!canCheckout} type="button" onClick={() => void checkout()}>
+            <button className="primary-button" data-keep-focus="allow" disabled={!canCheckout} type="button" onClick={() => void checkout()}>
               {isCheckoutSubmitting ? 'กำลังบันทึก...' : 'ชำระเงิน'}
             </button>
           </div>
