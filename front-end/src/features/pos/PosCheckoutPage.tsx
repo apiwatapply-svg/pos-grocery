@@ -180,6 +180,53 @@ function buildSaleSummaryHtml(sale: Sale, cart: CartItem[]): string {
   `
 }
 
+function buildConfirmationHtml(cart: CartItem[], cartTotal: number, cashReceived: number, changeDue: number): string {
+  const itemRows = cart
+    .map((item) => {
+      const lineTotal = item.quantity * item.unitPrice
+      return `
+        <tr>
+          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #e0e5dd;">${item.productName}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${formatNumber(item.quantity)}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(item.unitPrice)}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(lineTotal)}</td>
+        </tr>
+      `
+    })
+    .join('')
+
+  return `
+    <div style="text-align:left;font-size:14px;color:#17201b;">
+      <p style="margin:0 0 8px;color:#536259;">รายการสินค้าในตะกร้า</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+        <thead>
+          <tr style="background:#eef2ed;">
+            <th style="text-align:left;padding:6px 8px;font-size:12px;color:#4a5a50;">สินค้า</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">จำนวน</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">ราคา</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">รวม</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div style="display:grid;gap:4px;padding:10px 12px;background:#f7faf7;border:1px solid #dfe7df;border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;">
+          <span>ยอดรวม</span>
+          <strong>${baht(cartTotal)} บาท</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span>รับเงิน</span>
+          <strong>${baht(cashReceived)} บาท</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#0f6b3b;">
+          <span>เงินทอน</span>
+          <strong>${baht(changeDue)} บาท</strong>
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function mapApiSale(sale: ApiSale): Sale {
   return {
     id: sale.id,
@@ -463,10 +510,11 @@ export function PosCheckoutPage() {
       cancelButtonText: 'กลับไปแก้ไข',
       confirmButtonColor: '#15803d',
       confirmButtonText: 'ยืนยันขาย',
+      html: buildConfirmationHtml(cart, cartTotal, cashReceived, changeDue),
       icon: 'question',
       showCancelButton: true,
-      text: `ยอดขาย ${baht(cartTotal)} บาท รับเงิน ${baht(cashReceived)} บาท เงินทอน ${baht(changeDue)} บาท`,
       title: 'ยืนยันรับชำระเงิน',
+      width: 520,
     })
 
     if (!result.isConfirmed) {
