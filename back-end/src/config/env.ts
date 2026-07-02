@@ -56,7 +56,7 @@ normalizeFileDatabaseUrl("PRISMA_DATABASE_URL", backendRoot);
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().int().positive().default(8787),
+  PORT: z.coerce.number().int().positive().default(10000),
   DATABASE_URL: z.string().min(1),
   TURSO_AUTH_TOKEN: z.string().optional(),
   JWT_SECRET: z.string().min(32).optional(),
@@ -65,5 +65,7 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
   CLOUDINARY_UPLOAD_FOLDER: z.string().default("pos-grocery"),
 });
+
+process.env.PORT ??= "10000";
 
 export const env = envSchema.parse(process.env);

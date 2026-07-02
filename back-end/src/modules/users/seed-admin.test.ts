@@ -24,7 +24,7 @@ describe("seedInitialAdmin", () => {
     });
     expect(user).toMatchObject({
       username: "admin",
-      role: "owner",
+      role: "admin",
       status: "active",
       storeId: store?.id,
     });
