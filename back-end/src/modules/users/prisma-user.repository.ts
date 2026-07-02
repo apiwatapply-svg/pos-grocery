@@ -232,8 +232,10 @@ function mapSale(sale: {
     productName: string;
     quantity: number;
     unitPriceSatang: number;
+    unitCostSatang?: number;
     totalSatang: number;
-    product?: { barcode: string; costPriceSatang: number };
+    totalCostSatang?: number;
+    product?: { barcode: string; costPriceSatang?: number };
   }>;
   payment: {
     id: string;
@@ -273,9 +275,11 @@ function mapSale(sale: {
       barcode: item.product?.barcode ?? "",
       quantity: item.quantity,
       unitPriceSatang: item.unitPriceSatang,
-      unitCostSatang: item.product?.costPriceSatang ?? 0,
+      unitCostSatang: item.unitCostSatang ?? item.product?.costPriceSatang ?? 0,
       totalSatang: item.totalSatang,
-      totalCostSatang: (item.product?.costPriceSatang ?? 0) * item.quantity,
+      totalCostSatang:
+        item.totalCostSatang
+        ?? (item.unitCostSatang ?? item.product?.costPriceSatang ?? 0) * item.quantity,
     })),
     payment: {
       id: sale.payment.id,
@@ -317,9 +321,11 @@ function mapSaleForReport(sale: Omit<Parameters<typeof mapSale>[0], "payment" | 
       barcode: item.product?.barcode ?? "",
       quantity: item.quantity,
       unitPriceSatang: item.unitPriceSatang,
-      unitCostSatang: item.product?.costPriceSatang ?? 0,
+      unitCostSatang: item.unitCostSatang ?? item.product?.costPriceSatang ?? 0,
       totalSatang: item.totalSatang,
-      totalCostSatang: (item.product?.costPriceSatang ?? 0) * item.quantity,
+      totalCostSatang:
+        item.totalCostSatang
+        ?? (item.unitCostSatang ?? item.product?.costPriceSatang ?? 0) * item.quantity,
     })),
     payment: {
       id: "",
@@ -834,7 +840,9 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
               productName: item.productName,
               quantity: item.quantity,
               unitPriceSatang: item.unitPriceSatang,
+              unitCostSatang: item.unitCostSatang ?? 0,
               totalSatang: item.totalSatang,
+              totalCostSatang: item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity,
             })),
           },
           payment: {
@@ -924,9 +932,9 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
             sql: `
               INSERT INTO "SaleItem" (
                 id, "saleId", "productId", "productName", quantity,
-                "unitPriceSatang", "totalSatang"
+                "unitPriceSatang", "unitCostSatang", "totalSatang", "totalCostSatang"
               )
-              VALUES (?, ?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             args: [
               item.id,
@@ -935,7 +943,9 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
               item.productName,
               item.quantity,
               item.unitPriceSatang,
+              item.unitCostSatang ?? 0,
               item.totalSatang,
+              item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity,
             ],
           })),
           ...input.items.map((item) => ({
@@ -1278,8 +1288,10 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
               productName: true,
               quantity: true,
               unitPriceSatang: true,
+              unitCostSatang: true,
               totalSatang: true,
-              product: { select: { barcode: true, costPriceSatang: true } },
+              totalCostSatang: true,
+              product: { select: { barcode: true } },
             },
           },
         },
@@ -1314,6 +1326,8 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
             select: {
               quantity: true,
               totalSatang: true,
+              unitCostSatang: true,
+              totalCostSatang: true,
               product: { select: { costPriceSatang: true } },
             },
           },
@@ -1328,7 +1342,9 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         for (const item of sale.items) {
           const current = rows.get(date) ?? emptyProductSalesHistoryRow(date);
           const totalSalesSatang = current.totalSalesSatang + item.totalSatang;
-          const totalCostSatang = current.totalCostSatang + item.product.costPriceSatang * item.quantity;
+          const itemUnitCostSatang = item.unitCostSatang ?? item.product.costPriceSatang;
+          const itemTotalCostSatang = item.totalCostSatang ?? itemUnitCostSatang * item.quantity;
+          const totalCostSatang = current.totalCostSatang + itemTotalCostSatang;
           const profitSatang = totalSalesSatang - totalCostSatang;
 
           rows.set(date, {
