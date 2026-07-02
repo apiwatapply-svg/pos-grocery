@@ -39,7 +39,7 @@ jobs:
           vercel-args: --prod
 
   deploy_backend:
-    name: Deploy backend to Cloudflare Workers
+    name: Deploy backend to Render
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -63,10 +63,22 @@ jobs:
         env:
           PRISMA_DATABASE_URL: file:./dev.db
 
-      - name: Deploy backend
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: back-end
-          command: deploy
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"
+            exit 1
+          fi
+          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
+          if [ "$response" -ge 200 ] && [ "$response" -lt 300 ]; then
+            echo "Render deploy triggered successfully (HTTP $response)"
+            echo "Check the deploy progress at https://dashboard.render.com"
+          else
+            echo "::error::Render deploy hook failed (HTTP $response)"
+            exit 1
+          fi
