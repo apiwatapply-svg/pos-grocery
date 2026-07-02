@@ -1177,57 +1177,22 @@ td span {
   text-align: right;
 }
 
-.receiving-quantity-group {
-  align-items: stretch;
+.receiving-table .receiving-quantity-input {
+  background: #ffffff;
   border: 1px solid #c9d2c5;
-  border-radius: 8px;
-  display: inline-flex;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.receiving-quantity-step {
-  align-items: center;
-  background: #eef3ec;
-  border: 0;
-  color: #1f3a25;
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-size: 16px;
-  font-weight: 900;
-  height: 32px;
-  justify-content: center;
-  padding: 0;
-  transition: background 120ms ease;
-  width: 28px;
-}
-
-.receiving-quantity-step:hover {
-  background: #d6e3d2;
-}
-
-.receiving-quantity-step:focus-visible {
-  outline: 2px solid #2f7a3a;
-  outline-offset: 1px;
-}
-
-.receiving-quantity-input {
-  border: 0;
-  border-left: 1px solid #c9d2c5;
-  border-radius: 0;
-  flex: 1 1 auto;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 700;
-  min-width: 0;
-  outline: none;
-  padding: 4px 4px;
+  min-width: 80px;
+  padding: 5px 8px;
   text-align: center;
-  width: 60px;
+  width: 96px;
 }
 
-.receiving-quantity-input:focus {
+.receiving-table .receiving-quantity-input:focus {
   background: #fff8eb;
+  border-color: #2f7a3a;
+  outline: none;
 }
 
 .receiving-table .receiving-cost-input {
@@ -1258,8 +1223,7 @@ td span {
 
 .receiving-workspace-full .receiving-table th:nth-child(4),
 .receiving-workspace-full .receiving-table td:nth-child(4) {
-  min-width: 132px;
-  width: 132px;
+  width: 96px;
 }
 
 .receiving-workspace-full .receiving-table th:nth-child(5),
@@ -1290,9 +1254,9 @@ td span {
 }
 
 .receiving-workspace-full .receiving-table td:nth-child(4) input {
-  max-width: none;
+  max-width: 80px;
   min-width: 0;
-  width: auto;
+  width: 80px;
 }
 
 .receiving-workspace-full .receiving-table td:nth-child(6) input {

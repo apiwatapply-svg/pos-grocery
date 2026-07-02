@@ -243,20 +243,6 @@ export function InventoryReceivingPage() {
     )
   }
 
-  function stepQuantity(productId: string, delta: number) {
-    setLines((current) =>
-      current.map((line) => {
-        if (line.product.id !== productId) {
-          return line
-        }
-
-        const currentQty = Number(line.quantity || 0)
-        const nextQty = Math.max(0, currentQty + delta)
-        return { ...line, quantity: String(nextQty) }
-      }),
-    )
-  }
-
   async function removeLine(productId: string) {
     const line = lines.find((entry) => entry.product.id === productId)
     const { isConfirmed } = await confirmDeleteAction({
@@ -417,32 +403,14 @@ export function InventoryReceivingPage() {
                         <td><strong>{line.product.name}</strong></td>
                         <td>{formatNumber(line.product.stockQuantity)}</td>
                         <td>
-                          <div className="receiving-quantity-group">
-                            <button
-                              aria-label={`ลดจำนวนรับเข้า ${line.product.name}`}
-                              className="receiving-quantity-step"
-                              type="button"
-                              onClick={() => stepQuantity(line.product.id, -1)}
-                            >
-                              −
-                            </button>
-                            <input
-                              aria-label={`จำนวนรับเข้า ${line.product.name}`}
-                              className="receiving-quantity-input"
-                              min="0"
-                              type="number"
-                              value={line.quantity}
-                              onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
-                            />
-                            <button
-                              aria-label={`เพิ่มจำนวนรับเข้า ${line.product.name}`}
-                              className="receiving-quantity-step"
-                              type="button"
-                              onClick={() => stepQuantity(line.product.id, 1)}
-                            >
-                              +
-                            </button>
-                          </div>
+                          <input
+                            aria-label={`จำนวนรับเข้า ${line.product.name}`}
+                            className="receiving-quantity-input"
+                            min="0"
+                            type="number"
+                            value={line.quantity}
+                            onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
+                          />
                         </td>
                         <td>{formatNumber(line.product.stockQuantity + Number(line.quantity || 0))}</td>
                         <td>
