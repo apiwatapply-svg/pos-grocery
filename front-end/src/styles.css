@@ -1177,6 +1177,24 @@ td span {
   text-align: right;
 }
 
+.receiving-table .receiving-cost-input {
+  background: #fff8eb;
+  border: 1px solid #f0c674;
+  border-radius: 6px;
+  color: #5a3a05;
+  font-size: 15px;
+  font-weight: 900;
+  min-width: 120px;
+  padding: 7px 10px;
+}
+
+.receiving-table .receiving-cost-input:focus {
+  background: #ffffff;
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgb(217 119 6 / 18%);
+  outline: none;
+}
+
 .receiving-table td:last-child {
   text-align: center;
 }

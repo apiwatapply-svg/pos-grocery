@@ -15,7 +15,7 @@ type Product = {
 
 type ReceivingLine = {
   product: Product
-  quantity: number
+  quantity: string
   unitCost: string
 }
 
@@ -38,7 +38,7 @@ function satangFromBaht(value: string) {
 }
 
 function lineTotal(line: ReceivingLine) {
-  return line.quantity * Number(line.unitCost || 0)
+  return Number(line.quantity || 0) * Number(line.unitCost || 0)
 }
 
 function matchesProduct(product: Product, value: string) {
@@ -123,7 +123,7 @@ export function InventoryReceivingPage() {
     scanInputRef.current?.focus()
   }, [])
 
-  const totalQuantity = lines.reduce((sum, line) => sum + line.quantity, 0)
+  const totalQuantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0)
   const totalValue = lines.reduce((sum, line) => sum + lineTotal(line), 0)
   const scanSuggestions = useMemo(
     () => products.map((product) => `${product.name} - ${product.barcode}`),
@@ -151,7 +151,9 @@ export function InventoryReceivingPage() {
 
       if (existingLine) {
         return current.map((line) =>
-          line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line,
+          line.product.id === product.id
+            ? { ...line, quantity: String(Number(line.quantity || 0) + 1) }
+            : line,
         )
       }
 
@@ -159,7 +161,7 @@ export function InventoryReceivingPage() {
         ...current,
         {
           product,
-          quantity: 1,
+          quantity: '1',
           unitCost: bahtFromSatang(product.costPriceSatang),
         },
       ]
@@ -185,7 +187,7 @@ export function InventoryReceivingPage() {
         }
 
         if (field === 'quantity') {
-          return { ...line, quantity: Math.max(1, Number(value || 1)) }
+          return { ...line, quantity: value }
         }
 
         return { ...line, unitCost: value }
@@ -198,7 +200,7 @@ export function InventoryReceivingPage() {
     const { isConfirmed } = await confirmDeleteAction({
       title: 'เอารายการออกจากคิวรับของ?',
       text: line
-        ? `${line.product.name} (${formatNumber(line.quantity)} ${line.product.unit}) จะถูกเอาออกจากคิวรับของ`
+        ? `${line.product.name} (${formatNumber(Number(line.quantity || 0))} ${line.product.unit}) จะถูกเอาออกจากคิวรับของ`
         : 'รายการนี้จะถูกเอาออกจากคิวรับของ',
     })
     if (!isConfirmed) {
@@ -211,6 +213,18 @@ export function InventoryReceivingPage() {
   async function saveReceivingQueue() {
     if (lines.length === 0) {
       setMessage('สแกนสินค้าเข้าคิวก่อนบันทึกรับของ')
+      scanInputRef.current?.focus()
+      return
+    }
+
+    const invalidLine = lines.find((line) => Number(line.quantity || 0) < 1)
+    if (invalidLine) {
+      await Swal.fire({
+        title: 'จำนวนรับเข้าไม่ถูกต้อง',
+        text: `กรุณาระบุจำนวนรับเข้าของ "${invalidLine.product.name}" อย่างน้อย 1 ${invalidLine.product.unit ?? 'ชิ้น'}`,
+        icon: 'warning',
+        confirmButtonText: 'รับทราบ',
+      })
       scanInputRef.current?.focus()
       return
     }
@@ -234,7 +248,7 @@ export function InventoryReceivingPage() {
         lines.map((line) =>
           apiPost('/inventory/receive', {
             productId: line.product.id,
-            quantity: line.quantity,
+            quantity: Number(line.quantity || 0),
             unitCostSatang: satangFromBaht(line.unitCost),
           }),
         ),
@@ -343,16 +357,18 @@ export function InventoryReceivingPage() {
                         <td>
                           <input
                             aria-label={`จำนวนรับเข้า ${line.product.name}`}
-                            min="1"
+                            className="receiving-quantity-input"
+                            min="0"
                             type="number"
                             value={line.quantity}
                             onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
                           />
                         </td>
-                        <td>{formatNumber(line.product.stockQuantity + line.quantity)}</td>
+                        <td>{formatNumber(line.product.stockQuantity + Number(line.quantity || 0))}</td>
                         <td>
                           <input
                             aria-label={`ต้นทุนต่อหน่วย ${line.product.name}`}
+                            className="receiving-cost-input"
                             min="0"
                             step="0.01"
                             type="number"
