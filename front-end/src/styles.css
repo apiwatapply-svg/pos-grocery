@@ -1223,7 +1223,8 @@ td span {
 
 .receiving-workspace-full .receiving-table th:nth-child(4),
 .receiving-workspace-full .receiving-table td:nth-child(4) {
-  width: 96px;
+  min-width: 120px;
+  width: 120px;
 }
 
 .receiving-workspace-full .receiving-table th:nth-child(5),
@@ -1254,9 +1255,10 @@ td span {
 }
 
 .receiving-workspace-full .receiving-table td:nth-child(4) input {
-  max-width: 80px;
+  box-sizing: border-box;
+  max-width: 100%;
   min-width: 0;
-  width: 80px;
+  width: 96px;
 }
 
 .receiving-workspace-full .receiving-table td:nth-child(6) input {
