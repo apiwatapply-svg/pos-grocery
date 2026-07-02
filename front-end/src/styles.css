@@ -5224,13 +5224,11 @@ button.table-action-link {
   .quick-cash-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-}
 
-@media (max-width: 819px) {
   .app-layout {
-    height: 100vh;
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);
+    height: 100vh;
   }
 
   .app-layout[data-sidebar-collapsed='true'] {
@@ -5332,7 +5330,9 @@ button.table-action-link {
   .app-layout[data-sidebar-collapsed='true'] .nav-link-short {
     display: none;
   }
+}
 
+@media (max-width: 819px) {
   .cart-table {
     min-width: 560px;
   }
@@ -5361,10 +5361,6 @@ button.table-action-link {
   .cart-table th,
   .cart-table td {
     padding: 6px 4px;
-  }
-
-  .quick-cash-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
