@@ -4707,6 +4707,7 @@ button.table-action-link {
 
 .app-layout[data-sidebar-collapsed='true'] .sidebar {
   align-items: center;
+  gap: 32px;
   padding: 18px 14px;
 }
 
