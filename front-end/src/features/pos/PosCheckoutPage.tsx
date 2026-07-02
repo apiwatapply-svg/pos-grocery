@@ -783,16 +783,16 @@ export function PosCheckoutPage() {
             <p className="total-line">ยอดรวม {baht(cartTotal)} บาท</p>
             <div className="payment-box">
               <div className="payment-input-row">
-                <Field label="รับเงินสด">
-                  <input
-                    data-keep-focus="allow"
-                    disabled={!hasCartItems}
-                    min="0"
-                    type="number"
-                    value={displayCashReceived}
-                    onChange={(event) => setCashReceived(Number(event.target.value))}
-                  />
-                </Field>
+                <input
+                  aria-label="จำนวนเงินที่รับ"
+                  className="cash-received-input"
+                  data-keep-focus="allow"
+                  disabled={!hasCartItems}
+                  min="0"
+                  type="number"
+                  value={displayCashReceived}
+                  onChange={(event) => setCashReceived(Number(event.target.value))}
+                />
                 <div
                   aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
                   className={!hasCartItems ? 'change-summary idle' : changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}

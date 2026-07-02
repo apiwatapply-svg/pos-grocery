@@ -169,7 +169,7 @@ describe('PosCheckoutPage', () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
-    expect(screen.getByLabelText('รับเงินสด')).toBeDisabled()
+    expect(screen.getByLabelText('จำนวนเงินที่รับ')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'จ่ายพอดี' })).toBeDisabled()
     for (const amount of [5, 10, 20, 50, 100, 500, 1000]) {
       expect(screen.getByRole('button', { name: cashButtonLabel(amount) })).toBeDisabled()
@@ -182,7 +182,7 @@ describe('PosCheckoutPage', () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
-    const cashInputRow = screen.getByLabelText('รับเงินสด').closest('.payment-input-row')
+    const cashInputRow = screen.getByLabelText('จำนวนเงินที่รับ').closest('.payment-input-row')
     const paymentStatusRow = screen
       .getByRole('status', { name: 'รอสินค้า 0.00 บาท' })
       .closest('.payment-input-row')
@@ -288,7 +288,7 @@ describe('PosCheckoutPage', () => {
     expect(within(cartRows[2]).getByText('7.00')).toBeInTheDocument()
     expect(within(cartRows[2]).getByText('14.00')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('รับเงินสด'), {
+    fireEvent.change(screen.getByLabelText('จำนวนเงินที่รับ'), {
       target: { value: '100' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
@@ -458,14 +458,14 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByRole('button', { name: 'จ่ายพอดี' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '20 บาท' }))
-    expect(screen.getByLabelText('รับเงินสด')).toHaveValue(20)
+    expect(screen.getByLabelText('จำนวนเงินที่รับ')).toHaveValue(20)
     expect(screen.getByRole('status', { name: 'เงินทอน 6.00 บาท' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'จ่ายพอดี' }))
-    expect(screen.getByLabelText('รับเงินสด')).toHaveValue(14)
+    expect(screen.getByLabelText('จำนวนเงินที่รับ')).toHaveValue(14)
     expect(screen.getByRole('status', { name: 'จ่ายพอดี 0.00 บาท' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('รับเงินสด'), {
+    fireEvent.change(screen.getByLabelText('จำนวนเงินที่รับ'), {
       target: { value: '10' },
     })
     expect(screen.getByRole('status', { name: 'ขาดอีก 4.00 บาท' })).toBeInTheDocument()

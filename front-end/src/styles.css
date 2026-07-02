@@ -2790,12 +2790,11 @@ button.table-action-link {
 .pos-panel-large .cart-table-wrap {
   background: transparent;
   border: 0;
-  border-bottom: 1px solid #dce4da;
   border-radius: 0;
   flex: 1 1 auto;
-  margin: 12px 0 0;
-  max-height: clamp(280px, 48vh, 560px);
-  min-height: clamp(280px, 48vh, 560px);
+  margin: 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .cart-table-wrap {
@@ -3033,8 +3032,19 @@ button.table-action-link {
 }
 
 .payment-input-row .field,
-.payment-input-row .change-summary {
+.payment-input-row .change-summary,
+.payment-input-row .cash-received-input {
   min-width: 0;
+}
+
+.payment-input-row .cash-received-input {
+  background: #fbfcfa;
+  border: 1px solid #cbd4ca;
+  border-radius: 6px;
+  color: #17201b;
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
 }
 
 .quick-cash-grid {
@@ -3789,9 +3799,8 @@ button.table-action-link {
   }
 
   .pos-panel-large .cart-table-wrap {
-    margin: 6px 0;
-    min-height: clamp(160px, 28vh, 320px);
-    max-height: clamp(160px, 28vh, 320px);
+    margin: 0;
+    min-height: 0;
   }
 
   .quick-cash-grid {
@@ -4453,8 +4462,7 @@ button.table-action-link {
   }
 
   .pos-panel-large .cart-table-wrap {
-    min-height: clamp(140px, 24vh, 260px);
-    max-height: clamp(140px, 24vh, 260px);
+    min-height: 0;
   }
 
   .quick-cash-grid {
