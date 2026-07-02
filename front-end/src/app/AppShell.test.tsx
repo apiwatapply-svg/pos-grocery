@@ -61,22 +61,14 @@ describe('AppShell', () => {
     expect(screen.queryByRole('link', { name: 'ผู้ใช้ระบบ' })).not.toBeInTheDocument()
   })
 
-  it('shows store name, user name, role, POS shortcut, logout, and page content', () => {
+  it('shows the user info and logout in the sidebar footer and keeps page content visible', () => {
     renderShell()
 
-    expect(screen.getAllByText('POS Grocery').length).toBeGreaterThan(0)
+    expect(screen.getByText('POS Grocery')).toBeInTheDocument()
     expect(screen.getByText('Cashier One')).toBeInTheDocument()
     expect(screen.getByText('cashier')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'ไปหน้า POS' })).toHaveClass('navbar-pos-button')
     expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Page Content' })).toBeInTheDocument()
-  })
-
-  it('hides the POS shortcut for roles that cannot use checkout', () => {
-    renderShell(stockSession)
-
-    expect(screen.queryByRole('link', { name: 'ไปหน้า POS' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
   })
 
   it('keeps the session when logout confirmation is cancelled', async () => {
@@ -128,19 +120,6 @@ describe('AppShell', () => {
 
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'สินค้าขายดี' })).not.toBeInTheDocument()
-  })
-
-  it('toggles the mobile sidebar', () => {
-    renderShell()
-
-    const navigation = screen.getByRole('navigation', { name: 'เมนูหลัก' })
-    expect(navigation).toHaveAttribute('data-open', 'false')
-
-    fireEvent.click(screen.getByRole('button', { name: 'เปิดเมนู' }))
-    expect(navigation).toHaveAttribute('data-open', 'true')
-
-    fireEvent.click(screen.getByRole('button', { name: 'ปิดเมนู' }))
-    expect(navigation).toHaveAttribute('data-open', 'false')
   })
 
   it('collapses the desktop sidebar and remembers the preference', () => {

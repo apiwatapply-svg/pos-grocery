@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { canAccessRoute, type AppRouteId } from '../lib/auth/permissions'
@@ -32,12 +32,10 @@ function readSidebarCollapsedPreference() {
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readSidebarCollapsedPreference)
   const navigate = useNavigate()
   const session = readSession()
   const user = session?.user
-  const canUsePos = user ? canAccessRoute(user.role, 'pos') : false
 
   async function logout() {
     const result = await Swal.fire({
@@ -84,7 +82,7 @@ export function AppShell({ children }: AppShellProps) {
             {isSidebarCollapsed ? '›' : '‹'}
           </button>
         </div>
-        <nav aria-label="เมนูหลัก" className="sidebar-nav" data-open={isMenuOpen}>
+        <nav aria-label="เมนูหลัก" className="sidebar-nav">
           {navGroups.map((group) => {
             const groupRoutes = protectedRoutes.filter(
               (route) =>
@@ -108,7 +106,6 @@ export function AppShell({ children }: AppShellProps) {
                     aria-label={route.label}
                     className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                     key={route.id}
-                    onClick={() => setIsMenuOpen(false)}
                     title={route.label}
                     to={route.path}
                   >
@@ -122,34 +119,25 @@ export function AppShell({ children }: AppShellProps) {
             )
           })}
         </nav>
+        <div className="sidebar-footer">
+          {user ? (
+            <div className="sidebar-user">
+              <strong>{user.displayName}</strong>
+              <span>{user.role}</span>
+            </div>
+          ) : null}
+          <button
+            className="sidebar-logout ghost-button compact"
+            onClick={logout}
+            type="button"
+          >
+            <span className="sidebar-logout-short" aria-hidden="true">ออก</span>
+            <span className="sidebar-logout-label">Logout</span>
+          </button>
+        </div>
       </aside>
 
       <div className="app-main">
-        <header className="navbar">
-          <button
-            aria-label={isMenuOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
-            className="menu-button"
-            onClick={() => setIsMenuOpen((current) => !current)}
-            type="button"
-          >
-            ☰
-          </button>
-          <div className="navbar-store">
-            <strong>POS Grocery</strong>
-            <span>{user?.displayName ?? 'Guest'}</span>
-            <span>{user?.role ?? 'guest'}</span>
-          </div>
-          <div className="navbar-actions">
-            {canUsePos ? (
-              <Link className="navbar-pos-button primary-button compact" to="/pos">
-                ไปหน้า POS
-              </Link>
-            ) : null}
-            <button className="ghost-button compact" onClick={logout} type="button">
-              Logout
-            </button>
-          </div>
-        </header>
         <main className="route-content">{children}</main>
       </div>
     </div>
