@@ -1342,7 +1342,8 @@ td span {
 }
 
 .stock-counting-workspace {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   width: 100%;
 }
