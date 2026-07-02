@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "prebuild": "node scripts/apply-all-migrations.mjs",
     "build": "tsc --noEmit",
     "start": "tsx src/server.ts",
     "prisma": "prisma",
