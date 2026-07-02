@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prebuild": "node scripts/apply-all-migrations.mjs",
-    "build": "tsc --noEmit",
+    "build": "prisma generate && tsc --noEmit",
     "start": "tsx src/server.ts",
     "prisma": "prisma",
     "seed:products": "tsx scripts/ensure-grocery-products.ts"
