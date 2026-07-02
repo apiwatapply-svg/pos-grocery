@@ -5239,6 +5239,30 @@ button.table-action-link {
     width: 100%;
   }
 
+  .receiving-workspace-full .receiving-table th:nth-child(4),
+  .receiving-workspace-full .receiving-table td:nth-child(4) {
+    width: 100px;
+  }
+
+  .receiving-workspace-full .receiving-table td:nth-child(4) input {
+    width: 80px;
+  }
+
+  .receiving-workspace-full .receiving-table th:nth-child(6),
+  .receiving-workspace-full .receiving-table td:nth-child(6) {
+    width: 116px;
+  }
+
+  .receiving-workspace-full .receiving-table th:nth-child(5),
+  .receiving-workspace-full .receiving-table td:nth-child(5) {
+    width: 72px;
+  }
+
+  .receiving-workspace-full .receiving-table th:nth-child(7),
+  .receiving-workspace-full .receiving-table td:nth-child(7) {
+    width: 76px;
+  }
+
   .product-bulk-row {
     grid-template-columns: 1fr;
   }
