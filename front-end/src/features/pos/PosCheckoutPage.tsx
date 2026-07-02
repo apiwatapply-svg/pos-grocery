@@ -3,6 +3,7 @@ import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
+import { confirmDeleteAction } from '../../lib/ui/confirm'
 import { baht, writeCustomerDisplayPayload } from './customerDisplay'
 
 type Product = {
@@ -455,8 +456,18 @@ export function PosCheckoutPage() {
     addProductToCart(product)
   }
 
-  function removeCartItem(productId: string) {
+  async function removeCartItem(productId: string) {
     const productName = cart.find((item) => item.productId === productId)?.productName
+    const { isConfirmed } = await confirmDeleteAction({
+      title: 'เอาออกจากตะกร้า?',
+      text: productName
+        ? `${productName} จะถูกเอาออกจากตะกร้าการขายนี้`
+        : 'รายการนี้จะถูกเอาออกจากตะกร้าการขายนี้',
+      confirmText: 'เอาออก',
+    })
+    if (!isConfirmed) {
+      return
+    }
     setCart((current) => current.filter((item) => item.productId !== productId))
     setNotice(productName ? `เอา ${productName} ออกจากตะกร้าแล้ว` : 'เอารายการออกจากตะกร้าแล้ว')
     focusProductQuery()

@@ -1,8 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import Swal from 'sweetalert2'
-import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
+import { confirmAction } from '../../lib/ui/confirm'
 import { PaginationControls } from '../shared/Pagination'
 import { paginateItems } from '../shared/paginationUtils'
 
@@ -109,17 +108,14 @@ export function UserManagementPage() {
   }
 
   async function deactivateUser(user: User) {
-    const result = await Swal.fire({
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#b42318',
-      confirmButtonText: 'ปิดใช้งาน',
-      icon: 'warning',
-      showCancelButton: true,
+    const { isConfirmed } = await confirmAction({
+      confirmText: 'ปิดใช้งาน',
       text: `ผู้ใช้ ${user.displayName} จะไม่สามารถเข้าสู่ระบบได้จนกว่าจะเปิดใช้งานอีกครั้ง`,
       title: 'ยืนยันปิดใช้งานผู้ใช้',
+      tone: 'danger',
     })
 
-    if (!result.isConfirmed) {
+    if (!isConfirmed) {
       return
     }
 

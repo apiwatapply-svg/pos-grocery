@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import Swal from 'sweetalert2'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, apiPost } from '../../lib/api/client'
@@ -322,6 +322,7 @@ describe('PosCheckoutPage', () => {
   })
 
   it('removes a scanned product line from the cart and recalculates totals before checkout', async () => {
+    mockedSwal.fire.mockResolvedValue(confirmedDialog)
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
@@ -333,7 +334,9 @@ describe('PosCheckoutPage', () => {
     })
 
     expect(screen.getByText('ยอดรวม 19.00 บาท')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'เอา Drinking Water ออกจากตะกร้า' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'เอา Drinking Water ออกจากตะกร้า' }))
+    })
 
     const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
     expect(within(cartTable).queryByText('Drinking Water')).not.toBeInTheDocument()

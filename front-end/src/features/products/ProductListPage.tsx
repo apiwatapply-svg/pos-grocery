@@ -1,7 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import Swal from 'sweetalert2'
-import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiDownload, apiGet, apiPatch, apiPost } from '../../lib/api/client'
+import { confirmAction, confirmDeleteAction } from '../../lib/ui/confirm'
 import { canAccessRoute } from '../../lib/auth/permissions'
 import { readSession } from '../../lib/auth/session'
 import { formatBaht, formatNumber, formatPercent } from '../../lib/format/number'
@@ -709,6 +708,20 @@ export function ProductListPage() {
     )
   }
 
+  async function removeDraftRow(draftId: string) {
+    const draft = drafts.find((row) => row.id === draftId)
+    const { isConfirmed } = await confirmDeleteAction({
+      title: 'ลบแถวสินค้า?',
+      text: draft?.name
+        ? `แถวของ "${draft.name}" จะถูกลบออกจากแบบฟอร์มสร้างสินค้า`
+        : 'แถวนี้จะถูกลบออกจากแบบฟอร์มสร้างสินค้า',
+    })
+    if (!isConfirmed) {
+      return
+    }
+    setDrafts((current) => current.filter((row) => row.id !== draftId))
+  }
+
   function resetCreateModal() {
     setDrafts([emptyDraft()])
     setIsCreateModalOpen(false)
@@ -811,19 +824,17 @@ export function ProductListPage() {
   async function toggleProductStatus(product: Product) {
     const nextStatus = product.status === 'inactive' ? 'active' : 'inactive'
     const isDeactivate = nextStatus === 'inactive'
-    const result = await Swal.fire({
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: isDeactivate ? '#b42318' : '#15803d',
-      confirmButtonText: isDeactivate ? 'ปิดขาย' : 'เปิดขาย',
+    const { isConfirmed } = await confirmAction({
+      confirmText: isDeactivate ? 'ปิดขาย' : 'เปิดขาย',
       icon: isDeactivate ? 'warning' : 'question',
-      showCancelButton: true,
       text: isDeactivate
         ? `สินค้า ${product.name} จะไม่แสดงให้ขายในหน้า POS แต่ยังเก็บข้อมูลและประวัติเดิมไว้`
         : `สินค้า ${product.name} จะกลับไปเลือกขายในหน้า POS ได้อีกครั้ง`,
       title: isDeactivate ? 'ยืนยันปิดขายสินค้า' : 'ยืนยันเปิดขายสินค้า',
+      tone: isDeactivate ? 'danger' : 'success',
     })
 
-    if (!result.isConfirmed) {
+    if (!isConfirmed) {
       return
     }
 
@@ -1051,7 +1062,7 @@ export function ProductListPage() {
                     {drafts.length > 1 ? (
                       <button
                         className="danger-button compact"
-                        onClick={() => setDrafts((current) => current.filter((row) => row.id !== draft.id))}
+                        onClick={() => removeDraftRow(draft.id)}
                         type="button"
                       >
                         ลบแถว

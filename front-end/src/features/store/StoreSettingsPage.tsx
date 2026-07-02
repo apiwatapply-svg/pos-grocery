@@ -3,6 +3,7 @@ import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiGet, apiPatch, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
+import { confirmAction } from '../../lib/ui/confirm'
 import { compressImageFile, logoImageCompression } from '../../lib/images/imageCompression'
 
 type Store = {
@@ -158,19 +159,16 @@ export function StoreSettingsPage() {
   async function changeStoreStatus(store: Store) {
     const nextStatus = store.status === 'inactive' ? 'active' : 'inactive'
     const isDeactivate = nextStatus === 'inactive'
-    const result = await Swal.fire({
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: isDeactivate ? '#b42318' : '#15803d',
-      confirmButtonText: isDeactivate ? 'ปิดใช้งาน' : 'เปิดใช้งาน',
-      icon: 'warning',
-      showCancelButton: true,
+    const { isConfirmed } = await confirmAction({
+      confirmText: isDeactivate ? 'ปิดใช้งาน' : 'เปิดใช้งาน',
       text: isDeactivate
         ? `ร้าน ${store.name} จะถูกตั้งเป็น inactive และไม่ควรใช้งานขายหน้าร้านจนกว่าจะเปิดกลับมา`
         : `ร้าน ${store.name} จะกลับมาอยู่ในสถานะ active`,
       title: isDeactivate ? 'ยืนยันปิดใช้งานร้าน' : 'ยืนยันเปิดใช้งานร้าน',
+      tone: isDeactivate ? 'danger' : 'success',
     })
 
-    if (!result.isConfirmed) {
+    if (!isConfirmed) {
       return
     }
 

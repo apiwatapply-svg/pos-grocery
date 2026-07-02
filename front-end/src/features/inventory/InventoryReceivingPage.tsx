@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatBaht, formatNumber } from '../../lib/format/number'
+import { confirmDeleteAction } from '../../lib/ui/confirm'
 
 type Product = {
   id: string
@@ -192,8 +193,18 @@ export function InventoryReceivingPage() {
     )
   }
 
-  function removeLine(productId: string) {
-    setLines((current) => current.filter((line) => line.product.id !== productId))
+  async function removeLine(productId: string) {
+    const line = lines.find((entry) => entry.product.id === productId)
+    const { isConfirmed } = await confirmDeleteAction({
+      title: 'เอารายการออกจากคิวรับของ?',
+      text: line
+        ? `${line.product.name} (${formatNumber(line.quantity)} ${line.product.unit}) จะถูกเอาออกจากคิวรับของ`
+        : 'รายการนี้จะถูกเอาออกจากคิวรับของ',
+    })
+    if (!isConfirmed) {
+      return
+    }
+    setLines((current) => current.filter((entry) => entry.product.id !== productId))
     scanInputRef.current?.focus()
   }
 

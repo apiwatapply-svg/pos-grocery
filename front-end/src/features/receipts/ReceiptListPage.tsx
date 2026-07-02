@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import Swal from 'sweetalert2'
-import 'sweetalert2/dist/sweetalert2.min.css'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { readSession } from '../../lib/auth/session'
 import { formatNumber, formatPercent } from '../../lib/format/number'
+import { confirmAction } from '../../lib/ui/confirm'
 import { ReceiptPaper } from './ReceiptPaper'
 import {
   bahtFromSatang,
@@ -163,17 +162,14 @@ export function ReceiptListPage() {
     }
 
     const readableReceiptNumber = displayReceiptNumber(sale.receiptNumber)
-    const result = await Swal.fire({
-      cancelButtonText: 'ไม่ยกเลิก',
-      confirmButtonColor: '#b42318',
-      confirmButtonText: 'ยืนยันยกเลิก',
-      icon: 'warning',
-      showCancelButton: true,
+    const { isConfirmed } = await confirmAction({
+      confirmText: 'ยืนยันยกเลิก',
       text: `บิล ${readableReceiptNumber} จะถูกยกเลิกและคืน stock กลับเข้าคลัง`,
       title: 'ยืนยันยกเลิกบิล',
+      tone: 'danger',
     })
 
-    if (!result.isConfirmed) {
+    if (!isConfirmed) {
       return
     }
 
@@ -190,17 +186,14 @@ export function ReceiptListPage() {
     }
 
     const readableReceiptNumber = displayReceiptNumber(sale.receiptNumber)
-    const result = await Swal.fire({
-      cancelButtonText: 'ยังไม่ Active',
-      confirmButtonColor: '#15803d',
-      confirmButtonText: 'ยืนยัน Active',
-      icon: 'question',
-      showCancelButton: true,
+    const { isConfirmed } = await confirmAction({
+      confirmText: 'ยืนยัน Active',
       text: `บิล ${readableReceiptNumber} จะกลับมาเป็นบิลขายสำเร็จและตัด stock อีกครั้ง`,
       title: 'ยืนยัน Active ใบเสร็จ',
+      tone: 'success',
     })
 
-    if (!result.isConfirmed) {
+    if (!isConfirmed) {
       return
     }
 
