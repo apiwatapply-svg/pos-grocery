@@ -198,24 +198,24 @@ function monthlySalesLabel(product: Product) {
 }
 
 function productProfitMargin(product: Product) {
-  if (product.salePriceSatang <= 0) {
+  if (product.costPriceSatang <= 0) {
     return 0
   }
 
   const profitSatang = product.salePriceSatang - product.costPriceSatang
 
-  return (profitSatang / product.salePriceSatang) * 100
+  return (profitSatang / product.costPriceSatang) * 100
 }
 
 function draftProfitMarginPercent(draft: Pick<ProductDraft, 'costPrice' | 'salePrice'>) {
-  const salePrice = Number(draft.salePrice || 0)
-  if (salePrice <= 0) {
+  const costPrice = Number(draft.costPrice || 0)
+  if (costPrice <= 0) {
     return '0.0%'
   }
 
-  const costPrice = Number(draft.costPrice || 0)
+  const salePrice = Number(draft.salePrice || 0)
 
-  return formatPercent(((salePrice - costPrice) / salePrice) * 100, 1)
+  return formatPercent(((salePrice - costPrice) / costPrice) * 100, 1)
 }
 
 function satangFromBaht(value: string) {
@@ -579,8 +579,8 @@ export function ProductListPage() {
     },
   )
   const expectedProfitPercent =
-    productInventorySummary.totalExpectedSalesSatang > 0
-      ? (productInventorySummary.totalExpectedProfitSatang / productInventorySummary.totalExpectedSalesSatang) * 100
+    productInventorySummary.totalCostSatang > 0
+      ? (productInventorySummary.totalExpectedProfitSatang / productInventorySummary.totalCostSatang) * 100
       : 0
   const expectedProfitPercentLabel = formatPercent(expectedProfitPercent, 1)
   const lowStockProducts = [...products]

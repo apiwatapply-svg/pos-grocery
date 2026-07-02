@@ -202,10 +202,10 @@ describe('ProductListPage', () => {
     expect(screen.queryByRole('link', { name: 'แก้ไข SQL Product' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ประวัติขาย SQL Product' })).toBeInTheDocument()
     expect(
-      screen.getByRole('row', { name: /1 SQL Product SQL Product SQL-001 box 1\.23 4\.56 73\.0% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
+      screen.getByRole('row', { name: /1 SQL Product SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('row', { name: /2 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 33\.3% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
+      screen.getByRole('row', { name: /2 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 50.0% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
     ).toBeInTheDocument()
     expect(screen.getByText('พร้อมขาย')).toBeInTheDocument()
     expect(screen.getByText('หมดสต็อก')).toBeInTheDocument()
@@ -227,7 +227,7 @@ describe('ProductListPage', () => {
     expect(screen.getByText('29.97 บาท')).toBeInTheDocument()
     const inventorySummary = screen.getByLabelText('สรุปสินค้าคงคลัง')
     expect(within(inventorySummary).getByText('กำไรที่คาดว่าจะได้ %')).toBeInTheDocument()
-    expect(within(inventorySummary).getByText('73.0%')).toBeInTheDocument()
+    expect(within(inventorySummary).getByText('270.7%')).toBeInTheDocument()
     expect(within(inventorySummary).getByText('สินค้าเหลือต่ำกว่า 5 ชิ้น')).toBeInTheDocument()
     expect(within(inventorySummary).getByText('1 รายการ')).toBeInTheDocument()
   })
@@ -266,7 +266,7 @@ describe('ProductListPage', () => {
       'src',
       'https://example.com/sql-product.jpg',
     )
-    expect(within(dialog).getByText('กำไร 73.0%')).toBeInTheDocument()
+    expect(within(dialog).getByText('กำไร 270.7%')).toBeInTheDocument()
 
     const newImage = new File(['new-image'], 'new-sql-product.png', { type: 'image/png' })
     fireEvent.change(within(dialog).getByLabelText('เปลี่ยนรูปสินค้า'), {
@@ -328,7 +328,7 @@ describe('ProductListPage', () => {
     })
 
     expect(
-      screen.getByRole('row', { name: /SQL Product SQL-001 box 1\.23 4\.56 73\.0% 12\.5 ชิ้น 9 พร้อมขาย inactive แก้ไข ประวัติขาย เปิดขาย/ }),
+      screen.getByRole('row', { name: /SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย inactive แก้ไข ประวัติขาย เปิดขาย/ }),
     ).toBeInTheDocument()
 
     mockedApiPatch.mockResolvedValueOnce({
@@ -340,7 +340,7 @@ describe('ProductListPage', () => {
     await waitFor(() => {
       expect(mockedApiPatch).toHaveBeenLastCalledWith('/products/sql-product-1', { status: 'active' })
       expect(
-        screen.getByRole('row', { name: /SQL Product SQL-001 box 1\.23 4\.56 73\.0% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
+        screen.getByRole('row', { name: /SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
       ).toBeInTheDocument()
     })
   })
@@ -357,10 +357,10 @@ describe('ProductListPage', () => {
       JSON.stringify({ key: 'stockQuantity', direction: 'ascending' }),
     )
     expect(
-      screen.getByRole('row', { name: /1 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 33\.3% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
+      screen.getByRole('row', { name: /1 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 50.0% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('row', { name: /2 SQL Product SQL Product SQL-001 box 1\.23 4\.56 73\.0% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
+      screen.getByRole('row', { name: /2 SQL Product SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
     ).toBeInTheDocument()
 
     fireEvent.click(within(stockHeader).getByRole('button', { name: 'คงเหลือ เรียงจากน้อยไปมาก' }))
@@ -370,10 +370,10 @@ describe('ProductListPage', () => {
       JSON.stringify({ key: 'stockQuantity', direction: 'descending' }),
     )
     expect(
-      screen.getByRole('row', { name: /1 SQL Product SQL Product SQL-001 box 1\.23 4\.56 73\.0% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
+      screen.getByRole('row', { name: /1 SQL Product SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('row', { name: /2 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 33\.3% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
+      screen.getByRole('row', { name: /2 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 50.0% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
     ).toBeInTheDocument()
   })
 
@@ -388,10 +388,10 @@ describe('ProductListPage', () => {
     const stockHeader = screen.getByRole('columnheader', { name: /คงเหลือ/ })
     expect(stockHeader).toHaveAttribute('aria-sort', 'ascending')
     expect(
-      screen.getByRole('row', { name: /1 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 33\.3% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
+      screen.getByRole('row', { name: /1 ไม่มีรูป Filtered Product SQL-002 pack 10\.00 15\.00 50.0% 0 ชิ้น 0 หมดสต็อก inactive แก้ไข ประวัติขาย เปิดขาย/ }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('row', { name: /2 SQL Product SQL Product SQL-001 box 1\.23 4\.56 73\.0% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
+      screen.getByRole('row', { name: /2 SQL Product SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
     ).toBeInTheDocument()
   })
 
@@ -547,7 +547,7 @@ describe('ProductListPage', () => {
     fireEvent.change(within(dialog).getAllByLabelText('ราคาขาย')[0], {
       target: { value: '18.00' },
     })
-    expect(within(dialog).getByText('กำไร 41.7%')).toBeInTheDocument()
+    expect(within(dialog).getByText('กำไร 71.4%')).toBeInTheDocument()
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'เพิ่มแถว' }))
 

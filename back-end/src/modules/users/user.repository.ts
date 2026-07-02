@@ -242,12 +242,12 @@ function inRange(value: string, input?: { from?: string; to?: string }) {
   return true;
 }
 
-function marginPercent(profitSatang: number, totalSalesSatang: number) {
-  if (totalSalesSatang <= 0) {
+function markupPercent(profitSatang: number, totalCostSatang: number) {
+  if (totalCostSatang <= 0) {
     return 0;
   }
 
-  return Number(((profitSatang / totalSalesSatang) * 100).toFixed(2));
+  return Number(((profitSatang / totalCostSatang) * 100).toFixed(2));
 }
 
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -372,7 +372,7 @@ function saleSummary(sale: SaleRecord): SaleSummaryRecord {
     lineItemCount: isCompleted ? sale.items.length : 0,
     totalCostSatang,
     profitSatang,
-    profitMarginPercent: marginPercent(profitSatang, sale.totalSatang),
+    profitMarginPercent: markupPercent(profitSatang, totalCostSatang),
   };
 }
 
@@ -753,7 +753,7 @@ export function createInMemoryUserRepository(seed?: {
             totalSalesSatang,
             totalCostSatang,
             profitSatang,
-            profitMarginPercent: marginPercent(profitSatang, totalSalesSatang),
+            profitMarginPercent: markupPercent(profitSatang, totalCostSatang),
           });
         }
       }

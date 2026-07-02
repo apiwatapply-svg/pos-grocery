@@ -83,7 +83,7 @@ function productSalesRows(sales: NonNullable<SalesReport['sales']>) {
   return Array.from(products.values())
     .map(({ billIds, ...product }) => {
       const profitSatang = product.totalSalesSatang - product.totalCostSatang
-      const profitMarginPercent = product.totalSalesSatang > 0 ? (profitSatang / product.totalSalesSatang) * 100 : 0
+      const profitMarginPercent = product.totalCostSatang > 0 ? (profitSatang / product.totalCostSatang) * 100 : 0
 
       return {
         ...product,

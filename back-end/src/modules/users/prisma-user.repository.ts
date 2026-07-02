@@ -421,8 +421,8 @@ function mapSaleSummarySqlRow(row: SaleSummarySqlRow): SaleSummaryRecord {
     lineItemCount: status === "completed" ? dbNumber(row.lineItemCount) : 0,
     totalCostSatang,
     profitSatang,
-    profitMarginPercent: totalSatang > 0
-      ? Number(((profitSatang / totalSatang) * 100).toFixed(2))
+    profitMarginPercent: totalCostSatang > 0
+      ? Number(((profitSatang / totalCostSatang) * 100).toFixed(2))
       : 0,
   };
 }
@@ -1353,8 +1353,8 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
             totalSalesSatang,
             totalCostSatang,
             profitSatang,
-            profitMarginPercent: totalSalesSatang > 0
-              ? Number(((profitSatang / totalSalesSatang) * 100).toFixed(2))
+            profitMarginPercent: totalCostSatang > 0
+              ? Number(((profitSatang / totalCostSatang) * 100).toFixed(2))
               : 0,
           });
         }

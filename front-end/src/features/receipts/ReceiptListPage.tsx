@@ -66,8 +66,9 @@ function receiptProfitSatang(sale: ApiSale | ApiSaleSummary) {
 }
 
 function receiptProfitMarginPercent(sale: ApiSale | ApiSaleSummary) {
-  return sale.profitMarginPercent ?? (sale.totalSatang > 0
-    ? Number(((receiptProfitSatang(sale) / sale.totalSatang) * 100).toFixed(2))
+  const costSatang = receiptCostSatang(sale)
+  return sale.profitMarginPercent ?? (costSatang > 0
+    ? Number(((receiptProfitSatang(sale) / costSatang) * 100).toFixed(2))
     : 0)
 }
 
@@ -89,8 +90,8 @@ function apiSaleToSummary(sale: ApiSale): ApiSaleSummary {
     lineItemCount: sale.status === 'void' ? 0 : sale.items.length,
     totalCostSatang,
     profitSatang,
-    profitMarginPercent: sale.totalSatang > 0
-      ? Number(((profitSatang / sale.totalSatang) * 100).toFixed(2))
+    profitMarginPercent: totalCostSatang > 0
+      ? Number(((profitSatang / totalCostSatang) * 100).toFixed(2))
       : 0,
   }
 }

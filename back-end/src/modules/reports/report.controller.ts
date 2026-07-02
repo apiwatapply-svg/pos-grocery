@@ -61,16 +61,16 @@ function summarize(sales: SaleRecord[]) {
     ),
     totalCostSatang,
     profitSatang,
-    profitMarginPercent: marginPercent(profitSatang, totalSalesSatang),
+    profitMarginPercent: markupPercent(profitSatang, totalCostSatang),
   };
 }
 
-function marginPercent(profitSatang: number, totalSalesSatang: number) {
-  if (totalSalesSatang <= 0) {
+function markupPercent(profitSatang: number, totalCostSatang: number) {
+  if (totalCostSatang <= 0) {
     return 0;
   }
 
-  return Number(((profitSatang / totalSalesSatang) * 100).toFixed(2));
+  return Number(((profitSatang / totalCostSatang) * 100).toFixed(2));
 }
 
 function saleCostSatang(sale: SaleRecord) {
@@ -136,7 +136,7 @@ function productSalesReportRows(sales: SaleRecord[]) {
         totalSalesSatang: row.totalSalesSatang,
         totalCostSatang: row.totalCostSatang,
         profitSatang,
-        profitMarginPercent: marginPercent(profitSatang, row.totalSalesSatang),
+        profitMarginPercent: markupPercent(profitSatang, row.totalCostSatang),
       };
     })
     .sort((left, right) => {
@@ -210,7 +210,7 @@ function bestProfitProducts(sales: SaleRecord[]) {
         totalSalesSatang,
         totalCostSatang,
         profitSatang,
-        profitMarginPercent: marginPercent(profitSatang, totalSalesSatang),
+        profitMarginPercent: markupPercent(profitSatang, totalCostSatang),
       });
     }
   }

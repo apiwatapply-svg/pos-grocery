@@ -56,7 +56,7 @@ const salesReport = {
     itemsSold: 3,
     totalCostSatang: 1800,
     profitSatang: 900,
-    profitMarginPercent: 33.33,
+    profitMarginPercent: 50,
   },
   sales: [
     {
@@ -66,7 +66,7 @@ const salesReport = {
       itemCount: 3,
       totalCostSatang: 1800,
       profitSatang: 900,
-      profitMarginPercent: 33.33,
+      profitMarginPercent: 50,
     },
   ],
 }
@@ -101,7 +101,7 @@ function makeSalesReport(count: number) {
       itemCount: 3,
       totalCostSatang: 1800,
       profitSatang: 900,
-      profitMarginPercent: 33.33,
+      profitMarginPercent: 50,
     })),
   }
 }
@@ -140,7 +140,7 @@ const dashboardReport = {
       totalSalesSatang: 2700,
       totalCostSatang: 1800,
       profitSatang: 900,
-      profitMarginPercent: 33.33,
+      profitMarginPercent: 50,
     },
   ],
   bestTimeSlots: [
@@ -243,7 +243,7 @@ describe('backend connected report pages', () => {
     expect(screen.getByText('ช่วงที่ขายดีที่สุด')).toBeInTheDocument()
     expect(screen.getByText('ค่าเฉลี่ยต่อบิล')).toBeInTheDocument()
     expect(screen.getByText('กำไรสูงสุด')).toBeInTheDocument()
-    expect(screen.getAllByText('กำไร 9.00 บาท / 33.33%')).toHaveLength(2)
+    expect(screen.getAllByText('กำไร 9.00 บาท / 50.00%')).toHaveLength(2)
   })
 
   it('orders dashboard summary cards above the best seller and profit panels', async () => {
@@ -329,7 +329,7 @@ describe('backend connected report pages', () => {
 
     const profitChart = screen.getByRole('list', { name: 'กราฟแท่งสินค้าได้กำไรสูงสุด' })
     expect(within(profitChart).getByText('SQL Sale Product')).toBeInTheDocument()
-    expect(within(profitChart).getByText('กำไร 9.00 บาท / 33.33%')).toBeInTheDocument()
+    expect(within(profitChart).getByText('กำไร 9.00 บาท / 50.00%')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'ดูรายละเอียดช่วง 09:00 ยอดขาย 27.00 บาท' }))
     const hourPanel = screen.getByRole('region', { name: 'สินค้าที่มีการขายในช่วง 09:00' })
@@ -372,7 +372,7 @@ describe('backend connected report pages', () => {
             itemsSold: 4,
             totalCostSatang: 9000,
             profitSatang: 6400,
-            profitMarginPercent: 41.56,
+            profitMarginPercent: 71.11,
           },
           bestTimeSlots: [
             {
@@ -675,7 +675,7 @@ describe('backend connected report pages', () => {
     expect(await screen.findByLabelText('วันที่เริ่ม')).toHaveValue('2026-06-15')
     expect(screen.getByLabelText('วันที่สิ้นสุด')).toHaveValue('2026-06-18')
     const productRow = await screen.findByRole('row', {
-      name: /1 SQL Sale Product SQL-001 1 บิล 3 ชิ้น 27.00 บาท 18.00 บาท 9.00 บาท 33.33%/,
+      name: /1 SQL Sale Product SQL-001 1 บิล 3 ชิ้น 27.00 บาท 18.00 บาท 9.00 บาท 50.00%/,
     })
     expect(productRow).toBeInTheDocument()
     expect(screen.getByText('NO')).toBeInTheDocument()
@@ -736,7 +736,7 @@ describe('backend connected report pages', () => {
             itemsSold: 6,
             totalCostSatang: 3600,
             profitSatang: 1800,
-            profitMarginPercent: 33.33,
+            profitMarginPercent: 50,
           },
           sales: [
             {
@@ -747,7 +747,7 @@ describe('backend connected report pages', () => {
               itemCount: 3,
               totalCostSatang: 1800,
               profitSatang: 900,
-              profitMarginPercent: 33.33,
+              profitMarginPercent: 50,
             },
             {
               ...sqlSale,
@@ -757,7 +757,7 @@ describe('backend connected report pages', () => {
               itemCount: 3,
               totalCostSatang: 1800,
               profitSatang: 900,
-              profitMarginPercent: 33.33,
+              profitMarginPercent: 50,
             },
             {
               ...sqlSale,
@@ -781,7 +781,7 @@ describe('backend connected report pages', () => {
     render(<SalesReportPage />)
 
     expect(await screen.findByRole('row', {
-      name: /1 SQL Sale Product SQL-001 2 บิล 6 ชิ้น 54.00 บาท 36.00 บาท 18.00 บาท 33.33%/,
+      name: /1 SQL Sale Product SQL-001 2 บิล 6 ชิ้น 54.00 บาท 36.00 บาท 18.00 บาท 50.00%/,
     })).toBeInTheDocument()
     expect(screen.queryByText('RC-SQL-VOID')).not.toBeInTheDocument()
   })
@@ -921,7 +921,7 @@ describe('backend connected report pages', () => {
     expect(within(completedRow).getByText('3 ชิ้น')).toBeInTheDocument()
     expect(within(completedRow).getByText('18.00 บาท')).toBeInTheDocument()
     expect(within(completedRow).getByText('9.00 บาท')).toBeInTheDocument()
-    expect(within(completedRow).getByText('33.33%')).toBeInTheDocument()
+    expect(within(completedRow).getByText('50.00%')).toBeInTheDocument()
 
     fireEvent.click(within(completedRow).getByRole('button', { name: 'ดูรายละเอียดบิล RC-SQL-001' }))
 

@@ -347,7 +347,7 @@ describe("POS Grocery MVP API", () => {
           totalSalesSatang: 2100,
           totalCostSatang: 1200,
           profitSatang: 900,
-          profitMarginPercent: 42.86,
+          profitMarginPercent: 75,
         },
         {
           date: "2026-06-29",
@@ -479,7 +479,7 @@ describe("POS Grocery MVP API", () => {
       itemsSold: 5,
       totalCostSatang: 1400,
       profitSatang: 1700,
-      profitMarginPercent: 54.84,
+      profitMarginPercent: 121.43,
     });
     expect(report.body.data.productSales[0]).toMatchObject({
       productName: "Profit Water",
@@ -488,7 +488,7 @@ describe("POS Grocery MVP API", () => {
       totalSalesSatang: 2100,
       totalCostSatang: 1200,
       profitSatang: 900,
-      profitMarginPercent: 42.86,
+      profitMarginPercent: 75,
     });
 
     const dashboard = await request(app)
@@ -504,7 +504,7 @@ describe("POS Grocery MVP API", () => {
     expect(dashboard.body.data.bestProfitProducts[0]).toMatchObject({
       productName: "Profit Water",
       profitSatang: 900,
-      profitMarginPercent: 42.86,
+      profitMarginPercent: 75,
     });
     expect(dashboard.body.data.hourlySales[0]).toMatchObject({
       hour: 8,
