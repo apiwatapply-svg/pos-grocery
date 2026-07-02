@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "tsc --noEmit",
-    "start": "node dist/server.js",
+    "start": "tsx src/server.ts",
     "prisma": "prisma",
     "seed:products": "tsx scripts/ensure-grocery-products.ts"
   },
