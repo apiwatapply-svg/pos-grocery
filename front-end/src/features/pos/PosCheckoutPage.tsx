@@ -362,6 +362,29 @@ export function PosCheckoutPage() {
       }, 0)
     }
 
+    function handleDocumentFocusOut() {
+      window.setTimeout(() => {
+        const active = document.activeElement
+        if (active instanceof HTMLElement) {
+          if (productQueryInputRef.current?.contains(active)) {
+            return
+          }
+          if (cashReceivedInputRef.current?.contains(active)) {
+            return
+          }
+          if (active.closest('.swal2-container')) {
+            return
+          }
+          if (active.closest('[data-keep-focus="allow"]')) {
+            return
+          }
+        }
+        // No focus on any element we care about (e.g. focus is on body or
+        // somewhere outside our POS layout) — return to the scan field.
+        focusProductQuery()
+      }, 0)
+    }
+
     function handleGlobalKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Enter') {
         return
@@ -413,10 +436,12 @@ export function PosCheckoutPage() {
 
     document.addEventListener('mousedown', handleDocumentMouseDown)
     window.addEventListener('blur', handleWindowBlur)
+    document.addEventListener('focusout', handleDocumentFocusOut)
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => {
       document.removeEventListener('mousedown', handleDocumentMouseDown)
       window.removeEventListener('blur', handleWindowBlur)
+      document.removeEventListener('focusout', handleDocumentFocusOut)
       document.removeEventListener('keydown', handleGlobalKeyDown)
     }
   }, [])
@@ -630,6 +655,32 @@ export function PosCheckoutPage() {
     focusProductQuery()
   }
 
+  async function clearCart() {
+    if (cart.length === 0) {
+      focusProductQuery()
+      return
+    }
+
+    const { isConfirmed } = await Swal.fire({
+      cancelButtonColor: '#6b7280',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#b42318',
+      confirmButtonText: 'ยืนยัน',
+      focusCancel: true,
+      icon: 'warning',
+      reverseButtons: true,
+      showCancelButton: true,
+      text: 'รายการสินค้าทั้งหมดในตะกร้าจะถูกลบ',
+      title: 'ลบสินค้าทั้งหมด?',
+    })
+
+    if (isConfirmed) {
+      setCart([])
+      setNotice('ลบสินค้าทั้งหมดแล้ว')
+    }
+    focusProductQuery()
+  }
+
   async function checkout() {
     if (isCheckoutSubmitting) {
       return
@@ -686,6 +737,9 @@ export function PosCheckoutPage() {
         allowOutsideClick: false,
         confirmButtonColor: '#15803d',
         confirmButtonText: 'ยืนยัน',
+        didClose: () => {
+          focusProductQuery()
+        },
         html: buildSaleSummaryHtml(completedSale, soldCart),
         icon: 'success',
         title: 'บันทึกการขายเรียบร้อย',
@@ -830,7 +884,19 @@ export function PosCheckoutPage() {
             )}
           </div>
           <div className="pos-checkout-footer">
-            <p className="total-line">ยอดรวม {baht(cartTotal)} บาท ({formatNumber(cartItemCount)} ชิ้น)</p>
+            <div className="total-line-row">
+              <p className="total-line">ยอดรวม {baht(cartTotal)} บาท ({formatNumber(cartItemCount)} ชิ้น)</p>
+              <button
+                aria-label="ลบสินค้าทั้งหมดในตะกร้า"
+                className="clear-cart-button"
+                data-keep-focus="allow"
+                disabled={!hasCartItems}
+                type="button"
+                onClick={() => void clearCart()}
+              >
+                ลบทั้งหมด
+              </button>
+            </div>
             <div className="payment-box">
               <div className="payment-input-row">
               <input

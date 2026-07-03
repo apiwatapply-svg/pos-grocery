@@ -193,6 +193,78 @@ describe('PosCheckoutPage', () => {
     expect(paymentStatusRow).toBe(cashInputRow)
   })
 
+  it('disables the clear cart button while the cart is empty', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    expect(screen.getByRole('button', { name: 'ลบสินค้าทั้งหมดในตะกร้า' })).toBeDisabled()
+  })
+
+  it('clears the cart after confirming the SweetAlert2 dialog from the clear cart button', async () => {
+    confirmNextDialog()
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+    const clearButton = screen.getByRole('button', { name: 'ลบสินค้าทั้งหมดในตะกร้า' })
+    expect(clearButton).toBeEnabled()
+
+    fireEvent.click(clearButton)
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          confirmButtonText: 'ยืนยัน',
+          icon: 'warning',
+          title: 'ลบสินค้าทั้งหมด?',
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('table', { name: 'รายการสินค้าในตะกร้า' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByLabelText('จำนวนเงินที่รับ')).toBeDisabled()
+    expect(scanInput).toHaveFocus()
+  })
+
+  it('keeps the cart when the clear cart SweetAlert2 is cancelled', async () => {
+    mockedSwal.fire.mockResolvedValueOnce({ isConfirmed: false, isDenied: false, isDismissed: true })
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'ลบสินค้าทั้งหมดในตะกร้า' }))
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalled()
+    })
+
+    expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+  })
+
+  it('returns focus to the scan field when focus leaves to a non-allowed element', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    expect(scanInput).toHaveFocus()
+
+    const outsideButton = document.createElement('button')
+    outsideButton.type = 'button'
+    outsideButton.textContent = 'outside'
+    document.body.appendChild(outsideButton)
+    outsideButton.focus()
+
+    await waitFor(() => {
+      expect(scanInput).toHaveFocus()
+    })
+  })
+
   it('keeps the scan field focused for barcode scanner input', async () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
