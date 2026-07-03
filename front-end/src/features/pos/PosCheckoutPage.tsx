@@ -267,6 +267,8 @@ function productsAreSame(current: Product[], next: Product[]) {
 
 export function PosCheckoutPage() {
   const productQueryInputRef = useRef<HTMLInputElement>(null)
+  const cashReceivedInputRef = useRef<HTMLInputElement>(null)
+  const checkoutButtonRef = useRef<HTMLButtonElement>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
@@ -290,9 +292,21 @@ export function PosCheckoutPage() {
     productQueryInputRef.current?.focus()
   }
 
+  function focusCashReceivedInput() {
+    cashReceivedInputRef.current?.focus()
+    cashReceivedInputRef.current?.select()
+  }
+
   useEffect(() => {
     focusProductQuery()
   }, [])
+
+  const checkoutRef = useRef<() => Promise<void>>(async () => {})
+  const hasCartItemsRef = useRef(false)
+
+  useEffect(() => {
+    hasCartItemsRef.current = hasCartItems
+  }, [hasCartItems])
 
   useEffect(() => {
     function handleDocumentMouseDown(event: MouseEvent) {
@@ -303,6 +317,10 @@ export function PosCheckoutPage() {
       }
 
       if (productQueryInputRef.current?.contains(target)) {
+        return
+      }
+
+      if (cashReceivedInputRef.current?.contains(target)) {
         return
       }
 
@@ -328,6 +346,9 @@ export function PosCheckoutPage() {
           if (productQueryInputRef.current?.contains(document.activeElement)) {
             return
           }
+          if (cashReceivedInputRef.current?.contains(document.activeElement)) {
+            return
+          }
           if (document.activeElement.closest('.swal2-container')) {
             return
           }
@@ -341,11 +362,62 @@ export function PosCheckoutPage() {
       }, 0)
     }
 
+    function handleGlobalKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Enter') {
+        return
+      }
+
+      const swalContainer = document.querySelector('.swal2-container')
+      if (swalContainer) {
+        const cancelButton = swalContainer.querySelector('.swal2-cancel') as HTMLButtonElement | null
+        if (cancelButton && document.activeElement === cancelButton) {
+          return
+        }
+        const confirmButton = swalContainer.querySelector('.swal2-confirm') as HTMLButtonElement | null
+        if (confirmButton && !confirmButton.disabled) {
+          event.preventDefault()
+          confirmButton.click()
+        }
+        return
+      }
+
+      // Prefer event.target so the handler works even when jsdom does not
+      // move document.activeElement during synthetic key events.
+      const target = event.target
+      const active =
+        target instanceof HTMLElement
+          ? target
+          : (document.activeElement as HTMLElement | null)
+      if (active === cashReceivedInputRef.current) {
+        event.preventDefault()
+        void checkoutRef.current()
+        return
+      }
+      if (active === checkoutButtonRef.current) {
+        event.preventDefault()
+        void checkoutRef.current()
+        return
+      }
+      if (active === productQueryInputRef.current) {
+        event.preventDefault()
+        if (hasCartItemsRef.current) {
+          focusCashReceivedInput()
+        } else {
+          productQueryInputRef.current?.select()
+        }
+        return
+      }
+      event.preventDefault()
+      focusProductQuery()
+    }
+
     document.addEventListener('mousedown', handleDocumentMouseDown)
     window.addEventListener('blur', handleWindowBlur)
+    document.addEventListener('keydown', handleGlobalKeyDown)
     return () => {
       document.removeEventListener('mousedown', handleDocumentMouseDown)
       window.removeEventListener('blur', handleWindowBlur)
+      document.removeEventListener('keydown', handleGlobalKeyDown)
     }
   }, [])
 
@@ -510,15 +582,6 @@ export function PosCheckoutPage() {
     addProductToCart(product)
   }
 
-  function handleProductQuerySubmit() {
-    const product = findProductByQuery(productQuery)
-    if (!product) {
-      setNotice('ไม่พบสินค้า')
-      return
-    }
-    addProductToCart(product)
-  }
-
   async function removeCartItem(productId: string) {
     const productName = cart.find((item) => item.productId === productId)?.productName
     const { isConfirmed } = await confirmDeleteAction({
@@ -639,6 +702,10 @@ export function PosCheckoutPage() {
     }
   }
 
+  useEffect(() => {
+    checkoutRef.current = checkout
+  })
+
   return (
     <section className="route-page" aria-labelledby="pos-title">
       <div className="page-header">
@@ -662,12 +729,6 @@ export function PosCheckoutPage() {
                 ref={productQueryInputRef}
                 value={productQuery}
                 onChange={(event) => handleProductQueryChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    handleProductQuerySubmit()
-                  }
-                }}
               />
             </label>
             <datalist id="pos-product-options">
@@ -772,50 +833,67 @@ export function PosCheckoutPage() {
             <p className="total-line">ยอดรวม {baht(cartTotal)} บาท ({formatNumber(cartItemCount)} ชิ้น)</p>
             <div className="payment-box">
               <div className="payment-input-row">
-                <input
-                  aria-label="จำนวนเงินที่รับ"
-                  className="cash-received-input"
-                  data-keep-focus="allow"
-                  disabled={!hasCartItems}
-                  min="0"
-                  type="number"
-                  value={displayCashReceived}
-                  onChange={(event) => setCashReceived(Number(event.target.value))}
-                />
-                <div
-                  aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
-                  className={!hasCartItems ? 'change-summary idle' : changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
-                  role="status"
-                >
-                  <span>{paymentStatusLabel}</span>
-                  <strong>{baht(Math.abs(changeDue))} บาท</strong>
-                </div>
-              </div>
-              <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด" data-keep-focus="allow">
-                <button
-                  className={hasCartItems && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
-                  disabled={!hasCartItems}
-                  type="button"
-                  onClick={() => setCashReceived(cartTotal)}
-                >
-                  จ่ายพอดี
-                </button>
-                {quickCashAmounts.map((amount) => (
-                  <button
-                    className={hasCartItems && cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
-                    disabled={!hasCartItems}
-                    key={amount}
-                    type="button"
-                    onClick={() => setCashReceived(amount)}
-                  >
-                    {formatNumber(amount)} บาท
-                  </button>
-                ))}
+              <input
+                aria-label="จำนวนเงินที่รับ"
+                className="cash-received-input"
+                data-keep-focus="allow"
+                disabled={!hasCartItems}
+                min="0"
+                ref={cashReceivedInputRef}
+                type="number"
+                value={displayCashReceived > 0 ? displayCashReceived : ''}
+                onChange={(event) => {
+                  const next = event.target.value
+                  setCashReceived(next === '' ? 0 : Number(next))
+                }}
+              />
+              <div
+                aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
+                className={!hasCartItems ? 'change-summary idle' : changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
+                role="status"
+              >
+                <span>{paymentStatusLabel}</span>
+                <strong>{baht(Math.abs(changeDue))} บาท</strong>
               </div>
             </div>
-            <button className="primary-button" data-keep-focus="allow" disabled={!canCheckout} type="button" onClick={() => void checkout()}>
-              {isCheckoutSubmitting ? 'กำลังบันทึก...' : 'ชำระเงิน'}
-            </button>
+            <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด" data-keep-focus="allow">
+              <button
+                className={hasCartItems && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
+                disabled={!hasCartItems}
+                type="button"
+                onClick={() => {
+                  setCashReceived(cartTotal)
+                  focusCashReceivedInput()
+                }}
+              >
+                จ่ายพอดี
+              </button>
+              {quickCashAmounts.map((amount) => (
+                <button
+                  className={hasCartItems && cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
+                  disabled={!hasCartItems}
+                  key={amount}
+                  type="button"
+                  onClick={() => {
+                    setCashReceived(amount)
+                    focusCashReceivedInput()
+                  }}
+                >
+                  {formatNumber(amount)} บาท
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            ref={checkoutButtonRef}
+            className="primary-button"
+            data-keep-focus="allow"
+            disabled={!canCheckout}
+            type="button"
+            onClick={() => void checkout()}
+          >
+            {isCheckoutSubmitting ? 'กำลังบันทึก...' : 'ชำระเงิน'}
+          </button>
           </div>
         </section>
 

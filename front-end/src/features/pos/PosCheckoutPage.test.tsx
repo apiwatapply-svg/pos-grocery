@@ -121,6 +121,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  document.querySelectorAll('.swal2-container').forEach((node) => node.remove())
+  document.querySelectorAll('.swal2-popup').forEach((node) => node.remove())
   vi.clearAllMocks()
 })
 
@@ -211,6 +213,86 @@ describe('PosCheckoutPage', () => {
 
     expect(scanInput).toHaveFocus()
     expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+  })
+
+  it('moves focus to the cash input when Enter is pressed on the scan field', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    expect(scanInput).toHaveFocus()
+
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+    fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+    expect(screen.getByLabelText('จำนวนเงินที่รับ')).toHaveFocus()
+  })
+
+  it('shows empty value for cash input when zero, and Enter on cash input triggers checkout', async () => {
+    confirmNextDialog()
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+
+    const cashInput = screen.getByLabelText('จำนวนเงินที่รับ') as HTMLInputElement
+    fireEvent.change(cashInput, { target: { value: '0' } })
+    expect(cashInput).toHaveValue(null)
+    expect(cashInput.value).toBe('')
+
+    fireEvent.click(screen.getByRole('button', { name: '20 บาท' }))
+    expect(cashInput).toHaveValue(20)
+
+    cashInput.focus()
+    fireEvent.keyDown(cashInput, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalled()
+    })
+  })
+
+  it('clicks the Swal confirm button when Enter is pressed while the Swal is open', async () => {
+    const confirmButtonClick = vi.fn()
+    mockedSwal.fire.mockImplementationOnce(() => {
+      const container = document.createElement('div')
+      container.className = 'swal2-container'
+      const confirmBtn = document.createElement('button')
+      confirmBtn.className = 'swal2-confirm'
+      confirmBtn.textContent = 'ยืนยัน'
+      container.appendChild(confirmBtn)
+      document.body.appendChild(container)
+      return Promise.resolve({ isConfirmed: true, isDenied: false, isDismissed: false })
+    })
+    mockedSwal.fire.mockImplementationOnce(() => {
+      const confirmBtn = document.querySelector('.swal2-confirm') as HTMLButtonElement
+      if (confirmBtn) confirmBtn.addEventListener('click', confirmButtonClick)
+      return Promise.resolve({ isConfirmed: true, isDenied: false, isDismissed: false })
+    })
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '20 บาท' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ชำระเงิน' }))
+
+    await waitFor(() => {
+      expect(document.querySelector('.swal2-container')).toBeInTheDocument()
+    })
+
+    const confirmButton = document.querySelector('.swal2-confirm') as HTMLButtonElement
+    confirmButton.addEventListener('click', confirmButtonClick)
+
+    fireEvent.keyDown(document.body, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(confirmButtonClick).toHaveBeenCalled()
+    })
   })
 
   it('keeps inactive products out of the searchable POS dropdown', async () => {
