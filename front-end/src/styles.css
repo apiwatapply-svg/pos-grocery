@@ -3073,16 +3073,45 @@ button.table-action-link {
   min-width: 0;
 }
 
+.pos-checkout-footer .total-line-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pos-checkout-footer .hold-bill-button,
+.pos-checkout-footer .resume-bill-button,
 .pos-checkout-footer .clear-cart-button {
   background: #ffffff;
-  border: 1px solid #f3b9b3;
+  border: 1px solid #d6e0d2;
   border-radius: 6px;
-  color: #b42318;
+  color: #2a3a2f;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   padding: 6px 12px;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.pos-checkout-footer .hold-bill-button:hover:not(:disabled),
+.pos-checkout-footer .hold-bill-button:focus-visible:not(:disabled) {
+  background: #eef6ec;
+  border-color: #15803d;
+  color: #15803d;
+}
+
+.pos-checkout-footer .resume-bill-button:hover:not(:disabled),
+.pos-checkout-footer .resume-bill-button:focus-visible:not(:disabled) {
+  background: #eef2f9;
+  border-color: #1e3a8a;
+  color: #1e3a8a;
+}
+
+.pos-checkout-footer .clear-cart-button {
+  border-color: #f3b9b3;
+  color: #b42318;
 }
 
 .pos-checkout-footer .clear-cart-button:hover:not(:disabled),
@@ -3091,11 +3120,137 @@ button.table-action-link {
   border-color: #b42318;
 }
 
+.pos-checkout-footer .hold-bill-button:disabled,
+.pos-checkout-footer .resume-bill-button:disabled,
 .pos-checkout-footer .clear-cart-button:disabled {
   background: #f6f7f5;
   border-color: #e0e5dd;
   color: #9aa39a;
   cursor: not-allowed;
+}
+
+.pos-checkout-footer .held-bill-badge {
+  align-items: center;
+  background: #b42318;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 0 5px;
+}
+
+.held-bills-modal-overlay {
+  align-items: center;
+  background: rgba(15, 32, 23, 0.55);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 60;
+}
+
+.held-bills-modal {
+  background: #ffffff;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: min(80vh, 720px);
+  max-width: 720px;
+  padding: 20px 24px;
+  width: min(96vw, 720px);
+  box-shadow: 0 12px 40px rgba(15, 32, 23, 0.25);
+}
+
+.held-bills-modal-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.held-bills-modal-header h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.held-bills-modal-close {
+  background: transparent;
+  border: 0;
+  color: #536259;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.held-bills-modal-close:hover,
+.held-bills-modal-close:focus-visible {
+  color: #b42318;
+}
+
+.held-bills-table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+
+.held-bills-table th,
+.held-bills-table td {
+  border-bottom: 1px solid #e0e5dd;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.held-bills-table th {
+  background: #f7faf7;
+  color: #4a5a50;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.held-bills-table .held-bills-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.resume-bill-row-button,
+.delete-held-bill-button {
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border: 1px solid;
+}
+
+.resume-bill-row-button {
+  background: #ffffff;
+  border-color: #1e3a8a;
+  color: #1e3a8a;
+}
+
+.resume-bill-row-button:hover,
+.resume-bill-row-button:focus-visible {
+  background: #eef2f9;
+}
+
+.delete-held-bill-button {
+  background: #ffffff;
+  border-color: #b42318;
+  color: #b42318;
+}
+
+.delete-held-bill-button:hover,
+.delete-held-bill-button:focus-visible {
+  background: #fef2f2;
 }
 
 .payment-box {

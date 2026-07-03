@@ -265,6 +265,238 @@ describe('PosCheckoutPage', () => {
     })
   })
 
+  it('disables the hold bill and resume bill buttons when no bill can be held', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    expect(screen.getByRole('button', { name: 'พักบิลปัจจุบัน' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'เปิดรายการบิลที่พัก' })).toBeDisabled()
+  })
+
+  it('holds the current cart and stores the bill in localStorage with a note', async () => {
+    confirmNextDialog()
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'พักบิลปัจจุบัน' }))
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalledWith(
+        expect.objectContaining({
+          confirmButtonText: 'พักบิล',
+          icon: 'question',
+          title: 'พักบิล?',
+        }),
+      )
+    })
+
+    const swalCall = mockedSwal.fire.mock.calls[mockedSwal.fire.mock.calls.length - 1]?.[0] as
+      | { html?: string; preConfirm?: () => unknown }
+      | undefined
+    expect(swalCall?.preConfirm).toBeInstanceOf(Function)
+    expect(swalCall?.html ?? '').toContain('swal-hold-bill-note')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('table', { name: 'รายการสินค้าในตะกร้า' })).not.toBeInTheDocument()
+    })
+
+    const stored = localStorage.getItem('pos-grocery:held-bills:store-1')
+    expect(stored).not.toBeNull()
+    const parsed = JSON.parse(stored ?? '[]') as Array<{ note?: string; items: unknown[] }>
+    expect(parsed.length).toBe(1)
+    expect(parsed[0]?.items.length).toBeGreaterThan(0)
+
+    expect(screen.getByRole('button', { name: 'เปิดรายการบิลที่พัก' })).toBeEnabled()
+    expect(screen.getByText('1')).toBeInTheDocument()
+  })
+
+  it('resumes a held bill when the current cart is empty', async () => {
+    const existingBill = {
+      id: 'held-1',
+      storeId: 'store-1',
+      items: [
+        {
+          productId: 'product-water',
+          productName: 'Drinking Water',
+          barcode: '8850002000010',
+          quantity: 2,
+          unitPrice: 7,
+        },
+      ],
+      cashReceived: 0,
+      note: 'ลูกค้า A',
+      createdAt: '2026-07-03T10:00:00.000Z',
+    }
+    localStorage.setItem(
+      'pos-grocery:held-bills:store-1',
+      JSON.stringify([existingBill]),
+    )
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.click(screen.getByRole('button', { name: 'เปิดรายการบิลที่พัก' }))
+
+    const modal = screen.getByRole('dialog')
+    expect(modal).toBeInTheDocument()
+    expect(within(modal).getByText('ลูกค้า A')).toBeInTheDocument()
+
+    fireEvent.click(within(modal).getByRole('button', { name: 'เรียกบิล ลูกค้า A กลับมา' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    const stored = JSON.parse(
+      localStorage.getItem('pos-grocery:held-bills:store-1') ?? '[]',
+    ) as unknown[]
+    expect(stored.length).toBe(0)
+  })
+
+  it('confirms before replacing the cart when resuming a held bill', async () => {
+    const existingBill = {
+      id: 'held-1',
+      storeId: 'store-1',
+      items: [
+        {
+          productId: 'product-noodle',
+          productName: 'Instant Noodles',
+          barcode: '8850001000011',
+          quantity: 1,
+          unitPrice: 12,
+        },
+      ],
+      cashReceived: 50,
+      createdAt: '2026-07-03T10:00:00.000Z',
+    }
+    localStorage.setItem(
+      'pos-grocery:held-bills:store-1',
+      JSON.stringify([existingBill]),
+    )
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.change(screen.getByLabelText('สแกนหรือค้นหาสินค้า'), {
+      target: { value: '8850002000010' },
+    })
+
+    const cartTable = await waitFor(() => screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' }))
+    expect(within(cartTable).getByText(/Drinking Water/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'เปิดรายการบิลที่พัก' }))
+    const modal = screen.getByRole('dialog')
+
+    mockedSwal.fire.mockResolvedValueOnce({ isConfirmed: false, isDenied: false, isDismissed: true })
+    fireEvent.click(within(modal).getByRole('button', { name: /เรียกบิล/ }))
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalled()
+    })
+
+    // Cart still has the water item
+    expect(within(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).getByText(/Drinking Water/)).toBeInTheDocument()
+    // The held bill is still in storage
+    const stored = JSON.parse(
+      localStorage.getItem('pos-grocery:held-bills:store-1') ?? '[]',
+    ) as unknown[]
+    expect(stored.length).toBe(1)
+  })
+
+  it('confirms before deleting a held bill', async () => {
+    const existingBill = {
+      id: 'held-1',
+      storeId: 'store-1',
+      items: [
+        {
+          productId: 'product-water',
+          productName: 'Drinking Water',
+          barcode: '8850002000010',
+          quantity: 1,
+          unitPrice: 7,
+        },
+      ],
+      cashReceived: 0,
+      createdAt: '2026-07-03T10:00:00.000Z',
+    }
+    localStorage.setItem(
+      'pos-grocery:held-bills:store-1',
+      JSON.stringify([existingBill]),
+    )
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    fireEvent.click(screen.getByRole('button', { name: 'เปิดรายการบิลที่พัก' }))
+    const modal = screen.getByRole('dialog')
+
+    mockedSwal.fire.mockResolvedValueOnce({ isConfirmed: false, isDenied: false, isDismissed: true })
+    fireEvent.click(within(modal).getByRole('button', { name: 'ลบบิล' }))
+
+    await waitFor(() => {
+      expect(mockedSwal.fire).toHaveBeenCalled()
+    })
+    expect(within(modal).getByText('-')).toBeInTheDocument()
+
+    confirmNextDialog()
+    fireEvent.click(within(modal).getByRole('button', { name: 'ลบบิล' }))
+
+    await waitFor(() => {
+      const stored = JSON.parse(
+        localStorage.getItem('pos-grocery:held-bills:store-1') ?? '[]',
+      ) as unknown[]
+      expect(stored.length).toBe(0)
+    })
+  })
+
+  it('shows the held bills badge with the current number of held bills', async () => {
+    const bills = [
+      {
+        id: 'held-1',
+        storeId: 'store-1',
+        items: [
+          {
+            productId: 'product-water',
+            productName: 'Drinking Water',
+            barcode: '8850002000010',
+            quantity: 1,
+            unitPrice: 7,
+          },
+        ],
+        cashReceived: 0,
+        createdAt: '2026-07-03T10:00:00.000Z',
+      },
+      {
+        id: 'held-2',
+        storeId: 'store-1',
+        items: [
+          {
+            productId: 'product-noodle',
+            productName: 'Instant Noodles',
+            barcode: '8850001000011',
+            quantity: 1,
+            unitPrice: 12,
+          },
+        ],
+        cashReceived: 0,
+        createdAt: '2026-07-03T09:00:00.000Z',
+      },
+    ]
+    localStorage.setItem('pos-grocery:held-bills:store-1', JSON.stringify(bills))
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const resumeButton = screen.getByRole('button', { name: 'เปิดรายการบิลที่พัก' })
+    expect(resumeButton).toBeEnabled()
+    expect(within(resumeButton).getByText('2')).toBeInTheDocument()
+  })
+
   it('keeps the scan field focused for barcode scanner input', async () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()

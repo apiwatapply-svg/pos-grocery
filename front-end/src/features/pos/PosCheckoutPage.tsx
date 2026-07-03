@@ -5,6 +5,13 @@ import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
 import { baht, writeCustomerDisplayPayload } from './customerDisplay'
+import {
+  generateBillId,
+  loadHeldBills,
+  MAX_HELD_BILLS,
+  saveHeldBills,
+  type HeldBill,
+} from './heldBills'
 
 type Product = {
   id: string
@@ -277,6 +284,8 @@ export function PosCheckoutPage() {
   const [currentStore, setCurrentStore] = useState<CurrentStore>({ name: 'POS Grocery' })
   const [notice, setNotice] = useState('พร้อมขาย')
   const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false)
+  const [heldBills, setHeldBills] = useState<HeldBill[]>([])
+  const [isHeldBillsModalOpen, setIsHeldBillsModalOpen] = useState(false)
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -392,10 +401,8 @@ export function PosCheckoutPage() {
 
       const swalContainer = document.querySelector('.swal2-container')
       if (swalContainer) {
-        const cancelButton = swalContainer.querySelector('.swal2-cancel') as HTMLButtonElement | null
-        if (cancelButton && document.activeElement === cancelButton) {
-          return
-        }
+        // Enter always confirms in every SweetAlert2 dialog on the POS page,
+        // even if the cancel button is currently focused.
         const confirmButton = swalContainer.querySelector('.swal2-confirm') as HTMLButtonElement | null
         if (confirmButton && !confirmButton.disabled) {
           event.preventDefault()
@@ -493,6 +500,7 @@ export function PosCheckoutPage() {
           })
           if (store.id) {
             setCart(loadCartFromStorage(store.id))
+            setHeldBills(loadHeldBills(store.id))
           }
         })
         .catch(() => {
@@ -666,7 +674,6 @@ export function PosCheckoutPage() {
       cancelButtonText: 'ยกเลิก',
       confirmButtonColor: '#b42318',
       confirmButtonText: 'ยืนยัน',
-      focusCancel: true,
       icon: 'warning',
       reverseButtons: true,
       showCancelButton: true,
@@ -678,6 +685,166 @@ export function PosCheckoutPage() {
       setCart([])
       setNotice('ลบสินค้าทั้งหมดแล้ว')
     }
+    focusProductQuery()
+  }
+
+  async function holdBill() {
+    if (cart.length === 0) {
+      focusProductQuery()
+      return
+    }
+
+    const storeId = currentStore.id
+    if (!storeId) {
+      void Swal.fire({
+        confirmButtonText: 'OK',
+        icon: 'error',
+        text: 'ยังไม่ได้โหลดข้อมูลร้านค้า กรุณารอสักครู่',
+        title: 'ไม่สามารถพักบิลได้',
+      })
+      focusProductQuery()
+      return
+    }
+
+    const result = await Swal.fire({
+      cancelButtonColor: '#6b7280',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#15803d',
+      confirmButtonText: 'พักบิล',
+      html: `
+        <div style="text-align:left;font-size:14px;color:#17201b;">
+          <p style="margin:0 0 10px;color:#536259;">ใส่ชื่อ/หมายเหตุสำหรับบิลนี้ (ไม่บังคับ)</p>
+          <input id="swal-hold-bill-note" class="swal2-input" placeholder="เช่น ลูกค้า A, โต๊ะ 5" style="margin:0;" />
+        </div>
+      `,
+      icon: 'question',
+      preConfirm: () => {
+        const input = document.getElementById('swal-hold-bill-note') as HTMLInputElement | null
+        return input?.value.trim() || undefined
+      },
+      reverseButtons: true,
+      showCancelButton: true,
+      title: 'พักบิล?',
+    })
+
+    if (!result.isConfirmed) {
+      focusProductQuery()
+      return
+    }
+
+    const note = typeof result.value === 'string' && result.value.length > 0 ? result.value : undefined
+
+    const heldBill: HeldBill = {
+      id: generateBillId(),
+      storeId,
+      items: cart.map((item) => ({ ...item })),
+      cashReceived,
+      note,
+      createdAt: new Date().toISOString(),
+    }
+
+    const nextBills = [heldBill, ...heldBills].slice(0, MAX_HELD_BILLS)
+    try {
+      saveHeldBills(storeId, nextBills)
+      setHeldBills(nextBills)
+      setCart([])
+      setNotice(note ? `พักบิล "${note}" แล้ว` : 'พักบิลแล้ว')
+    } catch {
+      void Swal.fire({
+        confirmButtonText: 'OK',
+        icon: 'error',
+        text: 'ไม่สามารถบันทึกบิลที่พักได้ กรุณาลองใหม่',
+        title: 'บันทึกไม่สำเร็จ',
+      })
+    }
+    focusProductQuery()
+  }
+
+  async function resumeHeldBill(bill: HeldBill) {
+    if (cart.length > 0) {
+      const { isConfirmed } = await Swal.fire({
+        cancelButtonColor: '#6b7280',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#15803d',
+        confirmButtonText: 'แทนที่',
+        icon: 'warning',
+        reverseButtons: true,
+        showCancelButton: true,
+        text: 'รายการสินค้าปัจจุบันในตะกร้าจะถูกแทนที่',
+        title: 'แทนที่รายการสินค้า?',
+      })
+      if (!isConfirmed) {
+        return
+      }
+    }
+
+    const storeId = currentStore.id
+    if (!storeId) {
+      return
+    }
+
+    setCart(bill.items.map((item) => ({ ...item })))
+    setCashReceived(bill.cashReceived)
+    const nextBills = heldBills.filter((b) => b.id !== bill.id)
+    try {
+      saveHeldBills(storeId, nextBills)
+      setHeldBills(nextBills)
+    } catch {
+      // If storage fails, still keep the cart updated so the user can keep
+      // working — the held list will fall back to memory until the next
+      // successful save.
+    }
+    setNotice(bill.note ? `เรียกบิล "${bill.note}" กลับมาแล้ว` : 'เรียกบิลกลับมาแล้ว')
+    setIsHeldBillsModalOpen(false)
+    focusProductQuery()
+  }
+
+  async function deleteHeldBill(billId: string) {
+    const bill = heldBills.find((b) => b.id === billId)
+    if (!bill) {
+      return
+    }
+
+    const { isConfirmed } = await Swal.fire({
+      cancelButtonColor: '#6b7280',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#b42318',
+      confirmButtonText: 'ลบ',
+      icon: 'warning',
+      reverseButtons: true,
+      showCancelButton: true,
+      text: bill.note
+        ? `บิล "${bill.note}" จะถูกลบออกจากรายการบิลที่พัก`
+        : 'บิลนี้จะถูกลบออกจากรายการบิลที่พัก',
+      title: 'ลบบิลที่พัก?',
+    })
+
+    if (!isConfirmed) {
+      return
+    }
+
+    const storeId = currentStore.id
+    if (!storeId) {
+      return
+    }
+
+    const nextBills = heldBills.filter((b) => b.id !== billId)
+    try {
+      saveHeldBills(storeId, nextBills)
+      setHeldBills(nextBills)
+    } catch {
+      // ignore
+    }
+    setNotice('ลบบิลที่พักแล้ว')
+    focusProductQuery()
+  }
+
+  function openHeldBillsModal() {
+    setIsHeldBillsModalOpen(true)
+  }
+
+  function closeHeldBillsModal() {
+    setIsHeldBillsModalOpen(false)
     focusProductQuery()
   }
 
@@ -886,16 +1053,43 @@ export function PosCheckoutPage() {
           <div className="pos-checkout-footer">
             <div className="total-line-row">
               <p className="total-line">ยอดรวม {baht(cartTotal)} บาท ({formatNumber(cartItemCount)} ชิ้น)</p>
-              <button
-                aria-label="ลบสินค้าทั้งหมดในตะกร้า"
-                className="clear-cart-button"
-                data-keep-focus="allow"
-                disabled={!hasCartItems}
-                type="button"
-                onClick={() => void clearCart()}
-              >
-                ลบทั้งหมด
-              </button>
+              <div className="total-line-actions">
+                <button
+                  aria-label="พักบิลปัจจุบัน"
+                  className="hold-bill-button"
+                  data-keep-focus="allow"
+                  disabled={!hasCartItems}
+                  type="button"
+                  onClick={() => void holdBill()}
+                >
+                  พักบิล
+                </button>
+                <button
+                  aria-label="เปิดรายการบิลที่พัก"
+                  className="resume-bill-button"
+                  data-keep-focus="allow"
+                  disabled={heldBills.length === 0}
+                  type="button"
+                  onClick={openHeldBillsModal}
+                >
+                  เรียกบิล
+                  {heldBills.length > 0 ? (
+                    <span className="held-bill-badge" aria-label={`มี ${heldBills.length} บิลที่พัก`}>
+                      {heldBills.length}
+                    </span>
+                  ) : null}
+                </button>
+                <button
+                  aria-label="ลบสินค้าทั้งหมดในตะกร้า"
+                  className="clear-cart-button"
+                  data-keep-focus="allow"
+                  disabled={!hasCartItems}
+                  type="button"
+                  onClick={() => void clearCart()}
+                >
+                  ลบทั้งหมด
+                </button>
+              </div>
             </div>
             <div className="payment-box">
               <div className="payment-input-row">
@@ -964,6 +1158,105 @@ export function PosCheckoutPage() {
         </section>
 
       </div>
+      {isHeldBillsModalOpen ? (
+        <div
+          aria-modal="true"
+          className="held-bills-modal-overlay"
+          data-keep-focus="allow"
+          role="dialog"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeHeldBillsModal()
+            }
+          }}
+        >
+          <div className="held-bills-modal" role="document">
+            <header className="held-bills-modal-header">
+              <h2>รายการบิลที่พัก ({heldBills.length})</h2>
+              <button
+                aria-label="ปิดรายการบิลที่พัก"
+                className="held-bills-modal-close"
+                data-keep-focus="allow"
+                type="button"
+                onClick={closeHeldBillsModal}
+              >
+                ×
+              </button>
+            </header>
+            {heldBills.length === 0 ? (
+              <p className="empty-hint">ยังไม่มีบิลที่พัก</p>
+            ) : (
+              <table className="held-bills-table" aria-label="รายการบิลที่พัก">
+                <thead>
+                  <tr>
+                    <th>พักเมื่อ</th>
+                    <th>ชื่อบิล</th>
+                    <th>จำนวน</th>
+                    <th>ยอดรวม</th>
+                    <th>จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heldBills.map((bill) => {
+                    const billTotal = bill.items.reduce(
+                      (sum, item) => sum + item.quantity * item.unitPrice,
+                      0,
+                    )
+                    const billItemCount = bill.items.reduce(
+                      (sum, item) => sum + item.quantity,
+                      0,
+                    )
+                    return (
+                      <tr key={bill.id}>
+                        <td>{formatHeldBillTime(bill.createdAt)}</td>
+                        <td>{bill.note || '-'}</td>
+                        <td>{formatNumber(billItemCount)}</td>
+                        <td>{baht(billTotal)}</td>
+                        <td className="held-bills-row-actions">
+                          <button
+                            aria-label={`เรียกบิล${bill.note ? ` ${bill.note}` : ''} กลับมา`}
+                            className="resume-bill-row-button"
+                            data-keep-focus="allow"
+                            type="button"
+                            onClick={() => void resumeHeldBill(bill)}
+                          >
+                            เรียก
+                          </button>
+                          <button
+                            aria-label={`ลบบิล${bill.note ? ` ${bill.note}` : ''}`}
+                            className="delete-held-bill-button"
+                            data-keep-focus="allow"
+                            type="button"
+                            onClick={() => void deleteHeldBill(bill.id)}
+                          >
+                            ลบ
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
+}
+
+function formatHeldBillTime(iso: string) {
+  try {
+    const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) {
+      return iso
+    }
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
+    const mo = String(date.getMonth() + 1).padStart(2, '0')
+    return `${dd}/${mo} ${hh}:${mm}`
+  } catch {
+    return iso
+  }
 }
