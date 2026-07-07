@@ -487,20 +487,30 @@ describe('ProductListPage', () => {
     )
     const filterInput = screen.getByLabelText('ค้นหา/กรองสินค้า')
     expect(filterInput).toHaveFocus()
-    const filterOptions = Array.from(document.querySelectorAll('#product-filter-options option'))
-    expect(filterOptions.map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
-      ['SQL Product', 'SQL Product - SQL-001'],
-      ['Filtered Product', 'Filtered Product - SQL-002'],
-    ])
+
+    // Open the dropdown to inspect the available suggestions.
+    fireEvent.focus(filterInput)
+    fireEvent.change(filterInput, { target: { value: 'SQL' } })
+    const listbox = await screen.findByRole('listbox')
+    const filterOptions = Array.from(within(listbox).getAllByRole('option'))
+    expect(filterOptions).toHaveLength(2)
+    expect(filterOptions[0]).toHaveAttribute('data-option-index', '0')
+    expect(filterOptions[0]).toHaveTextContent('SQL Product')
+    expect(filterOptions[0]).toHaveTextContent('SQL-001')
+    expect(filterOptions[0]).toHaveTextContent('สถานะ active')
+    expect(filterOptions[1]).toHaveAttribute('data-option-index', '1')
+    expect(filterOptions[1]).toHaveTextContent('Filtered Product')
+    expect(filterOptions[1]).toHaveTextContent('SQL-002')
     expect(filterOptions.some((option) => option.textContent?.includes('SKU'))).toBe(false)
 
-    fireEvent.change(screen.getByLabelText('ค้นหา/กรองสินค้า'), {
-      target: { value: 'SQL-002' },
-    })
+    fireEvent.change(filterInput, { target: { value: 'SQL-002' } })
 
-    expect(screen.queryByText('SQL Product')).not.toBeInTheDocument()
-    expect(screen.getByText('Filtered Product')).toBeInTheDocument()
-    expect(screen.getByText('SQL-002')).toBeInTheDocument()
+    // The search input may still have a matching option in the dropdown,
+    // so look inside the product table specifically.
+    const productTable = screen.getByRole('table')
+    expect(within(productTable).queryByText('SQL Product')).not.toBeInTheDocument()
+    expect(within(productTable).getByText('Filtered Product')).toBeInTheDocument()
+    expect(within(productTable).getByText('SQL-002')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'ล้างตัวกรอง' }))
     expect(filterInput).toHaveFocus()

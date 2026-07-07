@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
+import {
+  SearchableDropdown,
+  type SearchableDropdownHandle,
+  type SearchableDropdownOption,
+} from '../../components/ui/SearchableDropdown'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatBaht, formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
@@ -111,7 +116,7 @@ function loadPersistedQueue(): ReceivingLine[] {
 }
 
 export function InventoryReceivingPage() {
-  const scanInputRef = useRef<HTMLInputElement>(null)
+  const scanInputRef = useRef<SearchableDropdownHandle>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<ReceivingHistory[]>([])
   const [scanValue, setScanValue] = useState('')
@@ -173,10 +178,24 @@ export function InventoryReceivingPage() {
 
   const totalQuantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0)
   const totalValue = lines.reduce((sum, line) => sum + lineTotal(line), 0)
-  const scanSuggestions = useMemo(
-    () => products.map((product) => `${product.name} - ${product.barcode}`),
+  const scanOptions = useMemo<SearchableDropdownOption[]>(
+    () =>
+      products.map((product) => ({
+        value: product.id,
+        label: product.name,
+        description: `${product.barcode} · คงเหลือ ${formatNumber(product.stockQuantity)} ชิ้น`,
+        trailing: <span>{bahtFromSatang(product.costPriceSatang)} บาท</span>,
+      })),
     [products],
   )
+
+  const isReceivingExactMatch = (option: SearchableDropdownOption, query: string) => {
+    const product = products.find((current) => current.id === option.value)
+    if (!product) {
+      return false
+    }
+    return matchesProduct(product, query)
+  }
 
   function addScannedProduct(value: string) {
     const normalizedValue = value.trim()
@@ -224,6 +243,22 @@ export function InventoryReceivingPage() {
 
     if (products.some((product) => matchesProduct(product, value))) {
       addScannedProduct(value)
+    }
+  }
+
+  function handleScanSelect(option: SearchableDropdownOption) {
+    const product = products.find((current) => current.id === option.value)
+    if (!product) {
+      return
+    }
+    addScannedProduct(`${product.name} - ${product.barcode}`)
+  }
+
+  function handleScanEnter() {
+    if (scanValue.trim() && products.some((product) => matchesProduct(product, scanValue))) {
+      addScannedProduct(scanValue)
+    } else {
+      scanInputRef.current?.focus()
     }
   }
 
@@ -324,25 +359,27 @@ export function InventoryReceivingPage() {
         <section className="panel receiving-scan-panel" aria-label="สแกนรับของเข้า">
           <label className="field receiving-scan-field" htmlFor="receiving-scan">
             <span>สแกนหรือค้นหาสินค้า</span>
-            <input
-              aria-label="สแกนหรือค้นหาสินค้า"
-              autoComplete="off"
-              id="receiving-scan"
-              list="receiving-product-options"
-              placeholder="สแกน barcode หรือพิมพ์ชื่อสินค้า"
+            <SearchableDropdown
               ref={scanInputRef}
+              ariaLabel="สแกนหรือค้นหาสินค้า"
+              emptyMessage="ไม่พบสินค้าที่ค้นหา"
+              hint="สแกนหรือเลือกสินค้าจากช่องค้นหาแล้วระบบจะเพิ่มเข้าคิวทันที"
+              id="receiving-scan"
+              isExactMatch={isReceivingExactMatch}
+              options={scanOptions}
+              placeholder="สแกน barcode หรือพิมพ์ชื่อสินค้า"
               value={scanValue}
-              onChange={(event) => handleScanChange(event.target.value)}
+              onChange={handleScanChange}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleScanEnter()
+                }
+              }}
+              onSelect={(option) => handleScanSelect(option)}
             />
             <small>สแกนหรือเลือกสินค้าจากช่องค้นหาแล้วระบบจะเพิ่มเข้าคิวทันที</small>
           </label>
-          <datalist id="receiving-product-options">
-            {scanSuggestions.map((suggestion) => (
-              <option key={suggestion} value={suggestion.split(' - ')[0]}>
-                {suggestion}
-              </option>
-            ))}
-          </datalist>
         </section>
 
         <section className="panel receiving-summary-panel" aria-label="สรุปการรับของ">

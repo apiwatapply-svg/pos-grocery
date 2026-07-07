@@ -112,9 +112,11 @@ describe('StoreSettingsPage', () => {
     const dialog = screen.getByRole('dialog', { name: 'เพิ่มร้านค้าใหม่' })
     expect(within(dialog).getByLabelText('สถานะร้าน')).toBeInTheDocument()
     expect(within(dialog).getByLabelText('Logo ร้านค้า')).toBeInTheDocument()
-    expect(within(dialog).getAllByRole('option').map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
-      ['active', 'เปิดใช้งาน (active)'],
-      ['inactive', 'ปิดใช้งาน (inactive)'],
+    // Open the custom select to inspect the available status options.
+    fireEvent.click(within(dialog).getByLabelText('สถานะร้าน'))
+    expect(within(dialog).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'เปิดใช้งาน (active)',
+      'ปิดใช้งาน (inactive)',
     ])
     fireEvent.change(within(dialog).getByLabelText('ชื่อร้าน'), { target: { value: 'New Branch' } })
     fireEvent.change(within(dialog).getByLabelText('เบอร์โทร'), { target: { value: '0833333333' } })

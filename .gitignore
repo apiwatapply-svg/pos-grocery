@@ -6,11 +6,20 @@ coverage/
 .vite/
 .next/
 
+.vscode/
+.idea/
+
 .env
 .env.*
 .dev.vars
 !.env.example
 !.dev.vars.example
+
+# Local dev scripts that should never be committed
+back-end/scripts/login-body.json
+back-end/scripts/inspect-turso.mjs
+back-end/scripts/simulate-browser.mjs
+back-end/scripts/test-prisma.mjs
 
 *.log
 *.local

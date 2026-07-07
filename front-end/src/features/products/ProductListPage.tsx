@@ -1,4 +1,9 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  SearchableDropdown,
+  type SearchableDropdownHandle,
+  type SearchableDropdownOption,
+} from '../../components/ui/SearchableDropdown'
 import { apiDownload, apiGet, apiPatch, apiPost } from '../../lib/api/client'
 import { confirmAction, confirmDeleteAction } from '../../lib/ui/confirm'
 import { canAccessRoute } from '../../lib/auth/permissions'
@@ -456,7 +461,7 @@ function ProductSalesHistoryChart({ rows }: { rows: ProductSalesHistoryRow[] }) 
 
 export function ProductListPage() {
   const session = readSession()
-  const productFilterRef = useRef<HTMLInputElement>(null)
+  const productFilterRef = useRef<SearchableDropdownHandle>(null)
   const canCreateProduct = session ? canAccessRoute(session.user.role, 'product-create') : false
   const canManageProductStatus = session ? canAccessRoute(session.user.role, 'product-edit') : false
   const [products, setProducts] = useState<Product[]>([])
@@ -476,6 +481,16 @@ export function ProductListPage() {
   function focusProductFilter() {
     window.setTimeout(() => productFilterRef.current?.focus(), 0)
   }
+
+  const productFilterOptions = useMemo<SearchableDropdownOption[]>(
+    () =>
+      products.map((product) => ({
+        value: product.id,
+        label: product.name,
+        description: `${product.barcode}${product.unit ? ` · ${product.unit}` : ''} · สถานะ ${product.status}`,
+      })),
+    [products],
+  )
 
   useEffect(() => {
     let active = true
@@ -1392,26 +1407,18 @@ export function ProductListPage() {
       <section className="panel product-filter-panel" aria-label="ตัวกรองสินค้า">
         <label className="field product-filter-field" htmlFor="product-filter">
           <span>ค้นหา/กรองสินค้า</span>
-          <input
-            autoComplete="off"
-            id="product-filter"
-            list="product-filter-options"
-            placeholder="พิมพ์ชื่อสินค้า, barcode, สถานะ active/inactive"
+          <SearchableDropdown
             ref={productFilterRef}
+            ariaLabel="ค้นหา/กรองสินค้า"
+            emptyMessage="ไม่พบสินค้าที่ค้นหา"
+            id="product-filter"
+            maxOptions={20}
+            options={productFilterOptions}
+            placeholder="พิมพ์ชื่อสินค้า, barcode, สถานะ active/inactive"
             value={productFilter}
-            onChange={(event) => {
-              setProductFilter(event.target.value)
-            }}
+            onChange={setProductFilter}
           />
         </label>
-        <datalist id="product-filter-options">
-          {products.map((product) => (
-            <option
-              key={product.id}
-              value={product.name}
-            >{`${product.name} - ${product.barcode}`}</option>
-          ))}
-        </datalist>
         <button
           className="ghost-button compact product-filter-clear product-filter-clear-centered"
           onClick={() => {

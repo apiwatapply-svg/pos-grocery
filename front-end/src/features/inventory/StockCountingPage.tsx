@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
+import {
+  SearchableDropdown,
+  type SearchableDropdownHandle,
+  type SearchableDropdownOption,
+} from '../../components/ui/SearchableDropdown'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
@@ -82,7 +87,7 @@ function signedQuantity(value: number) {
 }
 
 export function StockCountingPage() {
-  const scanInputRef = useRef<HTMLInputElement>(null)
+  const scanInputRef = useRef<SearchableDropdownHandle>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<StockAdjustmentHistory[]>([])
   const [scanValue, setScanValue] = useState('')
@@ -139,10 +144,23 @@ export function StockCountingPage() {
     (sum, line) => sum + line.countedQuantity - line.product.stockQuantity,
     0,
   )
-  const scanSuggestions = useMemo(
-    () => products.map((product) => `${product.name} - ${product.barcode}`),
+  const scanOptions = useMemo<SearchableDropdownOption[]>(
+    () =>
+      products.map((product) => ({
+        value: product.id,
+        label: product.name,
+        description: `${product.barcode} · คงเหลือ ${formatNumber(product.stockQuantity)} ชิ้น`,
+      })),
     [products],
   )
+
+  const isCountingExactMatch = (option: SearchableDropdownOption, query: string) => {
+    const product = products.find((current) => current.id === option.value)
+    if (!product) {
+      return false
+    }
+    return matchesProduct(product, query)
+  }
 
   function addScannedProduct(value: string) {
     const normalizedValue = value.trim()
@@ -184,6 +202,24 @@ export function StockCountingPage() {
 
     if (products.some((product) => matchesProduct(product, value))) {
       addScannedProduct(value)
+    }
+  }
+
+  function handleScanSelect(option: SearchableDropdownOption) {
+    const product = products.find((current) => current.id === option.value)
+    if (!product) {
+      return
+    }
+    addScannedProduct(`${product.name} - ${product.barcode}`)
+  }
+
+  function handleScanEnter() {
+    // Mirror the scanner flow: if the typed value matches a product exactly,
+    // add it to the queue. Otherwise re-focus the field.
+    if (scanValue.trim() && products.some((product) => matchesProduct(product, scanValue))) {
+      addScannedProduct(scanValue)
+    } else {
+      scanInputRef.current?.focus()
     }
   }
 
@@ -285,25 +321,27 @@ export function StockCountingPage() {
         <section className="panel receiving-scan-panel" aria-label="สแกนตรวจนับ stock">
           <label className="field receiving-scan-field" htmlFor="stock-counting-scan">
             <span>สแกนหรือค้นหาสินค้า</span>
-            <input
-              aria-label="สแกนหรือค้นหาสินค้าเพื่อตรวจนับ"
-              autoComplete="off"
-              id="stock-counting-scan"
-              list="stock-counting-product-options"
-              placeholder="สแกน barcode หรือพิมพ์ชื่อสินค้า"
+            <SearchableDropdown
               ref={scanInputRef}
+              ariaLabel="สแกนหรือค้นหาสินค้าเพื่อตรวจนับ"
+              emptyMessage="ไม่พบสินค้าที่ค้นหา"
+              hint="สแกนสินค้าซ้ำเพื่อเพิ่มจำนวนที่นับได้ทีละ 1 ชิ้น"
+              id="stock-counting-scan"
+              isExactMatch={isCountingExactMatch}
+              options={scanOptions}
+              placeholder="สแกน barcode หรือพิมพ์ชื่อสินค้า"
               value={scanValue}
-              onChange={(event) => handleScanChange(event.target.value)}
+              onChange={handleScanChange}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleScanEnter()
+                }
+              }}
+              onSelect={(option) => handleScanSelect(option)}
             />
             <small>สแกนสินค้าซ้ำเพื่อเพิ่มจำนวนที่นับได้ทีละ 1 ชิ้น</small>
           </label>
-          <datalist id="stock-counting-product-options">
-            {scanSuggestions.map((suggestion) => (
-              <option key={suggestion} value={suggestion.split(' - ')[0]}>
-                {suggestion}
-              </option>
-            ))}
-          </datalist>
         </section>
 
         <section className="panel receiving-summary-panel" aria-label="สรุปการตรวจนับ">

@@ -1,6 +1,7 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
+import { Select, type SelectOption } from '../../components/ui/Select'
 import { apiGet, apiPatch, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmAction } from '../../lib/ui/confirm'
@@ -76,6 +77,14 @@ export function StoreSettingsPage() {
       [field]: field === 'status' && value === 'inactive' ? 'inactive' : value,
     }))
   }
+
+  const storeStatusOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: 'active', label: 'เปิดใช้งาน (active)' },
+      { value: 'inactive', label: 'ปิดใช้งาน (inactive)' },
+    ],
+    [],
+  )
 
   async function updateLogoFile(file: File | null) {
     if (!file) {
@@ -336,14 +345,12 @@ export function StoreSettingsPage() {
               </label>
               <label className="field">
                 <span>สถานะร้าน</span>
-                <select
-                  aria-label="สถานะร้าน"
+                <Select
+                  ariaLabel="สถานะร้าน"
+                  options={storeStatusOptions}
                   value={form.status}
-                  onChange={(event) => updateField('status', event.target.value)}
-                >
-                  <option value="active">เปิดใช้งาน (active)</option>
-                  <option value="inactive">ปิดใช้งาน (inactive)</option>
-                </select>
+                  onChange={(value) => updateField('status', value)}
+                />
               </label>
               <label className="field store-logo-field">
                 <span>Logo ร้านค้า</span>

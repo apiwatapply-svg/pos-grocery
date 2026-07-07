@@ -118,21 +118,20 @@ describe('UserManagementPage', () => {
     })
     const roleSelect = within(dialog).getByLabelText('สิทธิ์การใช้งาน')
     expect(roleSelect).toBeInTheDocument()
-    expect(within(dialog).getByLabelText('ร้านค้า')).toHaveValue('store-main')
-    const roleOptions = within(roleSelect).getAllByRole('option')
-    expect(roleOptions.map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
-      ['owner', 'เจ้าของร้าน (owner)'],
-      ['admin', 'ผู้ดูแลระบบ (admin)'],
-      ['cashier', 'แคชเชียร์ (cashier)'],
-      ['stock', 'สต็อก/คลังสินค้า (stock)'],
+    // The custom select renders its value inside the button label.
+    expect(within(dialog).getByLabelText('ร้านค้า')).toHaveTextContent('Main Store')
+    fireEvent.click(roleSelect)
+    const roleOptions = within(dialog).getAllByRole('option')
+    expect(roleOptions.map((option) => [option.getAttribute('data-option-index'), option.textContent])).toEqual([
+      ['0', 'เจ้าของร้าน (owner)'],
+      ['1', 'ผู้ดูแลระบบ (admin)'],
+      ['2', 'แคชเชียร์ (cashier)'],
+      ['3', 'สต็อก/คลังสินค้า (stock)'],
     ])
 
-    fireEvent.change(within(dialog).getByLabelText('สิทธิ์การใช้งาน'), {
-      target: { value: 'stock' },
-    })
-    fireEvent.change(within(dialog).getByLabelText('ร้านค้า'), {
-      target: { value: 'store-branch' },
-    })
+    fireEvent.mouseDown(within(dialog).getByRole('option', { name: 'สต็อก/คลังสินค้า (stock)' }))
+    fireEvent.click(within(dialog).getByLabelText('ร้านค้า'))
+    fireEvent.mouseDown(within(dialog).getByRole('option', { name: 'Branch Store' }))
     fireEvent.click(within(dialog).getByRole('button', { name: 'บันทึกผู้ใช้' }))
 
     await waitFor(() => {
@@ -168,9 +167,10 @@ describe('UserManagementPage', () => {
     const dialog = screen.getByRole('dialog', { name: 'แก้ไขผู้ใช้ SQL Admin' })
     expect(within(dialog).getByDisplayValue('sqladmin')).toBeInTheDocument()
     expect(within(dialog).getByDisplayValue('SQL Admin')).toBeInTheDocument()
-    expect(within(dialog).getByLabelText('สิทธิ์การใช้งาน')).toHaveValue('owner')
-    expect(within(dialog).getByLabelText('ร้านค้า')).toHaveValue('store-main')
-    expect(within(dialog).getByLabelText('สถานะผู้ใช้')).toHaveValue('active')
+    // Custom select renders the current value as the button label.
+    expect(within(dialog).getByLabelText('สิทธิ์การใช้งาน')).toHaveTextContent('owner')
+    expect(within(dialog).getByLabelText('ร้านค้า')).toHaveTextContent('Main Store')
+    expect(within(dialog).getByLabelText('สถานะผู้ใช้')).toHaveTextContent('active')
     expect(within(dialog).getByLabelText('password ใหม่')).toHaveValue('')
 
     fireEvent.change(within(dialog).getByLabelText('username'), {
@@ -179,15 +179,15 @@ describe('UserManagementPage', () => {
     fireEvent.change(within(dialog).getByLabelText('ชื่อผู้ใช้'), {
       target: { value: 'SQL Admin 2' },
     })
-    fireEvent.change(within(dialog).getByLabelText('สิทธิ์การใช้งาน'), {
-      target: { value: 'admin' },
-    })
-    fireEvent.change(within(dialog).getByLabelText('สถานะผู้ใช้'), {
-      target: { value: 'inactive' },
-    })
-    fireEvent.change(within(dialog).getByLabelText('ร้านค้า'), {
-      target: { value: 'store-branch' },
-    })
+    // Open each custom select and pick a different option.
+    fireEvent.click(within(dialog).getByLabelText('สิทธิ์การใช้งาน'))
+    fireEvent.mouseDown(
+      within(dialog).getByRole('option', { name: 'ผู้ดูแลระบบ (admin)' }),
+    )
+    fireEvent.click(within(dialog).getByLabelText('สถานะผู้ใช้'))
+    fireEvent.mouseDown(within(dialog).getByRole('option', { name: 'inactive' }))
+    fireEvent.click(within(dialog).getByLabelText('ร้านค้า'))
+    fireEvent.mouseDown(within(dialog).getByRole('option', { name: 'Branch Store' }))
     fireEvent.click(within(dialog).getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     await waitFor(() => {

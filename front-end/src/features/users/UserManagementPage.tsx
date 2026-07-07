@@ -1,4 +1,5 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { Select, type SelectOption } from '../../components/ui/Select'
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmAction } from '../../lib/ui/confirm'
@@ -29,6 +30,14 @@ type UserEditDraft = {
   status: User['status']
 }
 
+type CreateUserDraft = {
+  storeId: string
+  username: string
+  displayName: string
+  password: string
+  role: User['role']
+}
+
 function editDraftFromUser(user: User): UserEditDraft {
   return {
     storeId: user.storeId,
@@ -40,15 +49,49 @@ function editDraftFromUser(user: User): UserEditDraft {
   }
 }
 
+function emptyCreateDraft(defaultStoreId: string): CreateUserDraft {
+  return {
+    storeId: defaultStoreId,
+    username: '',
+    displayName: '',
+    password: '',
+    role: 'cashier',
+  }
+}
+
 export function UserManagementPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [editDraft, setEditDraft] = useState<UserEditDraft | null>(null)
+  const [createDraft, setCreateDraft] = useState<CreateUserDraft | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [message, setMessage] = useState('กำลังโหลดผู้ใช้')
   const paginatedUsers = paginateItems(users, currentPage)
+
+  const roleOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: 'owner', label: 'เจ้าของร้าน (owner)' },
+      { value: 'admin', label: 'ผู้ดูแลระบบ (admin)' },
+      { value: 'cashier', label: 'แคชเชียร์ (cashier)' },
+      { value: 'stock', label: 'สต็อก/คลังสินค้า (stock)' },
+    ],
+    [],
+  )
+
+  const statusOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: 'active', label: 'active' },
+      { value: 'inactive', label: 'inactive' },
+    ],
+    [],
+  )
+
+  const storeOptions = useMemo<SelectOption[]>(
+    () => stores.map((store) => ({ value: store.id, label: store.name })),
+    [stores],
+  )
 
   useEffect(() => {
     let active = true
@@ -86,25 +129,40 @@ export function UserManagementPage() {
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const formElement = event.currentTarget
-    const form = new FormData(formElement)
+    if (!createDraft) {
+      return
+    }
     try {
       const created = await apiPost<User>('/users', {
-        storeId: String(form.get('storeId')),
-        username: String(form.get('username')),
-        password: String(form.get('password')),
-        displayName: String(form.get('displayName')),
-        role: String(form.get('role')) as User['role'],
+        storeId: createDraft.storeId,
+        username: createDraft.username.trim(),
+        password: createDraft.password,
+        displayName: createDraft.displayName.trim(),
+        role: createDraft.role,
         status: 'active',
       })
       setUsers((current) => [...current, created])
       setCurrentPage(1)
-      formElement.reset()
       setIsCreateModalOpen(false)
+      setCreateDraft(null)
       setMessage('')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'สร้างผู้ใช้ไม่สำเร็จ')
     }
+  }
+
+  function openCreateModal() {
+    setCreateDraft(emptyCreateDraft(stores[0]?.id ?? ''))
+    setIsCreateModalOpen(true)
+  }
+
+  function closeCreateModal() {
+    setIsCreateModalOpen(false)
+    setCreateDraft(null)
+  }
+
+  function updateCreateDraft(field: keyof CreateUserDraft, value: string) {
+    setCreateDraft((current) => (current ? { ...current, [field]: value } : current))
   }
 
   async function deactivateUser(user: User) {
@@ -185,13 +243,13 @@ export function UserManagementPage() {
         </div>
         <button
           className="primary-button compact"
-          onClick={() => setIsCreateModalOpen(true)}
+          onClick={openCreateModal}
           type="button"
         >
           เพิ่มผู้ใช้
         </button>
       </div>
-      {isCreateModalOpen ? (
+      {isCreateModalOpen && createDraft ? (
         <div className="modal-backdrop">
           <section
             aria-labelledby="create-user-title"
@@ -204,7 +262,7 @@ export function UserManagementPage() {
               <button
                 aria-label="ปิดหน้าต่างเพิ่มผู้ใช้"
                 className="ghost-button compact"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={closeCreateModal}
                 type="button"
               >
                 ปิด
@@ -213,39 +271,54 @@ export function UserManagementPage() {
             <form className="modal-form" onSubmit={createUser}>
               <label className="field">
                 <span>ร้านค้า</span>
-                <select name="storeId" defaultValue={stores[0]?.id ?? ''} required>
-                  {stores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  ariaLabel="ร้านค้า"
+                  emptyLabel="เลือกร้านค้า"
+                  options={storeOptions}
+                  required
+                  value={createDraft.storeId}
+                  onChange={(value) => updateCreateDraft('storeId', value)}
+                />
               </label>
               <label className="field">
                 <span>username</span>
-                <input name="username" required />
+                <input
+                  required
+                  value={createDraft.username}
+                  onChange={(event) => updateCreateDraft('username', event.target.value)}
+                />
               </label>
               <label className="field">
                 <span>ชื่อผู้ใช้</span>
-                <input name="displayName" required />
+                <input
+                  required
+                  value={createDraft.displayName}
+                  onChange={(event) => updateCreateDraft('displayName', event.target.value)}
+                />
               </label>
               <label className="field">
                 <span>password</span>
-                <input minLength={6} name="password" required type="password" />
+                <input
+                  minLength={6}
+                  required
+                  type="password"
+                  value={createDraft.password}
+                  onChange={(event) => updateCreateDraft('password', event.target.value)}
+                />
               </label>
               <label className="field">
                 <span>สิทธิ์การใช้งาน</span>
-                <select name="role" defaultValue="cashier">
-                  <option value="owner">เจ้าของร้าน (owner)</option>
-                  <option value="admin">ผู้ดูแลระบบ (admin)</option>
-                  <option value="cashier">แคชเชียร์ (cashier)</option>
-                  <option value="stock">สต็อก/คลังสินค้า (stock)</option>
-                </select>
+                <Select
+                  ariaLabel="สิทธิ์การใช้งาน"
+                  options={roleOptions}
+                  value={createDraft.role}
+                  onChange={(value) => updateCreateDraft('role', value as User['role'])}
+                />
               </label>
               <div className="modal-actions">
                 <button
                   className="ghost-button compact"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={closeCreateModal}
                   type="button"
                 >
                   ยกเลิก
@@ -283,18 +356,14 @@ export function UserManagementPage() {
             <form className="modal-form" onSubmit={(event) => void updateUser(event)}>
               <label className="field">
                 <span>ร้านค้า</span>
-                <select
-                  aria-label="ร้านค้า"
+                <Select
+                  ariaLabel="ร้านค้า"
+                  emptyLabel="เลือกร้านค้า"
+                  options={storeOptions}
                   required
                   value={editDraft.storeId}
-                  onChange={(event) => updateEditDraft('storeId', event.target.value)}
-                >
-                  {stores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => updateEditDraft('storeId', value)}
+                />
               </label>
               <label className="field">
                 <span>username</span>
@@ -327,27 +396,21 @@ export function UserManagementPage() {
               </label>
               <label className="field">
                 <span>สิทธิ์การใช้งาน</span>
-                <select
-                  aria-label="สิทธิ์การใช้งาน"
+                <Select
+                  ariaLabel="สิทธิ์การใช้งาน"
+                  options={roleOptions}
                   value={editDraft.role}
-                  onChange={(event) => updateEditDraft('role', event.target.value)}
-                >
-                  <option value="owner">เจ้าของร้าน (owner)</option>
-                  <option value="admin">ผู้ดูแลระบบ (admin)</option>
-                  <option value="cashier">แคชเชียร์ (cashier)</option>
-                  <option value="stock">สต็อก/คลังสินค้า (stock)</option>
-                </select>
+                  onChange={(value) => updateEditDraft('role', value as User['role'])}
+                />
               </label>
               <label className="field">
                 <span>สถานะผู้ใช้</span>
-                <select
-                  aria-label="สถานะผู้ใช้"
+                <Select
+                  ariaLabel="สถานะผู้ใช้"
+                  options={statusOptions}
                   value={editDraft.status}
-                  onChange={(event) => updateEditDraft('status', event.target.value)}
-                >
-                  <option value="active">active</option>
-                  <option value="inactive">inactive</option>
-                </select>
+                  onChange={(value) => updateEditDraft('status', value as User['status'])}
+                />
               </label>
               <div className="modal-actions">
                 <button

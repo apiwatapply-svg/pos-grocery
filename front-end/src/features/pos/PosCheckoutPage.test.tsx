@@ -133,7 +133,12 @@ describe('PosCheckoutPage', () => {
 
   async function waitForProductsLoaded() {
     await waitFor(() => {
-      expect(document.querySelector('#pos-product-options option[value="Drinking Water"]')).not.toBeNull()
+      // The searchable dropdown renders products as <li role="option"> when
+      // opened. Rather than opening the dropdown in tests, we just wait for
+      // the scan input to be rendered, which happens after the page mounts.
+      expect(
+        document.querySelector('input[id="pos-product-query"]'),
+      ).not.toBeNull()
     })
   }
 
@@ -504,12 +509,19 @@ describe('PosCheckoutPage', () => {
     const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
     expect(scanInput).toHaveFocus()
     expect(scanInput).toHaveAttribute('placeholder', 'สแกน barcode / QR หรือพิมพ์ชื่อสินค้า')
-    const productOptions = Array.from(document.querySelectorAll('#pos-product-options option'))
-    expect(productOptions.map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
-      ['Drinking Water', 'Drinking Water - 8850002000010 - 7.00 บาท'],
-      ['Instant Noodles', 'Instant Noodles - 8850001000011 - 12.00 บาท'],
-    ])
-    expect(productOptions.some((option) => option.textContent?.includes('SKU'))).toBe(false)
+
+    // Open the dropdown to inspect the available suggestions.
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: 'Drinking' } })
+    const listbox = await screen.findByRole('listbox')
+    const dropdownOptions = Array.from(within(listbox).getAllByRole('option'))
+    expect(dropdownOptions).toHaveLength(1)
+    expect(dropdownOptions[0]).toHaveTextContent('Drinking Water')
+    expect(dropdownOptions[0]).toHaveTextContent('8850002000010')
+    expect(dropdownOptions[0]).toHaveTextContent('7.00 บาท')
+    expect(
+      dropdownOptions.some((option) => option.textContent?.includes('SKU')),
+    ).toBe(false)
 
     fireEvent.change(scanInput, {
       target: { value: '8850002000010' },

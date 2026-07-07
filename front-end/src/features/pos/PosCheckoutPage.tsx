@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
+import {
+  SearchableDropdown,
+  type SearchableDropdownHandle,
+  type SearchableDropdownOption,
+} from '../../components/ui/SearchableDropdown'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
@@ -273,7 +278,7 @@ function productsAreSame(current: Product[], next: Product[]) {
 }
 
 export function PosCheckoutPage() {
-  const productQueryInputRef = useRef<HTMLInputElement>(null)
+  const productQueryInputRef = useRef<SearchableDropdownHandle>(null)
   const cashReceivedInputRef = useRef<HTMLInputElement>(null)
   const checkoutButtonRef = useRef<HTMLButtonElement>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -306,6 +311,10 @@ export function PosCheckoutPage() {
     cashReceivedInputRef.current?.select()
   }
 
+  function selectProductQuery() {
+    productQueryInputRef.current?.selectAll()
+  }
+
   useEffect(() => {
     focusProductQuery()
   }, [])
@@ -325,7 +334,7 @@ export function PosCheckoutPage() {
         return
       }
 
-      if (productQueryInputRef.current?.contains(target)) {
+      if (target.closest('.pos-product-query-dropdown')) {
         return
       }
 
@@ -352,7 +361,7 @@ export function PosCheckoutPage() {
     function handleWindowBlur() {
       window.setTimeout(() => {
         if (document.activeElement instanceof HTMLElement) {
-          if (productQueryInputRef.current?.contains(document.activeElement)) {
+          if (document.activeElement.closest('.pos-product-query-dropdown')) {
             return
           }
           if (cashReceivedInputRef.current?.contains(document.activeElement)) {
@@ -375,7 +384,7 @@ export function PosCheckoutPage() {
       window.setTimeout(() => {
         const active = document.activeElement
         if (active instanceof HTMLElement) {
-          if (productQueryInputRef.current?.contains(active)) {
+          if (active.closest('.pos-product-query-dropdown')) {
             return
           }
           if (cashReceivedInputRef.current?.contains(active)) {
@@ -428,12 +437,13 @@ export function PosCheckoutPage() {
         void checkoutRef.current()
         return
       }
-      if (active === productQueryInputRef.current) {
+      const queryInput = document.getElementById('pos-product-query')
+      if (active === queryInput || (queryInput && queryInput.contains(active))) {
         event.preventDefault()
         if (hasCartItemsRef.current) {
           focusCashReceivedInput()
         } else {
-          productQueryInputRef.current?.select()
+          selectProductQuery()
         }
         return
       }
@@ -555,6 +565,41 @@ export function PosCheckoutPage() {
     )
   }
 
+  const productDropdownOptions: SearchableDropdownOption[] = activeProducts.map((product) => ({
+    value: product.id,
+    label: product.name,
+    description: `${product.barcode} · คงเหลือ ${formatNumber(product.stockQuantity)} ชิ้น`,
+    trailing: <strong>{baht(product.salePrice)} บาท</strong>,
+    leading: product.imageUrl ? (
+      <img
+        alt=""
+        className="dropdown-product-image"
+        src={product.imageUrl}
+        onError={(event) => {
+          event.currentTarget.style.visibility = 'hidden'
+        }}
+      />
+    ) : (
+      <span className="dropdown-product-image dropdown-product-image-empty" aria-hidden="true" />
+    ),
+  }))
+
+  const isProductExactMatch = (option: SearchableDropdownOption, query: string) => {
+    const product = activeProducts.find((p) => p.id === option.value)
+    if (!product) {
+      return false
+    }
+    const normalized = query.trim().toLowerCase()
+    if (!normalized) {
+      return false
+    }
+    return (
+      product.barcode.toLowerCase() === normalized ||
+      product.name.toLowerCase() === normalized ||
+      `${product.name} - ${product.barcode}`.toLowerCase() === normalized
+    )
+  }
+
   async function addProductToCart(product: Product) {
     if (product.stockQuantity <= 0) {
       setProductQuery('')
@@ -612,7 +657,28 @@ export function PosCheckoutPage() {
     if (!product) {
       return
     }
-    addProductToCart(product)
+    void addProductToCart(product)
+  }
+
+  async function handleProductSelect(option: SearchableDropdownOption) {
+    const product = activeProducts.find((current) => current.id === option.value)
+    if (!product) {
+      setProductQuery('')
+      return
+    }
+    await addProductToCart(product)
+  }
+
+  function handleProductScanEnter() {
+    // Enter on the search field: if the typed value is an exact match,
+    // add it to the cart (preserves the original scanner flow). Otherwise
+    // re-focus the field so the user can keep scanning.
+    const product = findProductByQuery(productQuery)
+    if (product) {
+      void addProductToCart(product)
+    } else {
+      selectProductQuery()
+    }
   }
 
   async function removeCartItem(productId: string) {
@@ -941,25 +1007,29 @@ export function PosCheckoutPage() {
           <h2 id="checkout-title">Checkout</h2>
           <div className="pos-scan-bar">
             <label className="field" htmlFor="pos-product-query">
-              <input
-                aria-label="สแกนหรือค้นหาสินค้า"
-                autoComplete="off"
-                id="pos-product-query"
-                list="pos-product-options"
-                placeholder="สแกน barcode / QR หรือพิมพ์ชื่อสินค้า"
+              <SearchableDropdown
                 ref={productQueryInputRef}
+                ariaLabel="สแกนหรือค้นหาสินค้า"
+                className="pos-product-query-dropdown"
+                emptyMessage="ไม่พบสินค้าที่ค้นหา"
+                forceClose={isCheckoutSubmitting}
+                id="pos-product-query"
+                isExactMatch={isProductExactMatch}
+                options={productDropdownOptions}
+                placeholder="สแกน barcode / QR หรือพิมพ์ชื่อสินค้า"
                 value={productQuery}
-                onChange={(event) => handleProductQueryChange(event.target.value)}
+                onChange={handleProductQueryChange}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    // Only act when the dropdown did not consume the event
+                    // (e.g. when there is no active option to pick).
+                    event.preventDefault()
+                    handleProductScanEnter()
+                  }
+                }}
+                onSelect={(option) => void handleProductSelect(option)}
               />
             </label>
-            <datalist id="pos-product-options">
-              {activeProducts.map((product) => (
-                <option
-                  key={product.id}
-                  value={product.name}
-                >{`${product.name} - ${product.barcode} - ${baht(product.salePrice)} บาท`}</option>
-              ))}
-            </datalist>
           </div>
           <div className="cart-table-wrap pos-scroll-area">
             {cart.length > 0 ? (

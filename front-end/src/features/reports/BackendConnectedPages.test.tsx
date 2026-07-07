@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Swal from 'sweetalert2'
@@ -279,7 +279,11 @@ describe('backend connected report pages', () => {
     expect(screen.getByLabelText('วันที่สิ้นสุด')).toBeInTheDocument()
     expect(screen.getByLabelText('วันที่เริ่มต้น')).toHaveValue('2026-06-10')
     expect(screen.getByLabelText('วันที่สิ้นสุด')).toHaveValue('2026-06-20')
-    expect(screen.getByLabelText('จำนวนอันดับที่แสดงในกราฟ')).toHaveValue('3')
+    // The custom select renders the current label inside the button.
+    const chartLimitButton = screen.getByLabelText('จำนวนอันดับที่แสดงในกราฟ')
+    expect(chartLimitButton).toHaveTextContent('3 รายการ')
+    // Open the dropdown to verify the available options.
+    fireEvent.click(chartLimitButton)
     expect(screen.getByRole('option', { name: 'ทั้งหมด' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'สินค้าขายดีที่สุดในช่วงเวลาที่เลือก' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'สินค้าได้กำไรสูงสุดในช่วงเวลาที่เลือก' })).toBeInTheDocument()
@@ -339,9 +343,30 @@ describe('backend connected report pages', () => {
     expect(screen.queryByRole('heading', { name: 'สินค้าขายดี' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'ช่วงเวลาขายดี' })).not.toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('จำนวนอันดับที่แสดงในกราฟ'), { target: { value: '5' } })
+    const chartLimitButtonForChange = screen.getByLabelText('จำนวนอันดับที่แสดงในกราฟ')
+    await act(async () => {
+      fireEvent.click(chartLimitButtonForChange)
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByRole('option', { name: '5 รายการ' }),
+      ).toBeInTheDocument()
+    })
+    await act(async () => {
+      fireEvent.mouseDown(screen.getByRole('option', { name: '5 รายการ' }))
+    })
     expect(localStorage.getItem('pos-grocery:dashboard-item-limit')).toBe('5')
-    fireEvent.change(screen.getByLabelText('จำนวนอันดับที่แสดงในกราฟ'), { target: { value: 'all' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'จำนวนอันดับที่แสดงในกราฟ' }))
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByRole('option', { name: 'ทั้งหมด' }),
+      ).toBeInTheDocument()
+    })
+    await act(async () => {
+      fireEvent.mouseDown(screen.getByRole('option', { name: 'ทั้งหมด' }))
+    })
     expect(localStorage.getItem('pos-grocery:dashboard-item-limit')).toBe('all')
 
     fireEvent.change(screen.getByLabelText('วันที่เริ่มต้น'), { target: { value: '2026-06-01' } })

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import Swal from 'sweetalert2'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiGet, apiPost } from '../../lib/api/client'
@@ -91,10 +91,14 @@ describe('Inventory pages', () => {
     expect(screen.getByText('คิวรับของเข้า')).toBeInTheDocument()
     expect(scanInput).toHaveAttribute('placeholder', 'สแกน barcode หรือพิมพ์ชื่อสินค้า')
     expect(screen.queryByRole('button', { name: 'เพิ่มเข้าคิว' })).not.toBeInTheDocument()
-    const receivingOptions = Array.from(document.querySelectorAll('#receiving-product-options option'))
-    expect(receivingOptions.map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
-      ['SQL Inventory Product', 'SQL Inventory Product - SQL-INV-001'],
-    ])
+    // Open the dropdown to inspect the available suggestions.
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: 'SQL' } })
+    const receivingListbox = await screen.findByRole('listbox')
+    const receivingOptions = Array.from(within(receivingListbox).getAllByRole('option'))
+    expect(receivingOptions).toHaveLength(1)
+    expect(receivingOptions[0]).toHaveTextContent('SQL Inventory Product')
+    expect(receivingOptions[0]).toHaveTextContent('SQL-INV-001')
     expect(receivingOptions.some((option) => option.textContent?.includes('SKU'))).toBe(false)
 
     fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
@@ -244,10 +248,14 @@ describe('Inventory pages', () => {
     expect(scanInput).toHaveAttribute('placeholder', 'สแกน barcode หรือพิมพ์ชื่อสินค้า')
     expect(screen.queryByRole('button', { name: 'เพิ่มเข้าคิว' })).not.toBeInTheDocument()
     expect(screen.getByText('คิวตรวจนับ stock')).toBeInTheDocument()
-    const countingOptions = Array.from(document.querySelectorAll('#stock-counting-product-options option'))
-    expect(countingOptions.map((option) => [option.getAttribute('value'), option.textContent])).toEqual([
-      ['SQL Inventory Product', 'SQL Inventory Product - SQL-INV-001'],
-    ])
+    // Open the dropdown to inspect the available suggestions.
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: 'SQL' } })
+    const countingListbox = await screen.findByRole('listbox')
+    const countingOptions = Array.from(within(countingListbox).getAllByRole('option'))
+    expect(countingOptions).toHaveLength(1)
+    expect(countingOptions[0]).toHaveTextContent('SQL Inventory Product')
+    expect(countingOptions[0]).toHaveTextContent('SQL-INV-001')
     const countingLayout = screen.getByLabelText('คิวตรวจนับ stock ซ้าย และประวัติการปรับ stock ขวา')
     expect(countingLayout.children[0]).toHaveClass('stock-counting-queue-panel')
     expect(countingLayout.children[1]).toHaveClass('stock-counting-history-panel')

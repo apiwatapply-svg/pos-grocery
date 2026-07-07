@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Select, type SelectOption } from '../../components/ui/Select'
 import { apiGet } from '../../lib/api/client'
 import { formatNumber, formatPercent } from '../../lib/format/number'
 import { bahtFromSatang, dateRangeQuery, todayDateInputValue, type DashboardReport } from '../reports/reportApi'
@@ -196,6 +197,17 @@ export function DashboardPage() {
     localStorage.setItem(dashboardItemLimitStorageKey, String(nextLimit))
   }
 
+  const itemLimitOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: 'all', label: 'ทั้งหมด' },
+      ...dashboardLimitOptions.map((limit) => ({
+        value: String(limit),
+        label: `${formatNumber(limit)} รายการ`,
+      })),
+    ],
+    [],
+  )
+
   function updateHourlyMetric(metric: HourlyMetric) {
     setHourlyMetric(metric)
     localStorage.setItem(dashboardHourlyMetricStorageKey, metric)
@@ -254,18 +266,12 @@ export function DashboardPage() {
         </label>
         <label className="field">
           <span>จำนวนอันดับที่แสดงในกราฟ</span>
-          <select
-            aria-label="จำนวนอันดับที่แสดงในกราฟ"
-            value={itemLimit}
-            onChange={(event) => updateItemLimit(event.target.value)}
-          >
-            <option value="all">ทั้งหมด</option>
-            {dashboardLimitOptions.map((limit) => (
-              <option key={limit} value={limit}>
-                {formatNumber(limit)} รายการ
-              </option>
-            ))}
-          </select>
+          <Select
+            ariaLabel="จำนวนอันดับที่แสดงในกราฟ"
+            options={itemLimitOptions}
+            value={itemLimit === 'all' ? 'all' : String(itemLimit)}
+            onChange={updateItemLimit}
+          />
         </label>
       </section>
       <div
