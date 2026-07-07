@@ -32,12 +32,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Unit tests
-        run: npm test
-
       - name: Prisma validate
         run: npm run prisma:validate
         env:
@@ -47,6 +41,12 @@ jobs:
         run: npm run prisma:generate
         env:
           PRISMA_DATABASE_URL: file:./dev.db
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
 
       - name: Build
         run: npm run build
