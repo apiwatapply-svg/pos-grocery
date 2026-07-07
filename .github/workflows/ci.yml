@@ -48,5 +48,13 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Build
-        run: npm run build
+      - name: Build frontend
+        run: npm --prefix front-end run build
+
+      - name: Build backend
+        # Skip the prebuild migration step (requires DATABASE_URL) and
+        # run the typecheck/Prisma generate directly. This mirrors what
+        # deploy.yml already does for the backend.
+        run: npm --prefix back-end run prisma -- generate && npm --prefix back-end run typecheck
+        env:
+          PRISMA_DATABASE_URL: file:./dev.db
