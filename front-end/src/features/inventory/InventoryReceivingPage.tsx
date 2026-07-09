@@ -26,19 +26,24 @@ type ReceivingLine = {
 
 const RECEIVING_QUEUE_STORAGE_KEY = 'pos-grocery:receiving-queue'
 
-// Barcode scanners type a full barcode in a tight, consistent burst.
-// Most scanners run at 10-50ms per character but some are configured
-// slower (up to ~150ms per character). Manual typing is much slower
-// (200-500ms per character) and irregular, with pauses to look at the
-// screen. We treat the trailing Enter as a scanner terminator when:
+// Barcode scanners type a full barcode in a tight, even burst and the
+// trailing Enter arrives within a few milliseconds of the last character.
+// Manual typing is much slower (200-500ms per character) and irregular, with
+// pauses to look at the screen. We treat the trailing Enter as a scanner
+// terminator when:
 //   - at least 3 characters were typed
-//   - the gap between every consecutive character is below MAX_SCAN_INTERVAL_MS
-//   - the gap between the last character and the Enter is below
-//     SCAN_ENTER_THRESHOLD_MS
-// Any irregularity (a slow character, a pause to think) means it is manual
-// typing and the Enter should fall through to the manual flow.
-const MAX_SCAN_INTERVAL_MS = 150
-const SCAN_ENTER_THRESHOLD_MS = 100
+//   - the gap between consecutive characters is consistent, i.e. the absolute
+//     difference between every pair of consecutive intervals is below
+//     MAX_INTERVAL_VARIANCE_MS (50ms). A scanner (even a slow one configured
+//     at 100-150ms/char) keeps a near-constant cadence; a human pauses to
+//     think, looks at the screen, or mistypes, so at least one interval
+//     differs from the next by more than 50ms.
+//   - the last char-to-Enter gap is also included in the variance check, so a
+//     trailing Enter that is far later than the last character (typical of a
+//     human pressing Enter after typing) breaks the pattern.
+// Any irregularity means it is manual typing and the Enter should fall
+// through to the manual flow.
+const MAX_INTERVAL_VARIANCE_MS = 50
 const MIN_SCAN_CHAR_COUNT = 3
 const MAX_SCAN_TIMESTAMP_BUFFER = 15
 
@@ -46,12 +51,19 @@ function isScannerBurst(timestamps: number[], now: number): boolean {
   if (timestamps.length < MIN_SCAN_CHAR_COUNT) {
     return false
   }
+  const intervals: number[] = []
   for (let i = 1; i < timestamps.length; i += 1) {
-    if (timestamps[i] - timestamps[i - 1] > MAX_SCAN_INTERVAL_MS) {
+    intervals.push(timestamps[i] - timestamps[i - 1])
+  }
+  // Include the trailing char-to-Enter gap so a delayed Enter (manual typing
+  // pattern) breaks the variance check.
+  intervals.push(now - timestamps[timestamps.length - 1])
+  for (let i = 1; i < intervals.length; i += 1) {
+    if (Math.abs(intervals[i] - intervals[i - 1]) > MAX_INTERVAL_VARIANCE_MS) {
       return false
     }
   }
-  return now - timestamps[timestamps.length - 1] < SCAN_ENTER_THRESHOLD_MS
+  return true
 }
 
 type ReceivingHistory = {

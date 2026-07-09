@@ -91,19 +91,24 @@ type CurrentStore = {
 
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
 
-// Barcode scanners type a full barcode in a tight, consistent burst.
-// Most scanners run at 10-50ms per character but some are configured
-// slower (up to ~150ms per character). Manual typing is much slower
-// (200-500ms per character) and irregular, with pauses to look at the
-// screen. We treat the trailing Enter as a scanner terminator when:
+// Barcode scanners type a full barcode in a tight, even burst and the
+// trailing Enter arrives within a few milliseconds of the last character.
+// Manual typing is much slower (200-500ms per character) and irregular, with
+// pauses to look at the screen. We treat the trailing Enter as a scanner
+// terminator when:
 //   - at least 3 characters were typed
-//   - the gap between every consecutive character is below MAX_SCAN_INTERVAL_MS
-//   - the gap between the last character and the Enter is below
-//     SCAN_ENTER_THRESHOLD_MS
-// Any irregularity (a slow character, a pause to think) means it is manual
-// typing and the Enter should be allowed to move focus to the cash input.
-const MAX_SCAN_INTERVAL_MS = 150
-const SCAN_ENTER_THRESHOLD_MS = 100
+//   - the gap between consecutive characters is consistent, i.e. the absolute
+//     difference between every pair of consecutive intervals is below
+//     MAX_INTERVAL_VARIANCE_MS (50ms). A scanner (even a slow one configured
+//     at 100-150ms/char) keeps a near-constant cadence; a human pauses to
+//     think, looks at the screen, or mistypes, so at least one interval
+//     differs from the next by more than 50ms.
+//   - the last char-to-Enter gap is also included in the variance check, so a
+//     trailing Enter that is far later than the last character (typical of a
+//     human pressing Enter after typing) breaks the pattern.
+// Any irregularity means it is manual typing and the Enter should be allowed
+// to move focus to the cash input.
+const MAX_INTERVAL_VARIANCE_MS = 50
 const MIN_SCAN_CHAR_COUNT = 3
 const MAX_SCAN_TIMESTAMP_BUFFER = 15
 
@@ -297,28 +302,35 @@ function productsAreSame(current: Product[], next: Product[]) {
  * Decides whether a burst of recent keystrokes on the scan field looks like
  * a barcode scanner rather than a human typing.
  *
- * A scanner types the whole barcode in a tight, even burst (10-30ms between
- * characters) and the trailing Enter arrives within a few milliseconds of
- * the last character. A human types much slower and with pauses, so at
- * least one inter-character gap is much larger.
+ * A scanner types the whole barcode in a tight, even cadence (typically
+ * 10-30ms per character, sometimes 100-150ms on slow scanners) and the
+ * trailing Enter arrives within a few milliseconds of the last character.
+ * A human types much slower and with pauses, so at least one inter-character
+ * gap differs from the next by more than MAX_INTERVAL_VARIANCE_MS.
  *
  * Returns true when:
  *   - the burst contains at least MIN_SCAN_CHAR_COUNT characters, AND
- *   - every gap between consecutive characters is below MAX_SCAN_INTERVAL_MS,
- *     AND
- *   - the gap between the last character and `now` is below
- *     SCAN_ENTER_THRESHOLD_MS.
+ *   - the sequence of inter-character intervals (with the final char-to-Enter
+ *     gap appended) is consistent: |intervals[i] - intervals[i-1]| <=
+ *     MAX_INTERVAL_VARIANCE_MS for every consecutive pair.
  */
 function isScannerBurst(timestamps: number[], now: number): boolean {
   if (timestamps.length < MIN_SCAN_CHAR_COUNT) {
     return false
   }
+  const intervals: number[] = []
   for (let i = 1; i < timestamps.length; i += 1) {
-    if (timestamps[i] - timestamps[i - 1] > MAX_SCAN_INTERVAL_MS) {
+    intervals.push(timestamps[i] - timestamps[i - 1])
+  }
+  // Include the trailing char-to-Enter gap so a delayed Enter (manual typing
+  // pattern) breaks the variance check.
+  intervals.push(now - timestamps[timestamps.length - 1])
+  for (let i = 1; i < intervals.length; i += 1) {
+    if (Math.abs(intervals[i] - intervals[i - 1]) > MAX_INTERVAL_VARIANCE_MS) {
       return false
     }
   }
-  return now - timestamps[timestamps.length - 1] < SCAN_ENTER_THRESHOLD_MS
+  return true
 }
 
 export function PosCheckoutPage() {

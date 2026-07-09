@@ -83,6 +83,37 @@ async function main() {
   console.log('Expected: จำนวนเงินที่รับ (cash input) if cart has items')
   console.log('Result:', manualActiveLabel === 'จำนวนเงินที่รับ' ? 'PASS - focus moved to cash input' : 'FAIL - focus did not move to cash')
 
+  // Clear cart before next test
+  await page.locator('button[aria-label="ลบสินค้าทั้งหมดในตะกร้า"]').click().catch(() => {})
+  await page.waitForTimeout(300)
+  if (await confirmBtn.count() > 0) {
+    await confirmBtn.click()
+    await page.waitForTimeout(500)
+  }
+
+  // === TEST 3: SLOW SCANNER (100ms/char, consistent) ===
+  // Some barcode scanners are configured at ~100ms per character. With a
+  // pure absolute interval threshold (e.g. 150ms) the old detector would
+  // still catch this, but a real-world 110-130ms per char scanner (e.g.
+  // wireless handheld units) would be misclassified. The variance-based
+  // detector should still recognise this as a scanner because the gap
+  // between consecutive intervals is < 50ms.
+  console.log('\n=== TEST 3: SLOW SCANNER (100ms/char) ===')
+  await scanInput.focus()
+  await page.keyboard.type(barcode, { delay: 100 })
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(300)
+
+  const slowScanActiveId = await page.evaluate(() => document.activeElement?.id)
+  const slowScanActiveLabel = await page.evaluate(() => {
+    const el = document.activeElement
+    return el?.getAttribute('aria-label') ?? el?.getAttribute('placeholder') ?? null
+  })
+  console.log('After slow scan+Enter, active id:', slowScanActiveId)
+  console.log('After slow scan+Enter, active label:', slowScanActiveLabel)
+  console.log('Expected: pos-product-query (สแกนหรือค้นหาสินค้า)')
+  console.log('Result:', slowScanActiveId === 'pos-product-query' ? 'PASS - focus stays on scan field' : 'FAIL - focus moved')
+
   await browser.close()
 }
 
