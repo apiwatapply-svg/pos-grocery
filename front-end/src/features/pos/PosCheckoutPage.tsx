@@ -333,7 +333,7 @@ function isScannerBurst(timestamps: number[], now: number): boolean {
   return true
 }
 
-function computeScanDebug(timestamps: number[]) {
+function computeScanDebug(timestamps: number[], now: number, includeEnterGap = false) {
   if (timestamps.length < 2) {
     return {
       buffer: timestamps.length,
@@ -345,6 +345,13 @@ function computeScanDebug(timestamps: number[]) {
   const intervals: number[] = []
   for (let i = 1; i < timestamps.length; i += 1) {
     intervals.push(timestamps[i] - timestamps[i - 1])
+  }
+  if (includeEnterGap) {
+    // Mirror isScannerBurst: the trailing char-to-Enter gap is part of the
+    // variance check, so include it here too. Without this, the debug box
+    // could show "low variance" while the real detector is being tripped by
+    // a delayed Enter.
+    intervals.push(now - timestamps[timestamps.length - 1])
   }
   let maxVariance = 0
   for (let i = 1; i < intervals.length; i += 1) {
@@ -765,7 +772,7 @@ export function PosCheckoutPage() {
     if (timestamps.length > MAX_SCAN_TIMESTAMP_BUFFER) {
       timestamps.splice(0, timestamps.length - MAX_SCAN_TIMESTAMP_BUFFER)
     }
-    setScanDebug(computeScanDebug(timestamps))
+    setScanDebug(computeScanDebug(timestamps, Date.now()))
 
     const product = findProductByQuery(value)
     if (!product) {
@@ -1176,7 +1183,7 @@ export function PosCheckoutPage() {
                     const isScanner = isScannerBurst(burstTimestamps, now)
                     // Clear the burst window so the next typing starts fresh.
                     scanCharTimestampsRef.current = []
-                    setScanDebug({ ...computeScanDebug(burstTimestamps), isScanner })
+                    setScanDebug({ ...computeScanDebug(burstTimestamps, now, true), isScanner })
                     if (isScanner) {
                       // Scanner: swallow the Enter and keep focus on the
                       // scan field so the cashier can keep scanning.
