@@ -34,17 +34,18 @@ type StockAdjustmentHistory = {
   createdBy?: string
 }
 
-// Barcode scanners type a full barcode in a tight, consistent burst
-// (typically 10-30ms per character). Manual typing is much slower and
-// irregular (200-500ms per character, with pauses to look at the screen).
-// We treat the trailing Enter as a scanner terminator when:
+// Barcode scanners type a full barcode in a tight, consistent burst.
+// Most scanners run at 10-50ms per character but some are configured
+// slower (up to ~150ms per character). Manual typing is much slower
+// (200-500ms per character) and irregular, with pauses to look at the
+// screen. We treat the trailing Enter as a scanner terminator when:
 //   - at least 3 characters were typed
 //   - the gap between every consecutive character is below MAX_SCAN_INTERVAL_MS
 //   - the gap between the last character and the Enter is below
 //     SCAN_ENTER_THRESHOLD_MS
 // Any irregularity (a slow character, a pause to think) means it is manual
 // typing and the Enter should fall through to the manual flow.
-const MAX_SCAN_INTERVAL_MS = 80
+const MAX_SCAN_INTERVAL_MS = 150
 const SCAN_ENTER_THRESHOLD_MS = 100
 const MIN_SCAN_CHAR_COUNT = 3
 const MAX_SCAN_TIMESTAMP_BUFFER = 15
