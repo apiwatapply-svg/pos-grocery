@@ -1,4 +1,6 @@
 import { createPrismaUserRepository } from "./prisma-user.repository.ts";
+import { AppError } from "../../shared/errors/app-error.ts";
+import { buildReceiptContent } from "../sales/receipt.service.ts";
 
 export type UserRole = "owner" | "admin" | "cashier" | "stock";
 export type UserStatus = "active" | "inactive";
@@ -210,6 +212,15 @@ export type UserRepository = {
 
   createSale(input: Omit<SaleRecord, "id" | "createdAt">): Promise<SaleRecord>;
   createSaleWithInventory(input: Omit<SaleRecord, "id" | "createdAt">): Promise<SaleRecord | null>;
+  checkoutWithInventory(input: {
+    storeId: string;
+    cashierUserId: string;
+    receiptNumber: string;
+    barcodeItems: Array<{ barcode: string; quantity: number }>;
+    paymentMethod: PaymentMethod;
+    cashReceivedSatang: number;
+    soldAt: string;
+  }): Promise<SaleRecord>;
   findSaleById(id: string): Promise<SaleRecord | null>;
   voidSaleByIdWithInventory(storeId: string, saleId: string, userId: string): Promise<SaleRecord | null>;
   voidSaleWithInventory(sale: SaleRecord, userId: string): Promise<SaleRecord | null>;
@@ -651,6 +662,134 @@ export function createInMemoryUserRepository(seed?: {
       };
       sales.set(sale.id, sale);
       return sale;
+    },
+    async checkoutWithInventory(input) {
+      if (input.barcodeItems.length === 0) {
+        throw new AppError(400, "VALIDATION_ERROR", "Checkout data is invalid.");
+      }
+
+      const store = stores.get(input.storeId);
+      if (!store) {
+        throw new AppError(404, "STORE_NOT_FOUND", "Store not found.");
+      }
+
+      const quantityByBarcode = new Map<string, number>();
+      for (const line of input.barcodeItems) {
+        const barcode = line.barcode.trim();
+        quantityByBarcode.set(barcode, (quantityByBarcode.get(barcode) ?? 0) + line.quantity);
+      }
+
+      const productByBarcode = new Map<string, ProductRecord>();
+      for (const barcode of quantityByBarcode.keys()) {
+        const product = Array.from(products.values()).find(
+          (candidate) => candidate.storeId === input.storeId && candidate.barcode === barcode,
+        );
+        if (!product) {
+          continue;
+        }
+        productByBarcode.set(barcode, product);
+      }
+
+      const saleItems: SaleItemRecord[] = [];
+      for (const [barcode, quantity] of quantityByBarcode) {
+        const product = productByBarcode.get(barcode);
+        if (!product || product.status !== "active") {
+          throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+        }
+        if (product.stockQuantity < quantity) {
+          throw new AppError(409, "INSUFFICIENT_STOCK", "Product stock is not enough.");
+        }
+
+        saleItems.push({
+          id: createId("item"),
+          saleId: "",
+          productId: product.id,
+          productName: product.name,
+          barcode: product.barcode,
+          quantity,
+          unitPriceSatang: product.salePriceSatang,
+          unitCostSatang: product.costPriceSatang,
+          totalSatang: product.salePriceSatang * quantity,
+          totalCostSatang: product.costPriceSatang * quantity,
+        });
+      }
+
+      const totalSatang = saleItems.reduce((sum, item) => sum + item.totalSatang, 0);
+      if (input.cashReceivedSatang < totalSatang) {
+        throw new AppError(400, "INSUFFICIENT_PAYMENT", "Cash received is less than total.");
+      }
+
+      const updatedProducts = new Map<string, ProductRecord>();
+      for (const item of saleItems) {
+        const product = products.get(item.productId);
+        if (!product || product.stockQuantity < item.quantity) {
+          throw new AppError(409, "INSUFFICIENT_STOCK", "Product stock is not enough.");
+        }
+        updatedProducts.set(item.productId, {
+          ...product,
+          stockQuantity: product.stockQuantity - item.quantity,
+        });
+      }
+      for (const product of updatedProducts.values()) {
+        products.set(product.id, product);
+      }
+
+      const createdAt = nowIso();
+      const soldAt = new Date(input.soldAt).toISOString();
+      const saleId = createId("sale");
+      const paymentId = createId("pay");
+      const receiptId = createId("rcp");
+
+      for (const item of saleItems) {
+        const product = updatedProducts.get(item.productId);
+        if (!product) {
+          throw new AppError(409, "INSUFFICIENT_STOCK", "Product stock is not enough.");
+        }
+        const transaction = {
+          id: createId("inv"),
+          productId: item.productId,
+          type: "sale" as const,
+          quantityChange: -item.quantity,
+          unitCostSatang: item.unitCostSatang,
+          balanceAfterChange: product.stockQuantity,
+          createdByUserId: input.cashierUserId,
+          createdAt,
+        };
+        inventoryTransactions.set(transaction.id, transaction);
+      }
+
+      const baseSale: SaleRecord = {
+        id: saleId,
+        storeId: input.storeId,
+        cashierUserId: input.cashierUserId,
+        receiptNumber: input.receiptNumber,
+        subtotalSatang: totalSatang,
+        totalSatang,
+        cashReceivedSatang: input.cashReceivedSatang,
+        changeDueSatang: input.cashReceivedSatang - totalSatang,
+        status: "completed",
+        soldAt,
+        createdAt,
+        items: saleItems,
+        payment: {
+          id: paymentId,
+          saleId,
+          method: input.paymentMethod,
+          amountSatang: totalSatang,
+          createdAt,
+        },
+        receipt: {
+          id: receiptId,
+          saleId,
+          content: "",
+          createdAt,
+        },
+      };
+      baseSale.receipt.content = buildReceiptContent(store, baseSale);
+      baseSale.items = baseSale.items.map((item) => ({ ...item, saleId }));
+
+      sales.set(saleId, baseSale);
+      return baseSale;
     },
     async findSaleById(id) {
       return sales.get(id) ?? null;

@@ -3,6 +3,8 @@ import { PrismaLibSQL } from "@prisma/adapter-libsql";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { env } from "../../config/env.ts";
+import { AppError } from "../../shared/errors/app-error.ts";
+import { buildReceiptContent } from "../sales/receipt.service.ts";
 import type {
   InventoryTransactionRecord,
   InventoryTransactionWithProductRecord,
@@ -400,6 +402,50 @@ type LibSqlSaleItemRow = {
   totalSatang: number | bigint | string;
   totalCostSatang: number | bigint | string | null;
 };
+
+type LibSqlCheckoutProductRow = {
+  id: string;
+  name: string;
+  barcode: string;
+  costPriceSatang: number | bigint | string;
+  salePriceSatang: number | bigint | string;
+  stockQuantity: number | bigint | string;
+  status: string;
+};
+
+type LibSqlCheckoutStoreRow = {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  ownerName: string;
+  logoUrl: string | null;
+  status: string;
+};
+
+function mapLibSqlCheckoutStore(row: LibSqlCheckoutStoreRow): StoreRecord {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    phone: String(row.phone),
+    address: String(row.address),
+    ownerName: String(row.ownerName),
+    logoUrl: optional(row.logoUrl),
+    status: row.status === "inactive" ? "inactive" : "active",
+  };
+}
+
+function mapLibSqlCheckoutProduct(row: LibSqlCheckoutProductRow) {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    barcode: String(row.barcode),
+    costPriceSatang: dbNumberLoose(row.costPriceSatang),
+    salePriceSatang: dbNumberLoose(row.salePriceSatang),
+    stockQuantity: dbNumberLoose(row.stockQuantity),
+    status: row.status === "inactive" ? "inactive" : "active",
+  };
+}
 
 function dbNumber(value: number | bigint | null | undefined) {
   return typeof value === "bigint" ? Number(value) : Number(value ?? 0);
@@ -1017,6 +1063,238 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
           payment: { ...input.payment, saleId },
           receipt: { ...input.receipt, saleId },
         };
+      } catch (error) {
+        if (!transaction.closed) {
+          await transaction.rollback();
+        }
+        throw error;
+      } finally {
+        transaction.close();
+      }
+    },
+    async checkoutWithInventory(input) {
+      if (input.barcodeItems.length === 0) {
+        throw new AppError(400, "VALIDATION_ERROR", "Checkout data is invalid.");
+      }
+
+      const client = getCheckoutClient();
+      const transaction = await client.transaction("write");
+      const saleId = randomUUID();
+      const paymentId = randomUUID();
+      const receiptId = randomUUID();
+      const createdAt = new Date().toISOString();
+      const soldAtIso = new Date(input.soldAt).toISOString();
+
+      const quantityByBarcode = new Map<string, number>();
+      for (const line of input.barcodeItems) {
+        const barcode = line.barcode.trim();
+        quantityByBarcode.set(barcode, (quantityByBarcode.get(barcode) ?? 0) + line.quantity);
+      }
+      const barcodes = Array.from(quantityByBarcode.keys());
+      const barcodePlaceholders = barcodes.map(() => "?").join(", ");
+
+      try {
+        // Round-trip 1 (combined with BEGIN): SELECT store and products in a single batch.
+        const lookupResults = await transaction.batch([
+          {
+            sql: `SELECT id, name, phone, address, "ownerName", "logoUrl", status
+                  FROM "Store" WHERE id = ? LIMIT 1`,
+            args: [input.storeId],
+          },
+          {
+            sql: `SELECT id, name, barcode, "costPriceSatang", "salePriceSatang", "stockQuantity", status
+                  FROM "Product"
+                  WHERE "storeId" = ? AND barcode IN (${barcodePlaceholders})`,
+            args: [input.storeId, ...barcodes],
+          },
+        ]);
+
+        const storeRow = lookupResults[0].rows[0] as unknown as LibSqlCheckoutStoreRow | undefined;
+        if (!storeRow) {
+          await transaction.rollback();
+          throw new AppError(404, "STORE_NOT_FOUND", "Store not found.");
+        }
+        const store = mapLibSqlCheckoutStore(storeRow);
+
+        const productByBarcode = new Map<string, ReturnType<typeof mapLibSqlCheckoutProduct>>();
+        for (const raw of lookupResults[1].rows) {
+          const product = mapLibSqlCheckoutProduct(raw as unknown as LibSqlCheckoutProductRow);
+          productByBarcode.set(product.barcode, product);
+        }
+
+        const saleItems: SaleRecord["items"] = [];
+        for (const [barcode, quantity] of quantityByBarcode) {
+          const product = productByBarcode.get(barcode);
+          if (!product || product.status !== "active") {
+            await transaction.rollback();
+            throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+          }
+          if (product.stockQuantity < quantity) {
+            await transaction.rollback();
+            throw new AppError(409, "INSUFFICIENT_STOCK", "Product stock is not enough.");
+          }
+
+          saleItems.push({
+            id: randomUUID(),
+            saleId,
+            productId: product.id,
+            productName: product.name,
+            barcode: product.barcode,
+            quantity,
+            unitPriceSatang: product.salePriceSatang,
+            unitCostSatang: product.costPriceSatang,
+            totalSatang: product.salePriceSatang * quantity,
+            totalCostSatang: product.costPriceSatang * quantity,
+          });
+        }
+
+        const totalSatang = saleItems.reduce((sum, item) => sum + item.totalSatang, 0);
+        if (input.cashReceivedSatang < totalSatang) {
+          await transaction.rollback();
+          throw new AppError(400, "INSUFFICIENT_PAYMENT", "Cash received is less than total.");
+        }
+
+        const itemIds = saleItems.map((item) => item.productId);
+        const stockCase = saleItems.map(() => "WHEN ? THEN ?").join(" ");
+        const stockCaseArgs = saleItems.flatMap((item) => [item.productId, item.quantity]);
+        const productIdPlaceholders = itemIds.map(() => "?").join(", ");
+
+        // Round-trip 2: UPDATE product stock with atomic check.
+        const updatedProducts = await transaction.execute({
+          sql: `
+            UPDATE "Product"
+            SET "stockQuantity" = "stockQuantity" - CASE "id" ${stockCase} ELSE 0 END
+            WHERE "id" IN (${productIdPlaceholders})
+              AND "stockQuantity" >= CASE "id" ${stockCase} ELSE 0 END
+            RETURNING "id", "stockQuantity"
+          `,
+          args: [...stockCaseArgs, ...itemIds, ...stockCaseArgs],
+        });
+
+        if (updatedProducts.rows.length !== itemIds.length) {
+          await transaction.rollback();
+          throw new AppError(409, "INSUFFICIENT_STOCK", "Product stock is not enough.");
+        }
+
+        const stockByProductId = new Map(
+          updatedProducts.rows.map((product) => {
+            const row = product as unknown as LibSqlUpdatedProductStockRow;
+            return [String(row.id), dbNumberLoose(row.stockQuantity)];
+          }),
+        );
+
+        const changeDueSatang = input.cashReceivedSatang - totalSatang;
+        const baseSale = {
+          id: saleId,
+          storeId: input.storeId,
+          cashierUserId: input.cashierUserId,
+          receiptNumber: input.receiptNumber,
+          subtotalSatang: totalSatang,
+          totalSatang,
+          cashReceivedSatang: input.cashReceivedSatang,
+          changeDueSatang,
+          status: "completed" as const,
+          soldAt: soldAtIso,
+          createdAt,
+          items: saleItems,
+          payment: {
+            id: paymentId,
+            saleId,
+            method: input.paymentMethod,
+            amountSatang: totalSatang,
+            createdAt,
+          },
+          receipt: {
+            id: receiptId,
+            saleId,
+            content: "",
+            createdAt,
+          },
+        } satisfies SaleRecord;
+
+        baseSale.receipt.content = buildReceiptContent(store, baseSale);
+
+        const statements: InStatement[] = [
+          {
+            sql: `
+              INSERT INTO "Sale" (
+                id, "storeId", "cashierUserId", "receiptNumber", "subtotalSatang",
+                "totalSatang", "cashReceivedSatang", "changeDueSatang", status,
+                "soldAt", "createdAt"
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            args: [
+              baseSale.id,
+              baseSale.storeId,
+              baseSale.cashierUserId,
+              baseSale.receiptNumber,
+              baseSale.subtotalSatang,
+              baseSale.totalSatang,
+              baseSale.cashReceivedSatang,
+              baseSale.changeDueSatang,
+              baseSale.status,
+              baseSale.soldAt,
+              baseSale.createdAt,
+            ],
+          },
+          ...saleItems.map((item) => ({
+            sql: `
+              INSERT INTO "SaleItem" (
+                id, "saleId", "productId", "productName", quantity,
+                "unitPriceSatang", "unitCostSatang", "totalSatang", "totalCostSatang"
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            args: [
+              item.id,
+              saleId,
+              item.productId,
+              item.productName,
+              item.quantity,
+              item.unitPriceSatang,
+              item.unitCostSatang ?? 0,
+              item.totalSatang,
+              item.totalCostSatang ?? 0,
+            ],
+          })),
+          ...saleItems.map((item) => ({
+            sql: `
+              INSERT INTO "InventoryTransaction" (
+                id, "productId", type, "quantityChange", "unitCostSatang",
+                "balanceAfterChange", note, "createdByUserId", "createdAt"
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            args: [
+              randomUUID(),
+              item.productId,
+              "sale",
+              -item.quantity,
+              item.unitCostSatang ?? null,
+              stockByProductId.get(item.productId) ?? 0,
+              null,
+              input.cashierUserId,
+              createdAt,
+            ],
+          })),
+          {
+            sql: `INSERT INTO "Payment" (id, "saleId", method, "amountSatang", "createdAt") VALUES (?, ?, ?, ?, ?)`,
+            args: [paymentId, saleId, input.paymentMethod, totalSatang, createdAt],
+          },
+          {
+            sql: `INSERT INTO "Receipt" (id, "saleId", content, "createdAt") VALUES (?, ?, ?, ?)`,
+            args: [receiptId, saleId, baseSale.receipt.content, createdAt],
+          },
+        ];
+
+        // Round-trip 3: batched INSERTs.
+        await transaction.batch(statements);
+
+        // Round-trip 4: COMMIT.
+        await transaction.commit();
+
+        return baseSale;
       } catch (error) {
         if (!transaction.closed) {
           await transaction.rollback();
