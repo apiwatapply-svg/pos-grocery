@@ -34,6 +34,13 @@ type StockAdjustmentHistory = {
   createdBy?: string
 }
 
+// Barcode scanners typically type a full barcode in <50ms per character and
+// fire the trailing Enter within ~10ms of the last character. Manual typing
+// is at least 200ms per character with a longer gap before Enter. Anything
+// where the trailing Enter arrives within this many milliseconds of the
+// last onChange is treated as a scanner event and its Enter is consumed.
+const SCAN_ENTER_THRESHOLD_MS = 100
+
 function matchesProduct(product: Product, value: string) {
   const normalizedValue = value.trim().toLowerCase()
 
@@ -92,6 +99,10 @@ export function StockCountingPage() {
   // can swallow it without re-running addScannedProduct (which would add
   // the same product twice to the counting queue).
   const isConsumingScanEnterRef = useRef(false)
+  // Timestamp of the most recent onChange on the scan field. Used together
+  // with SCAN_ENTER_THRESHOLD_MS to tell a scanner's trailing Enter apart
+  // from a user pressing Enter after manually typing a barcode.
+  const lastScanChangeAtRef = useRef(0)
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<StockAdjustmentHistory[]>([])
   const [scanValue, setScanValue] = useState('')
@@ -203,6 +214,7 @@ export function StockCountingPage() {
 
   function handleScanChange(value: string) {
     setScanValue(value)
+    lastScanChangeAtRef.current = Date.now()
 
     if (products.some((product) => matchesProduct(product, value))) {
       // The trailing Enter from a barcode scanner will arrive next. Mark it
@@ -346,10 +358,16 @@ export function StockCountingPage() {
                 }
                 event.preventDefault()
                 if (isConsumingScanEnterRef.current) {
-                  // The Enter is the terminator from a barcode scanner that
-                  // just added the product via onChange — swallow it so the
-                  // search field does not add the same product again.
+                  // The exact match was just added to the queue. Decide
+                  // whether this Enter is the scanner's trailing key or a
+                  // user pressing Enter after typing the barcode by hand.
+                  const elapsed = Date.now() - lastScanChangeAtRef.current
                   isConsumingScanEnterRef.current = false
+                  if (elapsed < SCAN_ENTER_THRESHOLD_MS) {
+                    // Scanner: swallow the Enter and keep focus on the
+                    // scan field so the counter can keep scanning.
+                    event.stopPropagation()
+                  }
                   return
                 }
                 handleScanEnter()

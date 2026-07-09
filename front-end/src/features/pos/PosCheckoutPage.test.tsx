@@ -585,6 +585,40 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('1')
   })
 
+  it('moves focus to the cash input when Enter is pressed long after manually typing a barcode', async () => {
+    // Snapshot the current real time so we can restore Date.now() after the
+    // test, and stub it to a known baseline so the scan-timing logic sees a
+    // predictable gap between the manual onChange and the Enter keydown.
+    const realNow = Date.now
+    let mockedNow = new Date('2026-01-01T00:00:00.000Z').getTime()
+    const dateSpy = vi.spyOn(Date, 'now').mockImplementation(() => mockedNow)
+    try {
+      render(<PosCheckoutPage />)
+      await waitForProductsLoaded()
+
+      const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+      expect(scanInput).toHaveFocus()
+
+      // User types a barcode manually: onChange fires at the mocked time.
+      mockedNow = 1_000_000
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+      // Simulate the cashier pausing well past the scan threshold before
+      // pressing Enter.
+      mockedNow = 1_000_500
+
+      fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+      // Manual typing → focus should hand off to the cash input.
+      expect(screen.getByLabelText('จำนวนเงินที่รับ')).toHaveFocus()
+    } finally {
+      dateSpy.mockRestore()
+      // Defensive: make sure Date.now is back to the real implementation in
+      // case the spy was never invoked.
+      Date.now = realNow
+    }
+  })
+
   it('shows empty value for cash input when zero, and Enter on cash input triggers checkout', async () => {
     confirmNextDialog()
     render(<PosCheckoutPage />)

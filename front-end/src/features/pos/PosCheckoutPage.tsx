@@ -91,6 +91,14 @@ type CurrentStore = {
 
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
 
+// Barcode scanners typically type a full barcode in <50ms per character and
+// fire the trailing Enter within ~10ms of the last character. Manual typing
+// is at least 200ms per character with a longer gap before Enter. Anything
+// where the trailing Enter arrives within this many milliseconds of the
+// last onChange is treated as a scanner event and its Enter is consumed so
+// the cashier can keep scanning without focus moving to the cash input.
+const SCAN_ENTER_THRESHOLD_MS = 100
+
 const posCartStorageKeyPrefix = 'pos-grocery:pos-cart'
 
 function posCartStorageKey(storeId: string) {
@@ -286,6 +294,10 @@ export function PosCheckoutPage() {
   // search-field handler (which would add the same product twice and steal
   // focus away from the scan field).
   const isConsumingScanEnterRef = useRef(false)
+  // Timestamp of the most recent onChange on the scan field. Used together
+  // with SCAN_ENTER_THRESHOLD_MS to tell a scanner's trailing Enter apart
+  // from a user pressing Enter after manually typing a barcode.
+  const lastScanChangeAtRef = useRef(0)
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
@@ -665,6 +677,7 @@ export function PosCheckoutPage() {
 
   function handleProductQueryChange(value: string) {
     setProductQuery(value)
+    lastScanChangeAtRef.current = Date.now()
     const product = findProductByQuery(value)
     if (!product) {
       return
@@ -1048,10 +1061,20 @@ export function PosCheckoutPage() {
                   }
                   event.preventDefault()
                   if (isConsumingScanEnterRef.current) {
-                    // The Enter is the terminator from a barcode scanner that
-                    // just added the product via onChange — swallow it so the
-                    // search field does not add the same product again.
+                    // The exact match was just added to the cart. Decide
+                    // whether this Enter is the scanner's trailing key or a
+                    // user pressing Enter after typing the barcode by hand.
+                    const elapsed = Date.now() - lastScanChangeAtRef.current
                     isConsumingScanEnterRef.current = false
+                    if (elapsed < SCAN_ENTER_THRESHOLD_MS) {
+                      // Scanner: swallow the Enter and keep focus on the
+                      // scan field so the cashier can keep scanning.
+                      event.stopPropagation()
+                      return
+                    }
+                    // Manual typing: let the document-level handler move
+                    // focus to the cash input so the cashier can collect
+                    // payment without an extra click.
                     return
                   }
                   handleProductScanEnter()
