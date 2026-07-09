@@ -439,10 +439,15 @@ export function PosCheckoutPage() {
 
   const checkoutRef = useRef<() => Promise<void>>(async () => {})
   const hasCartItemsRef = useRef(false)
+  const cartTotalRef = useRef(0)
 
   useEffect(() => {
     hasCartItemsRef.current = hasCartItems
   }, [hasCartItems])
+
+  useEffect(() => {
+    cartTotalRef.current = cartTotal
+  }, [cartTotal])
 
   useEffect(() => {
     function handleDocumentMouseDown(event: MouseEvent) {
@@ -566,6 +571,10 @@ export function PosCheckoutPage() {
           return
         }
         if (hasCartItemsRef.current) {
+          // Auto-fill cash with the exact total so the cashier can confirm
+          // the exact-change sale with one more Enter, instead of typing
+          // the amount manually.
+          setCashReceived(cartTotalRef.current)
           focusCashReceivedInput()
         } else {
           selectProductQuery()
@@ -1137,32 +1146,28 @@ export function PosCheckoutPage() {
   })
 
   return (
-    <section className="route-page" aria-labelledby="pos-title">
-      <div className="page-header">
-        <div>
-          <h1 id="pos-title">ขายสินค้า / Scan barcode</h1>
-        </div>
-        <div className="status-pill">{notice}</div>
-      </div>
-
+    <section className="route-page" aria-label="หน้าขายสินค้า">
       <div className="pos-workspace">
         <section className="panel pos-panel pos-panel-large" aria-labelledby="checkout-title">
           <div className="pos-panel-header">
             <h2 id="checkout-title">Checkout</h2>
-            <div
-              className={`pos-scan-debug ${scanDebug.isScanner ? 'pos-scan-debug-scanner' : 'pos-scan-debug-manual'}`}
-              role="status"
-              aria-live="polite"
-              title="Scanner detection debug: buffer / last interval (ms) / median (ms) / outlier count / verdict"
-            >
-              <span className="pos-scan-debug-label">SCAN</span>
-              <span className="pos-scan-debug-cell">buf:{scanDebug.buffer}</span>
-              <span className="pos-scan-debug-cell">Δ:{scanDebug.lastInterval ?? '-'}</span>
-              <span className="pos-scan-debug-cell">med:{scanDebug.median ?? '-'}</span>
-              <span className="pos-scan-debug-cell">out:{scanDebug.outliers}</span>
-              <span className="pos-scan-debug-verdict">
-                {scanDebug.isScanner ? 'scanner' : 'manual'}
-              </span>
+            <div className="pos-panel-header-right">
+              <div
+                className={`pos-scan-debug ${scanDebug.isScanner ? 'pos-scan-debug-scanner' : 'pos-scan-debug-manual'}`}
+                role="status"
+                aria-live="polite"
+                title="Scanner detection debug: buffer / last interval (ms) / median (ms) / outlier count / verdict"
+              >
+                <span className="pos-scan-debug-label">SCAN</span>
+                <span className="pos-scan-debug-cell">buf:{scanDebug.buffer}</span>
+                <span className="pos-scan-debug-cell">Δ:{scanDebug.lastInterval ?? '-'}</span>
+                <span className="pos-scan-debug-cell">med:{scanDebug.median ?? '-'}</span>
+                <span className="pos-scan-debug-cell">out:{scanDebug.outliers}</span>
+                <span className="pos-scan-debug-verdict">
+                  {scanDebug.isScanner ? 'scanner' : 'manual'}
+                </span>
+              </div>
+              <div className="status-pill">{notice}</div>
             </div>
           </div>
           <div className="pos-scan-bar">

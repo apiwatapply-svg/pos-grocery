@@ -898,6 +898,14 @@ td span {
   margin: 0;
 }
 
+.pos-panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .pos-scan-debug {
   display: inline-flex;
   align-items: center;
