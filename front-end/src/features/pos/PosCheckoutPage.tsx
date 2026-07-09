@@ -333,6 +333,34 @@ function isScannerBurst(timestamps: number[], now: number): boolean {
   return true
 }
 
+function computeScanDebug(timestamps: number[]) {
+  if (timestamps.length < 2) {
+    return {
+      buffer: timestamps.length,
+      lastInterval: null,
+      maxVariance: null,
+      isScanner: false,
+    }
+  }
+  const intervals: number[] = []
+  for (let i = 1; i < timestamps.length; i += 1) {
+    intervals.push(timestamps[i] - timestamps[i - 1])
+  }
+  let maxVariance = 0
+  for (let i = 1; i < intervals.length; i += 1) {
+    const variance = Math.abs(intervals[i] - intervals[i - 1])
+    if (variance > maxVariance) {
+      maxVariance = variance
+    }
+  }
+  return {
+    buffer: timestamps.length,
+    lastInterval: intervals[intervals.length - 1],
+    maxVariance,
+    isScanner: false,
+  }
+}
+
 export function PosCheckoutPage() {
   const productQueryInputRef = useRef<SearchableDropdownHandle>(null)
   const cashReceivedInputRef = useRef<HTMLInputElement>(null)
@@ -357,6 +385,12 @@ export function PosCheckoutPage() {
   const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false)
   const [heldBills, setHeldBills] = useState<HeldBill[]>([])
   const [isHeldBillsModalOpen, setIsHeldBillsModalOpen] = useState(false)
+  const [scanDebug, setScanDebug] = useState<{
+    buffer: number
+    lastInterval: number | null
+    maxVariance: number | null
+    isScanner: boolean
+  }>({ buffer: 0, lastInterval: null, maxVariance: null, isScanner: false })
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -731,6 +765,7 @@ export function PosCheckoutPage() {
     if (timestamps.length > MAX_SCAN_TIMESTAMP_BUFFER) {
       timestamps.splice(0, timestamps.length - MAX_SCAN_TIMESTAMP_BUFFER)
     }
+    setScanDebug(computeScanDebug(timestamps))
 
     const product = findProductByQuery(value)
     if (!product) {
@@ -1094,7 +1129,23 @@ export function PosCheckoutPage() {
 
       <div className="pos-workspace">
         <section className="panel pos-panel pos-panel-large" aria-labelledby="checkout-title">
-          <h2 id="checkout-title">Checkout</h2>
+          <div className="pos-panel-header">
+            <h2 id="checkout-title">Checkout</h2>
+            <div
+              className={`pos-scan-debug ${scanDebug.isScanner ? 'pos-scan-debug-scanner' : 'pos-scan-debug-manual'}`}
+              role="status"
+              aria-live="polite"
+              title="Scanner detection debug: buffer / last interval (ms) / max variance (ms) / verdict"
+            >
+              <span className="pos-scan-debug-label">SCAN</span>
+              <span className="pos-scan-debug-cell">buf:{scanDebug.buffer}</span>
+              <span className="pos-scan-debug-cell">Δ:{scanDebug.lastInterval ?? '-'}</span>
+              <span className="pos-scan-debug-cell">var:{scanDebug.maxVariance ?? '-'}</span>
+              <span className="pos-scan-debug-verdict">
+                {scanDebug.isScanner ? 'scanner' : 'manual'}
+              </span>
+            </div>
+          </div>
           <div className="pos-scan-bar">
             <label className="field" htmlFor="pos-product-query">
               <SearchableDropdown
@@ -1120,12 +1171,12 @@ export function PosCheckoutPage() {
                     // user pressing Enter after typing the barcode by hand
                     // by looking at the consistency of the recent keystrokes.
                     isConsumingScanEnterRef.current = false
-                    const isScanner = isScannerBurst(
-                      scanCharTimestampsRef.current,
-                      Date.now(),
-                    )
+                    const burstTimestamps = scanCharTimestampsRef.current
+                    const now = Date.now()
+                    const isScanner = isScannerBurst(burstTimestamps, now)
                     // Clear the burst window so the next typing starts fresh.
                     scanCharTimestampsRef.current = []
+                    setScanDebug({ ...computeScanDebug(burstTimestamps), isScanner })
                     if (isScanner) {
                       // Scanner: swallow the Enter and keep focus on the
                       // scan field so the cashier can keep scanning.

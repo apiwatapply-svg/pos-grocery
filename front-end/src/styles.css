@@ -885,6 +885,77 @@ td span {
   grid-column: 1 / -1;
 }
 
+.pos-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.pos-panel-header h2 {
+  margin: 0;
+}
+
+.pos-scan-debug {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #f0f3ef;
+  color: #4a5a50;
+  border: 1px solid #d5dcd5;
+  white-space: nowrap;
+}
+
+.pos-scan-debug-label {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #2c5b3d;
+}
+
+.pos-scan-debug-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.pos-scan-debug-verdict {
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e3e8e1;
+  color: #4a5a50;
+}
+
+.pos-scan-debug-scanner {
+  background: #e6f4ec;
+  border-color: #b7d8c5;
+  color: #14532d;
+}
+
+.pos-scan-debug-scanner .pos-scan-debug-label {
+  color: #0f6b3b;
+}
+
+.pos-scan-debug-scanner .pos-scan-debug-verdict {
+  background: #0f6b3b;
+  color: #ffffff;
+}
+
+.pos-scan-debug-manual {
+  background: #f0f3ef;
+}
+
+.pos-scan-debug-manual .pos-scan-debug-verdict {
+  background: #c2a86b;
+  color: #ffffff;
+}
+
 .panel h2 {
   font-size: 20px;
   line-height: 1.2;
