@@ -91,24 +91,21 @@ type CurrentStore = {
 
 const quickCashAmounts = [5, 10, 20, 50, 100, 500, 1000]
 
-// Barcode scanners type a full barcode in a tight, even burst and the
-// trailing Enter arrives within a few milliseconds of the last character.
+// Barcode scanners type a full barcode in a tight, even burst. Real
+// wireless scanners can introduce one outlier interval because their HID
+// buffer flushes in chunks (e.g. 4 chars + 200ms pause + 4 chars + Enter).
 // Manual typing is much slower (200-500ms per character) and irregular, with
-// pauses to look at the screen. We treat the trailing Enter as a scanner
-// terminator when:
+// pauses to look at the screen, so it produces two or more outlier
+// intervals. We treat the trailing Enter as a scanner terminator when:
 //   - at least 3 characters were typed
-//   - the gap between consecutive characters is consistent, i.e. the absolute
-//     difference between every pair of consecutive intervals is below
-//     MAX_INTERVAL_VARIANCE_MS (50ms). A scanner (even a slow one configured
-//     at 100-150ms/char) keeps a near-constant cadence; a human pauses to
-//     think, looks at the screen, or mistypes, so at least one interval
-//     differs from the next by more than 50ms.
-//   - the last char-to-Enter gap is also included in the variance check, so a
-//     trailing Enter that is far later than the last character (typical of a
-//     human pressing Enter after typing) breaks the pattern.
-// Any irregularity means it is manual typing and the Enter should be allowed
-// to move focus to the cash input.
-const MAX_INTERVAL_VARIANCE_MS = 50
+//   - the median of the inter-character intervals (with the trailing
+//     char-to-Enter gap appended) represents a consistent scanner cadence,
+//     AND the number of intervals that deviate from that median by more
+//     than OUTLIER_THRESHOLD_MS (100ms) is at most MAX_OUTLIER_COUNT (1).
+//     This tolerates a single flush-pause inside a wireless scanner burst
+//     while still rejecting human typing, which has 2+ outliers.
+const OUTLIER_THRESHOLD_MS = 100
+const MAX_OUTLIER_COUNT = 1
 const MIN_SCAN_CHAR_COUNT = 3
 const MAX_SCAN_TIMESTAMP_BUFFER = 15
 
@@ -305,15 +302,35 @@ function productsAreSame(current: Product[], next: Product[]) {
  * A scanner types the whole barcode in a tight, even cadence (typically
  * 10-30ms per character, sometimes 100-150ms on slow scanners) and the
  * trailing Enter arrives within a few milliseconds of the last character.
- * A human types much slower and with pauses, so at least one inter-character
- * gap differs from the next by more than MAX_INTERVAL_VARIANCE_MS.
+ * A wireless scanner can briefly pause while its HID buffer flushes in
+ * chunks, which produces one outlier interval inside an otherwise even
+ * burst. A human types much slower and with pauses, producing 2+ outliers.
  *
  * Returns true when:
  *   - the burst contains at least MIN_SCAN_CHAR_COUNT characters, AND
- *   - the sequence of inter-character intervals (with the final char-to-Enter
- *     gap appended) is consistent: |intervals[i] - intervals[i-1]| <=
- *     MAX_INTERVAL_VARIANCE_MS for every consecutive pair.
+ *   - the number of intervals (char-to-char plus the trailing char-to-Enter
+ *     gap) that deviate from the median by more than OUTLIER_THRESHOLD_MS
+ *     is at most MAX_OUTLIER_COUNT.
  */
+function medianOf(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2
+  }
+  return sorted[mid]
+}
+
+function countOutliers(intervals: number[], threshold: number, median: number): number {
+  let count = 0
+  for (const interval of intervals) {
+    if (Math.abs(interval - median) > threshold) {
+      count += 1
+    }
+  }
+  return count
+}
+
 function isScannerBurst(timestamps: number[], now: number): boolean {
   if (timestamps.length < MIN_SCAN_CHAR_COUNT) {
     return false
@@ -323,14 +340,10 @@ function isScannerBurst(timestamps: number[], now: number): boolean {
     intervals.push(timestamps[i] - timestamps[i - 1])
   }
   // Include the trailing char-to-Enter gap so a delayed Enter (manual typing
-  // pattern) breaks the variance check.
+  // pattern) shows up as an outlier alongside the other intervals.
   intervals.push(now - timestamps[timestamps.length - 1])
-  for (let i = 1; i < intervals.length; i += 1) {
-    if (Math.abs(intervals[i] - intervals[i - 1]) > MAX_INTERVAL_VARIANCE_MS) {
-      return false
-    }
-  }
-  return true
+  const median = medianOf(intervals)
+  return countOutliers(intervals, OUTLIER_THRESHOLD_MS, median) <= MAX_OUTLIER_COUNT
 }
 
 function computeScanDebug(timestamps: number[], now: number, includeEnterGap = false) {
@@ -338,7 +351,8 @@ function computeScanDebug(timestamps: number[], now: number, includeEnterGap = f
     return {
       buffer: timestamps.length,
       lastInterval: null,
-      maxVariance: null,
+      median: null,
+      outliers: 0,
       isScanner: false,
     }
   }
@@ -348,22 +362,18 @@ function computeScanDebug(timestamps: number[], now: number, includeEnterGap = f
   }
   if (includeEnterGap) {
     // Mirror isScannerBurst: the trailing char-to-Enter gap is part of the
-    // variance check, so include it here too. Without this, the debug box
-    // could show "low variance" while the real detector is being tripped by
+    // outlier check, so include it here too. Without this, the debug box
+    // could show "0 outliers" while the real detector is being tripped by
     // a delayed Enter.
     intervals.push(now - timestamps[timestamps.length - 1])
   }
-  let maxVariance = 0
-  for (let i = 1; i < intervals.length; i += 1) {
-    const variance = Math.abs(intervals[i] - intervals[i - 1])
-    if (variance > maxVariance) {
-      maxVariance = variance
-    }
-  }
+  const median = medianOf(intervals)
+  const outliers = countOutliers(intervals, OUTLIER_THRESHOLD_MS, median)
   return {
     buffer: timestamps.length,
     lastInterval: intervals[intervals.length - 1],
-    maxVariance,
+    median,
+    outliers,
     isScanner: false,
   }
 }
@@ -395,9 +405,10 @@ export function PosCheckoutPage() {
   const [scanDebug, setScanDebug] = useState<{
     buffer: number
     lastInterval: number | null
-    maxVariance: number | null
+    median: number | null
+    outliers: number
     isScanner: boolean
-  }>({ buffer: 0, lastInterval: null, maxVariance: null, isScanner: false })
+  }>({ buffer: 0, lastInterval: null, median: null, outliers: 0, isScanner: false })
 
   const cartTotal = cart.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -1142,12 +1153,13 @@ export function PosCheckoutPage() {
               className={`pos-scan-debug ${scanDebug.isScanner ? 'pos-scan-debug-scanner' : 'pos-scan-debug-manual'}`}
               role="status"
               aria-live="polite"
-              title="Scanner detection debug: buffer / last interval (ms) / max variance (ms) / verdict"
+              title="Scanner detection debug: buffer / last interval (ms) / median (ms) / outlier count / verdict"
             >
               <span className="pos-scan-debug-label">SCAN</span>
               <span className="pos-scan-debug-cell">buf:{scanDebug.buffer}</span>
               <span className="pos-scan-debug-cell">Δ:{scanDebug.lastInterval ?? '-'}</span>
-              <span className="pos-scan-debug-cell">var:{scanDebug.maxVariance ?? '-'}</span>
+              <span className="pos-scan-debug-cell">med:{scanDebug.median ?? '-'}</span>
+              <span className="pos-scan-debug-cell">out:{scanDebug.outliers}</span>
               <span className="pos-scan-debug-verdict">
                 {scanDebug.isScanner ? 'scanner' : 'manual'}
               </span>

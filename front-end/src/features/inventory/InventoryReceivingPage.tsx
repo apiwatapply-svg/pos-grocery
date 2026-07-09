@@ -26,26 +26,42 @@ type ReceivingLine = {
 
 const RECEIVING_QUEUE_STORAGE_KEY = 'pos-grocery:receiving-queue'
 
-// Barcode scanners type a full barcode in a tight, even burst and the
-// trailing Enter arrives within a few milliseconds of the last character.
+// Barcode scanners type a full barcode in a tight, even burst. Real
+// wireless scanners can introduce one outlier interval because their HID
+// buffer flushes in chunks (e.g. 4 chars + 200ms pause + 4 chars + Enter).
 // Manual typing is much slower (200-500ms per character) and irregular, with
-// pauses to look at the screen. We treat the trailing Enter as a scanner
-// terminator when:
+// pauses to look at the screen, so it produces two or more outlier
+// intervals. We treat the trailing Enter as a scanner terminator when:
 //   - at least 3 characters were typed
-//   - the gap between consecutive characters is consistent, i.e. the absolute
-//     difference between every pair of consecutive intervals is below
-//     MAX_INTERVAL_VARIANCE_MS (50ms). A scanner (even a slow one configured
-//     at 100-150ms/char) keeps a near-constant cadence; a human pauses to
-//     think, looks at the screen, or mistypes, so at least one interval
-//     differs from the next by more than 50ms.
-//   - the last char-to-Enter gap is also included in the variance check, so a
-//     trailing Enter that is far later than the last character (typical of a
-//     human pressing Enter after typing) breaks the pattern.
-// Any irregularity means it is manual typing and the Enter should fall
-// through to the manual flow.
-const MAX_INTERVAL_VARIANCE_MS = 50
+//   - the median of the inter-character intervals (with the trailing
+//     char-to-Enter gap appended) represents a consistent scanner cadence,
+//     AND the number of intervals that deviate from that median by more
+//     than OUTLIER_THRESHOLD_MS (100ms) is at most MAX_OUTLIER_COUNT (1).
+//     This tolerates a single flush-pause inside a wireless scanner burst
+//     while still rejecting human typing, which has 2+ outliers.
+const OUTLIER_THRESHOLD_MS = 100
+const MAX_OUTLIER_COUNT = 1
 const MIN_SCAN_CHAR_COUNT = 3
 const MAX_SCAN_TIMESTAMP_BUFFER = 15
+
+function medianOf(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2
+  }
+  return sorted[mid]
+}
+
+function countOutliers(intervals: number[], threshold: number, median: number): number {
+  let count = 0
+  for (const interval of intervals) {
+    if (Math.abs(interval - median) > threshold) {
+      count += 1
+    }
+  }
+  return count
+}
 
 function isScannerBurst(timestamps: number[], now: number): boolean {
   if (timestamps.length < MIN_SCAN_CHAR_COUNT) {
@@ -56,14 +72,10 @@ function isScannerBurst(timestamps: number[], now: number): boolean {
     intervals.push(timestamps[i] - timestamps[i - 1])
   }
   // Include the trailing char-to-Enter gap so a delayed Enter (manual typing
-  // pattern) breaks the variance check.
+  // pattern) shows up as an outlier alongside the other intervals.
   intervals.push(now - timestamps[timestamps.length - 1])
-  for (let i = 1; i < intervals.length; i += 1) {
-    if (Math.abs(intervals[i] - intervals[i - 1]) > MAX_INTERVAL_VARIANCE_MS) {
-      return false
-    }
-  }
-  return true
+  const median = medianOf(intervals)
+  return countOutliers(intervals, OUTLIER_THRESHOLD_MS, median) <= MAX_OUTLIER_COUNT
 }
 
 type ReceivingHistory = {
