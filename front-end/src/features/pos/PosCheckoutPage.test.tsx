@@ -531,18 +531,58 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
   })
 
-  it('moves focus to the cash input when Enter is pressed on the scan field', async () => {
+  it('moves focus to the cash input when Enter is pressed on the scan field after the cart has items', async () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
 
     const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
     expect(scanInput).toHaveFocus()
 
-    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+    // First add a product to the cart so the focus-handoff has somewhere
+    // to land. The matching Enter that follows is the "trailing Enter" the
+    // scanner would send, so it is consumed and focus stays on the scan
+    // field after the add.
+    await act(async () => {
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+      fireEvent.keyDown(scanInput, { key: 'Enter' })
+    })
 
-    fireEvent.keyDown(scanInput, { key: 'Enter' })
+    expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+
+    // Now the user types something that does not match (or just leaves
+    // the field empty) and presses Enter. With items in the cart, focus
+    // should move to the cash input.
+    await act(async () => {
+      fireEvent.change(scanInput, { target: { value: 'unknown' } })
+      fireEvent.keyDown(scanInput, { key: 'Enter' })
+    })
 
     expect(screen.getByLabelText('จำนวนเงินที่รับ')).toHaveFocus()
+  })
+
+  it('does not duplicate a product when a barcode scanner appends Enter to a successful scan', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    expect(scanInput).toHaveFocus()
+
+    // Simulate a barcode scanner: the device streams the barcode into the
+    // input followed by a single Enter key.
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+    fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+    })
+    const cartTable = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+    expect(within(cartTable).getAllByText(/Drinking Water/)).toHaveLength(1)
+    expect(within(cartTable).getByText(/8850002000010/)).toBeInTheDocument()
+
+    // Quantity must stay at 1, not 2, even though the scanner sent Enter.
+    // (The previous behaviour ran onChange then ran onSelect on the Enter
+    // key, which added the same product twice.)
+    expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('1')
   })
 
   it('shows empty value for cash input when zero, and Enter on cash input triggers checkout', async () => {

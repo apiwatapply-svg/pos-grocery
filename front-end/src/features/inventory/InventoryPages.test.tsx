@@ -139,7 +139,10 @@ describe('Inventory pages', () => {
     render(<InventoryReceivingPage />)
 
     const scanInput = await screen.findByLabelText('สแกนหรือค้นหาสินค้า')
-    fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
+    // Use a partial query so the change handler does not auto-add the
+    // product (which would set the scan-enter flag), and Enter still
+    // reaches the keydown handler like a user-typed Enter.
+    fireEvent.change(scanInput, { target: { value: 'SQL' } })
     fireEvent.keyDown(scanInput, { key: 'Enter' })
 
     fireEvent.click(screen.getByRole('button', { name: 'บันทึกรับของ 1 รายการ' }))
@@ -179,7 +182,10 @@ describe('Inventory pages', () => {
     render(<InventoryReceivingPage />)
 
     const scanInput = await screen.findByLabelText('สแกนหรือค้นหาสินค้า')
-    fireEvent.change(scanInput, { target: { value: 'SQL Inventory Product' } })
+    // Use a partial query so the change handler does not auto-add the
+    // product (which would set the scan-enter flag), and Enter still
+    // reaches the keydown handler like a user-typed Enter.
+    fireEvent.change(scanInput, { target: { value: 'SQL' } })
     fireEvent.keyDown(scanInput, { key: 'Enter' })
 
     fireEvent.change(screen.getByLabelText('จำนวนรับเข้า SQL Inventory Product'), {
@@ -205,6 +211,28 @@ describe('Inventory pages', () => {
         unitCostSatang: 850,
       })
     })
+  })
+
+  it('does not duplicate a receiving queue line when a barcode scanner appends Enter to a successful scan', async () => {
+    render(<InventoryReceivingPage />)
+
+    const scanInput = await screen.findByLabelText('สแกนหรือค้นหาสินค้า')
+
+    // Simulate a barcode scanner: streams the barcode into the input and
+    // then fires a single Enter key as a terminator.
+    fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
+    fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+    const receivingRows = screen.getAllByRole('row')
+    const targetRow = receivingRows.find((row) =>
+      row.textContent?.includes('SQL Inventory Product'),
+    )
+    expect(targetRow).toBeDefined()
+    // Quantity must stay at 1, not 2, even though the scanner sent Enter.
+    expect(targetRow?.textContent).toMatch(/1.*SQL Inventory Product.*12.*13/)
+    expect(screen.getByText('รวม 1 ชิ้น')).toBeInTheDocument()
+    expect(scanInput).toHaveValue('')
+    expect(scanInput).toHaveFocus()
   })
 
   it('shows product loading errors outside the product dropdown', async () => {
@@ -282,5 +310,28 @@ describe('Inventory pages', () => {
         countedQuantity: 14,
       })
     })
+  })
+
+  it('does not duplicate a counting queue line when a barcode scanner appends Enter to a successful scan', async () => {
+    render(<StockCountingPage />)
+
+    const scanInput = await screen.findByLabelText('สแกนหรือค้นหาสินค้าเพื่อตรวจนับ')
+
+    // Simulate a barcode scanner: streams the barcode into the input and
+    // then fires a single Enter key as a terminator. The second change is
+    // what the cashier would actually type to scan (and matches the
+    // existing single-press scanner test below).
+    fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
+    fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('row', {
+          name: /1 SQL Inventory Product SQL-INV-001 box 12 12 0/,
+        }),
+      ).toBeInTheDocument()
+    })
+    expect(scanInput).toHaveValue('')
+    expect(scanInput).toHaveFocus()
   })
 })

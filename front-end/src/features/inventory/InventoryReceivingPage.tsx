@@ -117,6 +117,10 @@ function loadPersistedQueue(): ReceivingLine[] {
 
 export function InventoryReceivingPage() {
   const scanInputRef = useRef<SearchableDropdownHandle>(null)
+  // Tracks the trailing Enter that barcode scanners append to a scan so we
+  // can swallow it without re-running addScannedProduct (which would add
+  // the same product twice to the receiving queue).
+  const isConsumingScanEnterRef = useRef(false)
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<ReceivingHistory[]>([])
   const [scanValue, setScanValue] = useState('')
@@ -242,6 +246,10 @@ export function InventoryReceivingPage() {
     setScanValue(value)
 
     if (products.some((product) => matchesProduct(product, value))) {
+      // The trailing Enter from a barcode scanner will arrive next. Mark it
+      // so the keydown handler can ignore it instead of adding the same
+      // product twice to the receiving queue.
+      isConsumingScanEnterRef.current = true
       addScannedProduct(value)
     }
   }
@@ -371,10 +379,18 @@ export function InventoryReceivingPage() {
               value={scanValue}
               onChange={handleScanChange}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  handleScanEnter()
+                if (event.key !== 'Enter') {
+                  return
                 }
+                event.preventDefault()
+                if (isConsumingScanEnterRef.current) {
+                  // The Enter is the terminator from a barcode scanner that
+                  // just added the product via onChange — swallow it so the
+                  // search field does not add the same product again.
+                  isConsumingScanEnterRef.current = false
+                  return
+                }
+                handleScanEnter()
               }}
               onSelect={(option) => handleScanSelect(option)}
             />

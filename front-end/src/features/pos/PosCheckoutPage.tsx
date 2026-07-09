@@ -281,6 +281,11 @@ export function PosCheckoutPage() {
   const productQueryInputRef = useRef<SearchableDropdownHandle>(null)
   const cashReceivedInputRef = useRef<HTMLInputElement>(null)
   const checkoutButtonRef = useRef<HTMLButtonElement>(null)
+  // Tracks the trailing Enter that barcode scanners append to a scan so we
+  // can consume it without triggering the global focus-handoff or the
+  // search-field handler (which would add the same product twice and steal
+  // focus away from the scan field).
+  const isConsumingScanEnterRef = useRef(false)
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
@@ -440,6 +445,13 @@ export function PosCheckoutPage() {
       const queryInput = document.getElementById('pos-product-query')
       if (active === queryInput || (queryInput && queryInput.contains(active))) {
         event.preventDefault()
+        if (isConsumingScanEnterRef.current) {
+          // The Enter is the terminator from a barcode scanner that already
+          // added the product via onChange. Keep focus on the scan field so
+          // the cashier can keep scanning without having to click back.
+          isConsumingScanEnterRef.current = false
+          return
+        }
         if (hasCartItemsRef.current) {
           focusCashReceivedInput()
         } else {
@@ -657,10 +669,21 @@ export function PosCheckoutPage() {
     if (!product) {
       return
     }
+    // The trailing Enter from a barcode scanner will arrive next. Mark it
+    // so the keydown handler and the global focus-handoff can ignore it
+    // instead of adding the same product again or moving focus away.
+    isConsumingScanEnterRef.current = true
     void addProductToCart(product)
   }
 
   async function handleProductSelect(option: SearchableDropdownOption) {
+    // The trailing Enter from a barcode scanner also makes the dropdown
+    // call onSelect (because the exact match becomes the active row).
+    // Skip the duplicate add that would otherwise happen here. The flag
+    // is cleared by the keydown/global handlers that observe it.
+    if (isConsumingScanEnterRef.current) {
+      return
+    }
     const product = activeProducts.find((current) => current.id === option.value)
     if (!product) {
       setProductQuery('')
@@ -1020,12 +1043,18 @@ export function PosCheckoutPage() {
                 value={productQuery}
                 onChange={handleProductQueryChange}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    // Only act when the dropdown did not consume the event
-                    // (e.g. when there is no active option to pick).
-                    event.preventDefault()
-                    handleProductScanEnter()
+                  if (event.key !== 'Enter') {
+                    return
                   }
+                  event.preventDefault()
+                  if (isConsumingScanEnterRef.current) {
+                    // The Enter is the terminator from a barcode scanner that
+                    // just added the product via onChange — swallow it so the
+                    // search field does not add the same product again.
+                    isConsumingScanEnterRef.current = false
+                    return
+                  }
+                  handleProductScanEnter()
                 }}
                 onSelect={(option) => void handleProductSelect(option)}
               />
