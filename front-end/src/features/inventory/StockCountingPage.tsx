@@ -34,12 +34,32 @@ type StockAdjustmentHistory = {
   createdBy?: string
 }
 
-// Barcode scanners typically type a full barcode in <50ms per character and
-// fire the trailing Enter within ~10ms of the last character. Manual typing
-// is at least 200ms per character with a longer gap before Enter. Anything
-// where the trailing Enter arrives within this many milliseconds of the
-// last onChange is treated as a scanner event and its Enter is consumed.
+// Barcode scanners type a full barcode in a tight, consistent burst
+// (typically 10-30ms per character). Manual typing is much slower and
+// irregular (200-500ms per character, with pauses to look at the screen).
+// We treat the trailing Enter as a scanner terminator when:
+//   - at least 3 characters were typed
+//   - the gap between every consecutive character is below MAX_SCAN_INTERVAL_MS
+//   - the gap between the last character and the Enter is below
+//     SCAN_ENTER_THRESHOLD_MS
+// Any irregularity (a slow character, a pause to think) means it is manual
+// typing and the Enter should fall through to the manual flow.
+const MAX_SCAN_INTERVAL_MS = 80
 const SCAN_ENTER_THRESHOLD_MS = 100
+const MIN_SCAN_CHAR_COUNT = 3
+const MAX_SCAN_TIMESTAMP_BUFFER = 15
+
+function isScannerBurst(timestamps: number[], now: number): boolean {
+  if (timestamps.length < MIN_SCAN_CHAR_COUNT) {
+    return false
+  }
+  for (let i = 1; i < timestamps.length; i += 1) {
+    if (timestamps[i] - timestamps[i - 1] > MAX_SCAN_INTERVAL_MS) {
+      return false
+    }
+  }
+  return now - timestamps[timestamps.length - 1] < SCAN_ENTER_THRESHOLD_MS
+}
 
 function matchesProduct(product: Product, value: string) {
   const normalizedValue = value.trim().toLowerCase()
@@ -99,10 +119,11 @@ export function StockCountingPage() {
   // can swallow it without re-running addScannedProduct (which would add
   // the same product twice to the counting queue).
   const isConsumingScanEnterRef = useRef(false)
-  // Timestamp of the most recent onChange on the scan field. Used together
-  // with SCAN_ENTER_THRESHOLD_MS to tell a scanner's trailing Enter apart
-  // from a user pressing Enter after manually typing a barcode.
-  const lastScanChangeAtRef = useRef(0)
+  // Sliding window of timestamps for the most recent onChange calls on the
+  // scan field. Used together with isScannerBurst to tell a scanner's
+  // trailing Enter apart from a user pressing Enter after manually typing
+  // a barcode.
+  const scanCharTimestampsRef = useRef<number[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<StockAdjustmentHistory[]>([])
   const [scanValue, setScanValue] = useState('')
@@ -214,7 +235,11 @@ export function StockCountingPage() {
 
   function handleScanChange(value: string) {
     setScanValue(value)
-    lastScanChangeAtRef.current = Date.now()
+    const timestamps = scanCharTimestampsRef.current
+    timestamps.push(Date.now())
+    if (timestamps.length > MAX_SCAN_TIMESTAMP_BUFFER) {
+      timestamps.splice(0, timestamps.length - MAX_SCAN_TIMESTAMP_BUFFER)
+    }
 
     if (products.some((product) => matchesProduct(product, value))) {
       // The trailing Enter from a barcode scanner will arrive next. Mark it
@@ -360,10 +385,16 @@ export function StockCountingPage() {
                 if (isConsumingScanEnterRef.current) {
                   // The exact match was just added to the queue. Decide
                   // whether this Enter is the scanner's trailing key or a
-                  // user pressing Enter after typing the barcode by hand.
-                  const elapsed = Date.now() - lastScanChangeAtRef.current
+                  // user pressing Enter after typing the barcode by hand
+                  // by looking at the consistency of the recent keystrokes.
                   isConsumingScanEnterRef.current = false
-                  if (elapsed < SCAN_ENTER_THRESHOLD_MS) {
+                  const isScanner = isScannerBurst(
+                    scanCharTimestampsRef.current,
+                    Date.now(),
+                  )
+                  // Clear the burst window so the next typing starts fresh.
+                  scanCharTimestampsRef.current = []
+                  if (isScanner) {
                     // Scanner: swallow the Enter and keep focus on the
                     // scan field so the counter can keep scanning.
                     event.stopPropagation()
