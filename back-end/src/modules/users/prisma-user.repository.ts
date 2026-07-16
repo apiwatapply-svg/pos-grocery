@@ -551,29 +551,29 @@ function saleSummaryOrderClause(
 
   switch (sort) {
     case "receiptNumber":
-      return Prisma.sql`s."receiptNumber" ${dir} ${nullsLast}, s."soldAt" DESC`;
+      return Prisma.sql`fs."receiptNumber" ${dir} ${nullsLast}, fs."soldAt" DESC`;
     case "soldAt":
-      return Prisma.sql`s."soldAt" ${dir}, s."id" ASC`;
+      return Prisma.sql`fs."soldAt" ${dir}, fs."id" ASC`;
     case "totalSatang":
-      return Prisma.sql`s."totalSatang" ${dir} ${nullsLast}, s."soldAt" DESC`;
+      return Prisma.sql`fs."totalSatang" ${dir} ${nullsLast}, fs."soldAt" DESC`;
     case "totalCostSatang":
-      return Prisma.sql`agg."totalCostSatang" ${dir} ${nullsLast}, s."soldAt" DESC`;
+      return Prisma.sql`agg."totalCostSatang" ${dir} ${nullsLast}, fs."soldAt" DESC`;
     case "itemCount":
-      return Prisma.sql`agg."itemCount" ${dir} ${nullsLast}, s."soldAt" DESC`;
+      return Prisma.sql`agg."itemCount" ${dir} ${nullsLast}, fs."soldAt" DESC`;
     case "profitSatang":
-      return Prisma.sql`(s."totalSatang" - COALESCE(agg."totalCostSatang", 0)) ${dir}, s."soldAt" DESC`;
+      return Prisma.sql`(fs."totalSatang" - COALESCE(agg."totalCostSatang", 0)) ${dir}, fs."soldAt" DESC`;
     case "profitMarginPercent":
       return Prisma.sql`
         CASE
           WHEN COALESCE(agg."totalCostSatang", 0) > 0
-            THEN (s."totalSatang" - agg."totalCostSatang") / agg."totalCostSatang"
-          WHEN s."totalSatang" > 0 THEN 1
+            THEN (fs."totalSatang" - agg."totalCostSatang") / agg."totalCostSatang"
+          WHEN fs."totalSatang" > 0 THEN 1
           ELSE 0
-        END ${dir} ${nullsLast}, s."soldAt" DESC`;
+        END ${dir} ${nullsLast}, fs."soldAt" DESC`;
     case "status":
-      return Prisma.sql`s."status" ${dir} ${nullsLast}, s."soldAt" DESC`;
+      return Prisma.sql`fs."status" ${dir} ${nullsLast}, fs."soldAt" DESC`;
     default:
-      return Prisma.sql`s."soldAt" DESC`;
+      return Prisma.sql`fs."soldAt" DESC`;
   }
 }
 

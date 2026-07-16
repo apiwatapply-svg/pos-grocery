@@ -529,4 +529,91 @@ describe("POS Grocery MVP API", () => {
       }),
     ]);
   });
+
+  it("lists sale summaries with sort and direction query parameters", async () => {
+    const { app, owner } = await createFixture();
+
+    const water = await request(app)
+      .post("/api/products")
+      .set("Authorization", authHeader(owner))
+      .send({
+        name: "Sort Water",
+        barcode: "8850005000009",
+        unit: "bottle",
+        costPriceSatang: 400,
+        salePriceSatang: 500,
+        status: "active",
+      });
+
+    const snack = await request(app)
+      .post("/api/products")
+      .set("Authorization", authHeader(owner))
+      .send({
+        name: "Sort Snack",
+        barcode: "8850005000016",
+        unit: "pack",
+        costPriceSatang: 800,
+        salePriceSatang: 1500,
+        status: "active",
+      });
+
+    await request(app)
+      .post("/api/inventory/receive")
+      .set("Authorization", authHeader(owner))
+      .send({ productId: water.body.data.id, quantity: 20, unitCostSatang: 400 });
+    await request(app)
+      .post("/api/inventory/receive")
+      .set("Authorization", authHeader(owner))
+      .send({ productId: snack.body.data.id, quantity: 20, unitCostSatang: 800 });
+
+    // Earlier, cheaper sale.
+    await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850005000009", quantity: 4 }],
+        cashReceivedSatang: 5000,
+        paymentMethod: "cash",
+        soldAt: "2026-06-28T03:00:00.000Z",
+      });
+
+    // Later, more expensive sale.
+    await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850005000016", quantity: 5 }],
+        cashReceivedSatang: 10000,
+        paymentMethod: "cash",
+        soldAt: "2026-06-28T05:00:00.000Z",
+      });
+
+    const newestFirst = await request(app)
+      .get("/api/sales?page=1&pageSize=10&sort=soldAt&direction=desc")
+      .set("Authorization", authHeader(owner));
+    expect(newestFirst.status).toBe(200);
+    expect(newestFirst.body.data.items).toHaveLength(2);
+    expect(newestFirst.body.data.items[0].totalSatang).toBe(7500);
+    expect(newestFirst.body.data.items[1].totalSatang).toBe(2000);
+
+    const oldestFirst = await request(app)
+      .get("/api/sales?page=1&pageSize=10&sort=soldAt&direction=asc")
+      .set("Authorization", authHeader(owner));
+    expect(oldestFirst.status).toBe(200);
+    expect(oldestFirst.body.data.items[0].totalSatang).toBe(2000);
+    expect(oldestFirst.body.data.items[1].totalSatang).toBe(7500);
+
+    const highestTotalFirst = await request(app)
+      .get("/api/sales?page=1&pageSize=10&sort=totalSatang&direction=desc")
+      .set("Authorization", authHeader(owner));
+    expect(highestTotalFirst.status).toBe(200);
+    expect(highestTotalFirst.body.data.items[0].totalSatang).toBe(7500);
+    expect(highestTotalFirst.body.data.items[0].profitSatang).toBe(3500);
+
+    const lowestTotalFirst = await request(app)
+      .get("/api/sales?page=1&pageSize=10&sort=totalSatang&direction=asc")
+      .set("Authorization", authHeader(owner));
+    expect(lowestTotalFirst.status).toBe(200);
+    expect(lowestTotalFirst.body.data.items[0].totalSatang).toBe(2000);
+  });
 });
