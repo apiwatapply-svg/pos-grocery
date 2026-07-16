@@ -1721,8 +1721,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
             s."changeDueSatang",
             s."status",
             s."soldAt",
-            s."createdAt",
-            COUNT(*) OVER() AS "totalCount"
+            s."createdAt"
           FROM "Sale" s
           WHERE ${saleSummaryWhereClause(storeId, input)}
           ORDER BY s."soldAt" DESC
@@ -1730,15 +1729,17 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         ),
         sale_aggregates AS (
           SELECT
-            si."saleId" AS "saleId",
+            fs."id" AS "saleId",
             COUNT(si."id") AS "lineItemCount",
-            COALESCE(SUM(CASE WHEN s."status" = 'completed' THEN si."quantity" ELSE 0 END), 0) AS "itemCount",
-            COALESCE(SUM(CASE WHEN s."status" = 'completed' THEN p."costPriceSatang" * si."quantity" ELSE 0 END), 0) AS "totalCostSatang"
+            COALESCE(SUM(CASE WHEN fs."status" = 'completed' THEN si."quantity" ELSE 0 END), 0) AS "itemCount",
+            COALESCE(SUM(CASE WHEN fs."status" = 'completed' THEN COALESCE(p."costPriceSatang", 0) * si."quantity" ELSE 0 END), 0) AS "totalCostSatang"
           FROM filtered_sales fs
-          JOIN "Sale" s ON s."id" = fs."id"
           LEFT JOIN "SaleItem" si ON si."saleId" = fs."id"
           LEFT JOIN "Product" p ON p."id" = si."productId"
-          GROUP BY si."saleId"
+          GROUP BY fs."id"
+        ),
+        counted AS (
+          SELECT COUNT(*) AS "totalCount" FROM filtered_sales
         )
         SELECT
           fs."id",
@@ -1754,7 +1755,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
           COALESCE(agg."lineItemCount", 0) AS "lineItemCount",
           COALESCE(agg."itemCount", 0) AS "itemCount",
           COALESCE(agg."totalCostSatang", 0) AS "totalCostSatang",
-          fs."totalCount"
+          (SELECT "totalCount" FROM counted) AS "totalCount"
         FROM filtered_sales fs
         LEFT JOIN sale_aggregates agg ON agg."saleId" = fs."id"
         ${orderClause}
