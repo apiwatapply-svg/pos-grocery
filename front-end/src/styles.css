@@ -1597,7 +1597,10 @@ td span {
 
 .stock-counting-workspace .stock-counting-queue-panel {
   align-content: start;
-  align-self: start;
+  /* align-self defaults to "stretch" so the panel fills the flex column's
+     cross axis. Keeping it stretched lets the receiving-table and its
+     headers spread across the full container width on every viewport
+     (desktop, iPad 744-1366px). */
 }
 
 .stock-counting-workspace .receiving-table-wrap-full,
