@@ -525,8 +525,28 @@ export function PosCheckoutPage() {
   }
 
   function focusCashReceivedInput() {
-    cashReceivedInputRef.current?.focus()
-    cashReceivedInputRef.current?.select()
+    const input = cashReceivedInputRef.current
+    if (!input) {
+      return
+    }
+    input.focus()
+    // requestAnimationFrame ช่วยให้ browser เสร็จสิ้น focus cycle
+    // ก่อนเริ่ม select — แก้ปัญหา Firefox/Safari/iOS Safari ไม่ select
+    // text บน <input type="number"> เมื่อเรียก .select() ทันทีหลัง
+    // .focus() (focus event ยังไม่ settle ทำให้ selection ถูก override
+    // โดย default behavior ของ browser)
+    requestAnimationFrame(() => {
+      const current = cashReceivedInputRef.current
+      if (!current) {
+        return
+      }
+      try {
+        current.select()
+      } catch {
+        // type="number" ใน jsdom/บาง browser อาจ throw ถ้า input
+        // ไม่รองรับ selection — ไม่ block flow การชำระเงิน
+      }
+    })
   }
 
   function selectProductQuery() {
@@ -1490,6 +1510,9 @@ export function PosCheckoutPage() {
               <input
                 aria-label="จำนวนเงินที่รับ"
                 className="cash-received-input"
+                data-cash-covered={
+                  hasCartItems && displayCashReceived === cartTotal ? 'exact' : 'none'
+                }
                 data-keep-focus="allow"
                 disabled={!hasCartItems}
                 min="0"

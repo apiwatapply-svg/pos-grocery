@@ -560,6 +560,81 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByLabelText('จำนวนเงินที่รับ')).toHaveFocus()
   })
 
+  it('pre-fills the cash input with the exact cart total, marks it covered, and selects the text when Enter is pressed on the scan field', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+
+    // Add a product to the cart via barcode (the trailing Enter is the
+    // scanner terminator and must be consumed by the existing scanner
+    // handling).
+    await act(async () => {
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+      fireEvent.keyDown(scanInput, { key: 'Enter' })
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' }),
+      ).toBeInTheDocument()
+    })
+
+    // Cashier finishes scanning and presses Enter again on the (empty)
+    // scan field. This is the "ยืนยัน" Enter that should hand off focus
+    // to the cash input, pre-fill the exact total, and select the text.
+    const cashInput = screen.getByLabelText('จำนวนเงินที่รับ')
+    await act(async () => {
+      fireEvent.change(scanInput, { target: { value: '' } })
+      fireEvent.keyDown(scanInput, { key: 'Enter' })
+    })
+
+    await waitFor(() => {
+      expect(cashInput).toHaveFocus()
+    })
+
+    // Value should equal the cart total (Drinking Water @ 7 baht x 1 = 7).
+    await waitFor(() => {
+      expect(cashInput).toHaveValue(7)
+    })
+    // data-cash-covered marks the input as "covered by จ่ายพอดี" so the
+    // green tint CSS rule can style it.
+    expect(cashInput.getAttribute('data-cash-covered')).toBe('exact')
+    // Text must be fully selected so the cashier can type over it.
+    // jsdom does not implement selection on <input type="number">, so we
+    // assert the value was updated instead.
+    expect(cashInput).toHaveValue(7)
+  })
+
+  it('keeps focus on the scan field when Enter is used to select a product from the dropdown (manual mode)', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    expect(scanInput).toHaveFocus()
+
+    // Type a partial name that produces an exact match against the
+    // loaded products (Drinking Water). This mirrors a cashier typing
+    // a product name and pressing Enter to pick the highlighted row.
+    fireEvent.change(scanInput, { target: { value: 'Drinking Water' } })
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' }),
+      ).toBeInTheDocument()
+    })
+
+    // The Enter that selects from the dropdown must NOT move focus to
+    // the cash input — this Enter is for choosing a product, not for
+    // confirming payment. Focus stays on the scan field so the cashier
+    // can keep scanning the next item.
+    const cashInput = screen.getByLabelText('จำนวนเงินที่รับ')
+    expect(scanInput).toHaveFocus()
+    expect(cashInput).not.toHaveFocus()
+    // Cash input must NOT be pre-filled with the exact total either —
+    // its data-cash-covered attribute should still be "none".
+    expect(cashInput.getAttribute('data-cash-covered')).toBe('none')
+  })
+
   it('does not duplicate a product when a barcode scanner appends Enter to a successful scan', async () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()

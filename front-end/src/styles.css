@@ -1017,6 +1017,109 @@ td span {
   max-width: 1440px;
 }
 
+/* Tabs component — base styles shared by all tabbed surfaces. */
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.tabs-list {
+  align-items: stretch;
+  border-bottom: 1px solid #d7ded5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 100%;
+}
+
+.tabs-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  color: #536259;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  gap: 8px;
+  margin-bottom: -1px;
+  min-height: 42px;
+  padding: 10px 16px;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.tabs-trigger:hover:not(.disabled) {
+  background: #eef3ed;
+  color: #102017;
+}
+
+.tabs-trigger:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.tabs-trigger.active {
+  background: #ffffff;
+  border-bottom-color: #1d4ed8;
+  color: #102017;
+}
+
+.tabs-trigger.disabled {
+  color: #94a89a;
+  cursor: not-allowed;
+}
+
+.tabs-trigger-badge {
+  background: #e8f7ef;
+  border: 1px solid #b8eccf;
+  border-radius: 999px;
+  color: #006b3b;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.tabs-trigger.active .tabs-trigger-badge {
+  background: #dbeafe;
+  border-color: #9eb8ff;
+  color: #1d4ed8;
+}
+
+.tabs-panel {
+  display: block;
+  width: 100%;
+}
+
+.tabs-panel[hidden] {
+  display: none;
+}
+
+.tabs-panel:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .tabs-trigger {
+    flex: 1 1 auto;
+    font-size: 13px;
+    min-height: 38px;
+    padding: 8px 10px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .tabs-trigger-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+}
+
 .receiving-page {
   align-content: start;
 }
@@ -1104,22 +1207,6 @@ td span {
 .receiving-queue-panel {
   display: grid;
   gap: 12px;
-}
-
-.receiving-main-layout {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 6fr) minmax(360px, 4fr);
-  width: 100%;
-}
-
-.receiving-workspace-full .receiving-main-layout {
-  grid-column: 1 / -1;
-}
-
-.receiving-workspace-full .receiving-main-layout .panel {
-  grid-column: auto;
-  width: 100%;
 }
 
 .receiving-queue-panel-full {
@@ -1406,11 +1493,19 @@ td span {
 
 .receiving-history-table th:first-child,
 .receiving-history-table td:first-child {
+  text-align: right;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+}
+
+.receiving-history-table th:nth-child(2),
+.receiving-history-table td:nth-child(2) {
   width: auto;
 }
 
-.receiving-workspace-full .receiving-history-table th:first-child,
-.receiving-workspace-full .receiving-history-table td:first-child {
+.receiving-workspace-full .receiving-history-table th:nth-child(2),
+.receiving-workspace-full .receiving-history-table td:nth-child(2) {
   width: 165px;
   min-width: 165px;
   max-width: 165px;
@@ -1425,64 +1520,64 @@ td span {
   width: 100%;
 }
 
-.receiving-history-table td:first-child strong,
-.receiving-history-table td:first-child span {
+.receiving-history-table td:nth-child(2) strong,
+.receiving-history-table td:nth-child(2) span {
   display: block;
   overflow-wrap: anywhere;
 }
 
-.receiving-history-table td:first-child span {
+.receiving-history-table td:nth-child(2) span {
   color: #66746b;
   font-size: 12px;
   font-weight: 800;
   margin-top: 2px;
 }
 
-.receiving-history-table td:nth-child(2),
 .receiving-history-table td:nth-child(3),
 .receiving-history-table td:nth-child(4),
-.receiving-history-table th:nth-child(2),
+.receiving-history-table td:nth-child(5),
 .receiving-history-table th:nth-child(3),
-.receiving-history-table th:nth-child(4) {
+.receiving-history-table th:nth-child(4),
+.receiving-history-table th:nth-child(5) {
   text-align: right;
 }
 
-.receiving-history-table td:nth-child(5),
-.receiving-history-table th:nth-child(5) {
+.receiving-history-table td:nth-child(6),
+.receiving-history-table th:nth-child(6) {
   white-space: normal;
 }
 
-.receiving-history-table th:nth-child(2),
-.receiving-history-table td:nth-child(2),
 .receiving-history-table th:nth-child(3),
 .receiving-history-table td:nth-child(3),
 .receiving-history-table th:nth-child(4),
-.receiving-history-table td:nth-child(4) {
+.receiving-history-table td:nth-child(4),
+.receiving-history-table th:nth-child(5),
+.receiving-history-table td:nth-child(5) {
   width: 56px;
 }
 
-.receiving-history-table th:nth-child(5),
-.receiving-history-table td:nth-child(5) {
+.receiving-history-table th:nth-child(6),
+.receiving-history-table td:nth-child(6) {
   width: 102px;
 }
 
-.receiving-workspace-full .receiving-history-table th:nth-child(2),
-.receiving-workspace-full .receiving-history-table td:nth-child(2),
 .receiving-workspace-full .receiving-history-table th:nth-child(3),
 .receiving-workspace-full .receiving-history-table td:nth-child(3),
 .receiving-workspace-full .receiving-history-table th:nth-child(4),
-.receiving-workspace-full .receiving-history-table td:nth-child(4) {
+.receiving-workspace-full .receiving-history-table td:nth-child(4),
+.receiving-workspace-full .receiving-history-table th:nth-child(5),
+.receiving-workspace-full .receiving-history-table td:nth-child(5) {
   width: 48px;
 }
 
-.receiving-workspace-full .receiving-history-table th:nth-child(5),
-.receiving-workspace-full .receiving-history-table td:nth-child(5) {
+.receiving-workspace-full .receiving-history-table th:nth-child(6),
+.receiving-workspace-full .receiving-history-table td:nth-child(6) {
   width: 106px;
 }
 
-.receiving-workspace-full .receiving-history-table td:first-child strong,
-.receiving-workspace-full .receiving-history-table td:first-child span,
-.receiving-workspace-full .receiving-history-table td:nth-child(5) {
+.receiving-workspace-full .receiving-history-table td:nth-child(2) strong,
+.receiving-workspace-full .receiving-history-table td:nth-child(2) span,
+.receiving-workspace-full .receiving-history-table td:nth-child(6) {
   overflow-wrap: anywhere;
 }
 
@@ -1490,18 +1585,6 @@ td span {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  width: 100%;
-}
-
-.stock-counting-main-layout {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  width: 100%;
-}
-
-.stock-counting-main-layout>.panel {
-  grid-column: auto;
   width: 100%;
 }
 
@@ -3419,6 +3502,22 @@ button.table-action-link {
   width: 100%;
 }
 
+/*
+ * Visual highlight เมื่อ cash received ถูก pre-fill ด้วยยอดรวมตะกร้า
+ * (จ่ายพอดี) — แคชเชียร์เห็นชัดว่าตัวเลขปัจจุบันคือ "จ่ายพอดี" และพร้อม
+ * พิมพ์ทับด้วยจำนวนเงินที่ลูกค้าจ่ายจริง หรือกด Enter เพื่อ checkout
+ * ทันที. transition เบาๆ เพื่อไม่ให้กระตุกตาเวลา value เปลี่ยน.
+ */
+.payment-input-row .cash-received-input[data-cash-covered='exact'] {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
 .quick-cash-grid {
   display: grid;
   gap: 6px;
@@ -4233,18 +4332,6 @@ button.table-action-link {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .stock-counting-main-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .receiving-main-layout {
-    grid-template-columns: minmax(0, 6fr) minmax(360px, 4fr);
-  }
-
-  .stock-counting-main-layout>.panel {
-    grid-column: auto;
-  }
-
   .stock-counting-workspace .receiving-table th:nth-child(3),
   .stock-counting-workspace .receiving-table td:nth-child(3),
   .stock-counting-workspace .receiving-table th:nth-child(4),
@@ -4406,11 +4493,11 @@ button.table-action-link {
     font-size: 10px;
   }
 
-  .receiving-history-table td:first-child strong {
+  .receiving-history-table td:nth-child(2) strong {
     font-size: 11px;
   }
 
-  .receiving-history-table td:first-child span {
+  .receiving-history-table td:nth-child(2) span {
     font-size: 9px;
   }
 
@@ -4778,7 +4865,6 @@ button.table-action-link {
   .product-summary-cards,
   .dashboard-product-insight-row,
   .hour-product-detail-layout,
-  .receiving-main-layout,
   .receiving-scan-panel,
   .receiving-summary-panel,
   .sales-detail-summary,
@@ -5862,11 +5948,6 @@ button.table-action-link {
 }
 
 @media (max-width: 900px) {
-
-  .stock-counting-main-layout,
-  .receiving-main-layout {
-    grid-template-columns: 1fr;
-  }
 
   .stock-counting-history-panel {
     grid-column: auto;
