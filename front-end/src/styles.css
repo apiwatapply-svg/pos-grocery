@@ -6123,3 +6123,60 @@ button.table-action-link {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/*
+ * iPad / tablet range: ล็อก scroll ทั้งหน้าของ POS เพื่อกัน iOS Safari
+ * momentum/rubber-band ที่ทะลุ overflow: hidden ของ root. ครอบ iPad
+ * ทุกขนาด (Mini 744-768px, 10.9" 820-1180px, 11" 834-1190px, Pro 11"
+ * 834-1194px, Pro 12.9" / Air 13" 1024-1366px) ทั้ง portrait และ
+ * landscape. ช่องรายการสินค้า (.cart-table-wrap.pos-scroll-area) ยัง
+ * scroll ได้ตามปกติ และ modal/dropdown ใช้ position: absolute/fixed ของ
+ * ตัวเอง.
+ */
+@media (min-width: 744px) and (max-width: 1366px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+  }
+
+  #root,
+  .app-layout {
+    height: 100dvh;
+    height: 100vh; /* fallback สำหรับเบราว์เซอร์ที่ไม่รองรับ dvh */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .app-layout {
+    touch-action: none;
+  }
+
+  /* Lock POS route to the visible viewport so swipes ที่ header/footer/
+   * พื้นที่ว่างไม่เลื่อนทั้งหน้า. The :has() keeps the rule scoped to the
+   * POS page (และ page อื่นๆ ที่ใช้ .pos-workspace) เพื่อไม่กระทบ
+   * inventory/receiving/reports. */
+  .route-content:has(> .route-page > .pos-workspace) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .route-content:has(> .route-page > .pos-workspace) .route-page {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Cart scroll: ใช้ touch-action: pan-y เพื่อ override touch-action: none
+   * ของ .app-layout และอนุญาตให้ scroll เฉพาะในแนวตั้ง. overscroll-behavior:
+   * contain กัน rubber-band ไม่ให้ทะลุไปยัง parent. */
+  .cart-table-wrap.pos-scroll-area {
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+}
