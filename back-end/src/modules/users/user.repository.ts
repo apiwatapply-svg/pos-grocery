@@ -237,9 +237,28 @@ export type UserRepository = {
   ): Promise<ProductSalesHistoryRecord[]>;
   listSaleSummaries(
     storeId: string,
-    input?: { from?: string; to?: string; page?: number; pageSize?: number; limit?: number },
+    input?: {
+      from?: string;
+      to?: string;
+      page?: number;
+      pageSize?: number;
+      limit?: number;
+      sort?: SaleSummarySortKey;
+      direction?: "asc" | "desc";
+    },
   ): Promise<PaginatedResult<SaleSummaryRecord>>;
 };
+
+/** Keys the sale summary endpoint can sort by. Anything else is rejected. */
+export type SaleSummarySortKey =
+  | "receiptNumber"
+  | "soldAt"
+  | "totalSatang"
+  | "itemCount"
+  | "totalCostSatang"
+  | "profitSatang"
+  | "profitMarginPercent"
+  | "status";
 
 const createId = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
 const nowIso = () => new Date().toISOString();
@@ -361,6 +380,87 @@ function productMonthlySalesAverages(storeId: string, productIds: string[], sale
       return [productId, roundOneDecimal(totalQuantity / monthlyQuantities.size)];
     }),
   );
+}
+
+function compareSalesBy(sort: SaleSummarySortKey, direction: "asc" | "desc") {
+  const sign = direction === "asc" ? 1 : -1;
+
+  return (left: SaleRecord, right: SaleRecord) => {
+    let comparison = 0;
+    switch (sort) {
+      case "receiptNumber":
+        comparison = left.receiptNumber.localeCompare(right.receiptNumber);
+        break;
+      case "soldAt":
+        comparison = left.soldAt.localeCompare(right.soldAt);
+        break;
+      case "totalSatang":
+        comparison = left.totalSatang - right.totalSatang;
+        break;
+      case "totalCostSatang": {
+        const leftCost = left.items.reduce(
+          (sum, item) => sum + (item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity),
+          0,
+        );
+        const rightCost = right.items.reduce(
+          (sum, item) => sum + (item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity),
+          0,
+        );
+        comparison = leftCost - rightCost;
+        break;
+      }
+      case "itemCount": {
+        const leftCount = left.items.reduce((sum, item) => sum + item.quantity, 0);
+        const rightCount = right.items.reduce((sum, item) => sum + item.quantity, 0);
+        comparison = leftCount - rightCount;
+        break;
+      }
+      case "profitSatang": {
+        const leftCost = left.items.reduce(
+          (sum, item) => sum + (item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity),
+          0,
+        );
+        const rightCost = right.items.reduce(
+          (sum, item) => sum + (item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity),
+          0,
+        );
+        const leftProfit = left.totalSatang - leftCost;
+        const rightProfit = right.totalSatang - rightCost;
+        comparison = leftProfit - rightProfit;
+        break;
+      }
+      case "profitMarginPercent": {
+        const leftCost = left.items.reduce(
+          (sum, item) => sum + (item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity),
+          0,
+        );
+        const rightCost = right.items.reduce(
+          (sum, item) => sum + (item.totalCostSatang ?? (item.unitCostSatang ?? 0) * item.quantity),
+          0,
+        );
+        const leftProfit = left.totalSatang - leftCost;
+        const rightProfit = right.totalSatang - rightCost;
+        const leftMargin = leftCost > 0 ? leftProfit / leftCost : leftProfit > 0 ? Number.POSITIVE_INFINITY : 0;
+        const rightMargin = rightCost > 0 ? rightProfit / rightCost : rightProfit > 0 ? Number.POSITIVE_INFINITY : 0;
+        comparison = leftMargin - rightMargin;
+        break;
+      }
+      case "status":
+        comparison = left.status.localeCompare(right.status);
+        break;
+    }
+
+    if (comparison === 0) {
+      // Stable tie-breaker so the order is fully deterministic even when
+      // the user picks a column with many duplicate values.
+      comparison = right.soldAt.localeCompare(left.soldAt);
+      if (comparison === 0) {
+        comparison = left.id.localeCompare(right.id);
+      }
+    }
+
+    return comparison * sign;
+  };
 }
 
 function saleSummary(sale: SaleRecord): SaleSummaryRecord {
@@ -911,9 +1011,11 @@ export function createInMemoryUserRepository(seed?: {
     async listSaleSummaries(storeId, input) {
       const pageSize = Math.max(1, input?.limit ?? input?.pageSize ?? 10);
       const page = Math.max(1, input?.page ?? 1);
+      const sort = input?.sort ?? "soldAt";
+      const direction = input?.direction === "asc" ? "asc" : "desc";
       const filteredSales = Array.from(sales.values())
         .filter((sale) => sale.storeId === storeId && inRange(sale.soldAt, input))
-        .sort((left, right) => right.soldAt.localeCompare(left.soldAt));
+        .sort(compareSalesBy(sort, direction));
       const start = (page - 1) * pageSize;
 
       return {

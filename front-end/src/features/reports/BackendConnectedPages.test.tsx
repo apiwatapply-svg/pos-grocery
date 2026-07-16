@@ -866,13 +866,13 @@ describe('backend connected report pages', () => {
     expect(screen.queryByText('แสดง 1-10 จาก 12 รายการ')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'หน้าถัดไป' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'ยอดขาย เรียงจากมากไปน้อย' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ยอดขาย · เรียงจากมากไปน้อย' }))
 
     const table = screen.getByRole('table', { name: 'ตารางยอดขายรายสินค้า' })
     const rowsByAscendingSales = within(table).getAllByRole('row')
     expect(rowsByAscendingSales[1]).toHaveTextContent('SQL Product 1')
 
-    fireEvent.click(screen.getByRole('button', { name: 'ยอดขาย เรียงจากน้อยไปมาก' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ยอดขาย · เรียงจากน้อยไปมาก' }))
 
     const rowsByDescendingSales = within(table).getAllByRole('row')
     expect(rowsByDescendingSales[1]).toHaveTextContent('SQL Product 12')
@@ -887,13 +887,14 @@ describe('backend connected report pages', () => {
 
     expect(await screen.findByText('RC-SQL-001')).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'ลำดับ' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'วันที่' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'เวลา' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'จำนวนรายการ' })).toBeInTheDocument()
-    const receiptRow = screen.getByRole('row', { name: /1 RC-SQL-001 29\/06\/2026 08:35 1 รายการ/ })
+    expect(screen.getByRole('columnheader', { name: /วันที่\/เวลา/ })).toBeInTheDocument()
+    const receiptRow = screen.getByRole('row', { name: /1 RC-SQL-001 29\/06\/2026 08:35 27\.00 บาท 3 ชิ้น/ })
     expect(receiptRow).toBeInTheDocument()
-    expect(screen.getByText('ขายสำเร็จ')).toBeInTheDocument()
-    expect(mockedApiGet).toHaveBeenCalledWith('/sales?page=1&pageSize=10')
+    expect(within(receiptRow).getByText('18.00 บาท')).toBeInTheDocument()
+    expect(within(receiptRow).getByText('9.00 บาท')).toBeInTheDocument()
+    expect(within(receiptRow).getByText('50.00%')).toBeInTheDocument()
+    expect(within(receiptRow).getByText('ขายสำเร็จ')).toBeInTheDocument()
+    expect(mockedApiGet).toHaveBeenCalledWith('/sales?page=1&pageSize=10&sort=soldAt&direction=desc')
     expect(mockedApiGet).not.toHaveBeenCalledWith('/store/current')
     expect(mockedApiGet).not.toHaveBeenCalledWith('/store/current?includeLogo=true')
   })

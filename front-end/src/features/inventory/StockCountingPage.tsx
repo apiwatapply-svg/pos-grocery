@@ -9,6 +9,8 @@ import { Tabs, TabsList, TabsPanel, TabsTrigger } from '../../components/ui/Tabs
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
+import { SortableTableHeader } from '../shared/SortableTableHeader'
+import { useSortableTable } from '../shared/useSortableTable'
 
 type Product = {
   id: string
@@ -43,6 +45,14 @@ type StockAdjustmentHistoryPage = {
 }
 
 const STOCK_ADJUSTMENT_HISTORY_PAGE_SIZE = 20
+
+type StockHistorySortKey =
+  | 'createdAt'
+  | 'productName'
+  | 'barcode'
+  | 'type'
+  | 'quantityChange'
+  | 'balanceAfterChange'
 
 // Barcode scanners type a full barcode in a tight, even burst. Real
 // wireless scanners can introduce one outlier interval because their HID
@@ -232,6 +242,23 @@ export function StockCountingPage() {
     (sum, line) => sum + line.countedQuantity - line.product.stockQuantity,
     0,
   )
+  const {
+    sortKey: historySortKey,
+    direction: historySortDirection,
+    setSortKey: setHistorySortKey,
+    sortedRows: sortedHistory,
+  } = useSortableTable<StockAdjustmentHistory, StockHistorySortKey>(history, {
+    initialKey: 'createdAt',
+    initialDirection: 'descending',
+    columns: {
+      createdAt: { get: (row) => row.createdAt },
+      productName: { get: (row) => row.productName },
+      barcode: { get: (row) => row.barcode },
+      type: { get: (row) => row.type },
+      quantityChange: { type: 'number', get: (row) => row.quantityChange },
+      balanceAfterChange: { type: 'number', get: (row) => row.balanceAfterChange },
+    },
+  })
   const scanOptions = useMemo<SearchableDropdownOption[]>(
     () =>
       products.map((product) => ({
@@ -591,19 +618,55 @@ export function StockCountingPage() {
                 <table aria-label="ประวัติการปรับ stock" className="receiving-history-table stock-counting-history-table">
                   <thead>
                     <tr>
-                      <th>ลำดับ</th>
-                      <th>วันที่เวลา</th>
-                      <th>สินค้า</th>
-                      <th>Barcode</th>
-                      <th>ประเภท</th>
-                      <th>ปรับ</th>
-                      <th>ยอดจริงปัจจุบัน</th>
-                      <th>ผู้บันทึก</th>
+                      <th scope="col">ลำดับ</th>
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="createdAt"
+                        onSort={setHistorySortKey}
+                        label="วันที่เวลา"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="productName"
+                        onSort={setHistorySortKey}
+                        label="สินค้า"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="barcode"
+                        onSort={setHistorySortKey}
+                        label="Barcode"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="type"
+                        onSort={setHistorySortKey}
+                        label="ประเภท"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="quantityChange"
+                        onSort={setHistorySortKey}
+                        label="ปรับ"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="balanceAfterChange"
+                        onSort={setHistorySortKey}
+                        label="ยอดจริงปัจจุบัน"
+                      />
+                      <th scope="col">ผู้บันทึก</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {history.length > 0 ? (
-                      history.map((transaction, index) => (
+                    {sortedHistory.length > 0 ? (
+                      sortedHistory.map((transaction, index) => (
                         <tr key={transaction.id}>
                           <td>{formatNumber((historyPage - 1) * historyPageSize + index + 1)}</td>
                           <td>{formatHistoryDateTime(transaction.createdAt)}</td>

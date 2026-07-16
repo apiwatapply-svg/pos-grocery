@@ -5,6 +5,8 @@ import { formatNumber } from '../../lib/format/number'
 import { confirmAction } from '../../lib/ui/confirm'
 import { PaginationControls } from '../shared/Pagination'
 import { paginateItems } from '../shared/paginationUtils'
+import { SortableTableHeader } from '../shared/SortableTableHeader'
+import { useSortableTable } from '../shared/useSortableTable'
 
 type User = {
   id: string
@@ -59,6 +61,13 @@ function emptyCreateDraft(defaultStoreId: string): CreateUserDraft {
   }
 }
 
+type UserSortKey =
+  | 'storeName'
+  | 'username'
+  | 'displayName'
+  | 'role'
+  | 'status'
+
 export function UserManagementPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -68,7 +77,24 @@ export function UserManagementPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [message, setMessage] = useState('กำลังโหลดผู้ใช้')
-  const paginatedUsers = paginateItems(users, currentPage)
+  const storesById = useMemo(() => {
+    const map = new Map<string, Store>()
+    stores.forEach((store) => map.set(store.id, store))
+    return map
+  }, [stores])
+  const { sortKey, direction, setSortKey, sortedRows } = useSortableTable<User, UserSortKey>(users, {
+    initialKey: 'username',
+    columns: {
+      storeName: {
+        get: (user) => storesById.get(user.storeId)?.name ?? user.storeId,
+      },
+      username: { get: (user) => user.username },
+      displayName: { get: (user) => user.displayName },
+      role: { get: (user) => user.role },
+      status: { get: (user) => user.status },
+    },
+  })
+  const paginatedUsers = paginateItems(sortedRows, currentPage)
 
   const roleOptions = useMemo<SelectOption[]>(
     () => [
@@ -429,20 +455,50 @@ export function UserManagementPage() {
         </div>
       ) : null}
       <div className="table-wrap panel">
-        <table>
+        <table aria-label="ตารางผู้ใช้">
           <thead>
             <tr>
-              <th>No</th>
-              <th>ร้านค้า</th>
-              <th>Username</th>
-              <th>ชื่อ</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>จัดการ</th>
+              <th scope="col">No</th>
+              <SortableTableHeader
+                activeSortKey={sortKey}
+                direction={direction}
+                sortKey="storeName"
+                onSort={setSortKey}
+                label="ร้านค้า"
+              />
+              <SortableTableHeader
+                activeSortKey={sortKey}
+                direction={direction}
+                sortKey="username"
+                onSort={setSortKey}
+                label="Username"
+              />
+              <SortableTableHeader
+                activeSortKey={sortKey}
+                direction={direction}
+                sortKey="displayName"
+                onSort={setSortKey}
+                label="ชื่อ"
+              />
+              <SortableTableHeader
+                activeSortKey={sortKey}
+                direction={direction}
+                sortKey="role"
+                onSort={setSortKey}
+                label="Role"
+              />
+              <SortableTableHeader
+                activeSortKey={sortKey}
+                direction={direction}
+                sortKey="status"
+                onSort={setSortKey}
+                label="Status"
+              />
+              <th scope="col">จัดการ</th>
             </tr>
           </thead>
           <tbody>
-            {users.length > 0 ? paginatedUsers.items.map((user, index) => (
+            {sortedRows.length > 0 ? paginatedUsers.items.map((user, index) => (
               <tr key={user.id}>
                 <td>{formatNumber(paginatedUsers.startIndex + index + 1)}</td>
                 <td>{storeName(user.storeId)}</td>
@@ -479,7 +535,7 @@ export function UserManagementPage() {
         </table>
         <PaginationControls
           currentPage={currentPage}
-          totalItems={users.length}
+          totalItems={sortedRows.length}
           onPageChange={setCurrentPage}
         />
       </div>

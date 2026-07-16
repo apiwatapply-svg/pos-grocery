@@ -11,6 +11,7 @@ import {
   type PaginatedApiResponse,
 } from '../reports/reportApi'
 import { PaginationControls } from '../shared/Pagination'
+import { SortableTableHeader } from '../shared/SortableTableHeader'
 import { displayReceiptNumber } from './receiptNumber'
 
 type CurrentStore = {
@@ -45,12 +46,29 @@ function receiptDateTimeParts(value?: string) {
 
 const receiptPageSize = 10
 
-function receiptItemCount(sale: ApiSale | ApiSaleSummary) {
-  return sale.itemCount ?? sale.items?.reduce((total, item) => total + item.quantity, 0) ?? 0
+type SaleSortKey =
+  | 'receiptNumber'
+  | 'soldAt'
+  | 'totalSatang'
+  | 'itemCount'
+  | 'totalCostSatang'
+  | 'profitSatang'
+  | 'profitMarginPercent'
+  | 'status'
+
+const saleSortLabels: Record<SaleSortKey, string> = {
+  receiptNumber: 'เลขที่ใบเสร็จ',
+  soldAt: 'วันที่/เวลา',
+  totalSatang: 'ยอดขาย',
+  itemCount: 'จำนวนชิ้น',
+  totalCostSatang: 'ต้นทุน',
+  profitSatang: 'กำไร',
+  profitMarginPercent: 'กำไร%',
+  status: 'สถานะ',
 }
 
-function receiptLineCount(sale: ApiSale | ApiSaleSummary) {
-  return ('lineItemCount' in sale ? sale.lineItemCount : undefined) ?? sale.items?.length ?? receiptItemCount(sale)
+function receiptItemCount(sale: ApiSale | ApiSaleSummary) {
+  return sale.itemCount ?? sale.items?.reduce((total, item) => total + item.quantity, 0) ?? 0
 }
 
 function receiptCostSatang(sale: ApiSale | ApiSaleSummary) {
@@ -103,13 +121,21 @@ export function ReceiptListPage() {
   const [selectedSale, setSelectedSale] = useState<ApiSale | null>(null)
   const [currentStore, setCurrentStore] = useState<CurrentStore>({ name: 'POS Grocery' })
   const [message, setMessage] = useState('กำลังโหลดใบเสร็จ')
+  const [sortKey, setSortKey] = useState<SaleSortKey>('soldAt')
+  const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('descending')
   const sales = receiptPage?.items ?? []
   const canManageReceipt = session?.user.role === 'owner' || session?.user.role === 'admin'
 
   useEffect(() => {
     let active = true
 
-    apiGet<PaginatedApiResponse<ApiSaleSummary>>(`/sales?page=${currentPage}&pageSize=${receiptPageSize}`)
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      pageSize: String(receiptPageSize),
+      sort: sortKey,
+      direction: sortDirection === 'ascending' ? 'asc' : 'desc',
+    })
+    apiGet<PaginatedApiResponse<ApiSaleSummary>>(`/sales?${params.toString()}`)
       .then((nextPage) => {
         if (active) {
           setReceiptPage(nextPage)
@@ -125,7 +151,17 @@ export function ReceiptListPage() {
     return () => {
       active = false
     }
-  }, [currentPage])
+  }, [currentPage, sortKey, sortDirection])
+
+  function changeSort(key: SaleSortKey) {
+    if (sortKey === key) {
+      setSortDirection((current) => (current === 'ascending' ? 'descending' : 'ascending'))
+    } else {
+      setSortKey(key)
+      setSortDirection('ascending')
+    }
+    setCurrentPage(1)
+  }
 
   function updateSale(nextSale: ApiSale) {
     setReceiptPage((current) => current
@@ -217,20 +253,74 @@ export function ReceiptListPage() {
         {sales.length ? (
           <>
             <div className="table-wrap receipt-history-table-wrap">
-              <table className="receipt-history-table">
+              <table className="receipt-history-table" aria-label="ตารางประวัติใบเสร็จ">
                 <thead>
                   <tr>
                     <th scope="col">ลำดับ</th>
-                    <th scope="col">เลขที่ใบเสร็จ</th>
-                    <th scope="col">วันที่</th>
-                    <th scope="col">เวลา</th>
-                    <th scope="col">จำนวนรายการ</th>
-                    <th scope="col">ยอดขาย</th>
-                    <th scope="col">จำนวนชิ้น</th>
-                    <th scope="col">ต้นทุน</th>
-                    <th scope="col">กำไร</th>
-                    <th scope="col">กำไร%</th>
-                    <th scope="col">สถานะ</th>
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.receiptNumber}
+                      direction={sortDirection}
+                      sortKey="receiptNumber"
+                      onSort={changeSort}
+                      label="เลขที่ใบเสร็จ"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.soldAt}
+                      direction={sortDirection}
+                      sortKey="soldAt"
+                      onSort={changeSort}
+                      label="วันที่/เวลา"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.totalSatang}
+                      direction={sortDirection}
+                      sortKey="totalSatang"
+                      onSort={changeSort}
+                      label="ยอดขาย"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.itemCount}
+                      direction={sortDirection}
+                      sortKey="itemCount"
+                      onSort={changeSort}
+                      label="จำนวนชิ้น"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.totalCostSatang}
+                      direction={sortDirection}
+                      sortKey="totalCostSatang"
+                      onSort={changeSort}
+                      label="ต้นทุน"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.profitSatang}
+                      direction={sortDirection}
+                      sortKey="profitSatang"
+                      onSort={changeSort}
+                      label="กำไร"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.profitMarginPercent}
+                      direction={sortDirection}
+                      sortKey="profitMarginPercent"
+                      onSort={changeSort}
+                      label="กำไร%"
+                    />
+                    <SortableTableHeader
+                      activeSortKey={sortKey}
+                      ariaLabel={saleSortLabels.status}
+                      direction={sortDirection}
+                      sortKey="status"
+                      onSort={changeSort}
+                      label="สถานะ"
+                    />
                     <th scope="col">รายละเอียด</th>
                   </tr>
                 </thead>
@@ -250,9 +340,12 @@ export function ReceiptListPage() {
                             {readableReceiptNumber}
                           </button>
                         </td>
-                        <td>{dateTime.date}</td>
-                        <td>{dateTime.time}</td>
-                        <td>{formatNumber(receiptLineCount(sale))} รายการ</td>
+                        <td>
+                          <div className="receipt-history-date-time">
+                            <span className="receipt-history-date">{dateTime.date}</span>
+                            <span className="receipt-history-time">{dateTime.time}</span>
+                          </div>
+                        </td>
                         <td>
                           <strong>{bahtFromSatang(sale.totalSatang)} บาท</strong>
                         </td>

@@ -8,8 +8,8 @@ import {
   type ProductSalesReportRow,
   type SalesReport,
 } from './reportApi'
+import { SortableTableHeader, type SortDirection } from '../shared/SortableTableHeader'
 
-type SortDirection = 'ascending' | 'descending'
 type SalesReportSortKey =
   | 'rank'
   | 'productName'
@@ -216,38 +216,6 @@ export function SalesReportPage() {
     ))
   }
 
-  function salesReportSortLabel(key: SalesReportSortKey, label: string) {
-    if (salesReportSort.key !== key) {
-      return `เรียงตาม${label}`
-    }
-
-    return `${label} เรียงจาก${salesReportSort.direction === 'ascending' ? 'น้อยไปมาก' : 'มากไปน้อย'}`
-  }
-
-  function salesReportSortIndicator(key: SalesReportSortKey) {
-    if (salesReportSort.key !== key) {
-      return '↕'
-    }
-
-    return salesReportSort.direction === 'ascending' ? '↑' : '↓'
-  }
-
-  function sortableHeader(key: SalesReportSortKey, label: string) {
-    return (
-      <th aria-sort={salesReportSort.key === key ? salesReportSort.direction : 'none'}>
-        <button
-          aria-label={salesReportSortLabel(key, label)}
-          className="table-sort-button"
-          onClick={() => changeSalesReportSort(key)}
-          type="button"
-        >
-          <span>{label}</span>
-          <span aria-hidden="true">{salesReportSortIndicator(key)}</span>
-        </button>
-      </th>
-    )
-  }
-
   function exportReport() {
     void apiDownload(`/reports/export.xlsx${query}`, 'sales-report.xlsx')
   }
@@ -299,15 +267,69 @@ export function SalesReportPage() {
             <table className="sales-report-table" aria-label="ตารางยอดขายรายสินค้า">
               <thead>
                 <tr>
-                  {sortableHeader('rank', 'NO')}
-                  {sortableHeader('productName', 'สินค้า')}
-                  {sortableHeader('barcode', 'BARCODE')}
-                  {sortableHeader('billCount', 'จำนวนบิล')}
-                  {sortableHeader('quantity', 'จำนวนชิ้น')}
-                  {sortableHeader('totalSalesSatang', 'ยอดขาย')}
-                  {sortableHeader('totalCostSatang', 'ต้นทุน')}
-                  {sortableHeader('profitSatang', 'กำไร')}
-                  {sortableHeader('profitMarginPercent', 'กำไร%')}
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="rank"
+                    onSort={changeSalesReportSort}
+                    label="NO"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="productName"
+                    onSort={changeSalesReportSort}
+                    label="สินค้า"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="barcode"
+                    onSort={changeSalesReportSort}
+                    label="BARCODE"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="billCount"
+                    onSort={changeSalesReportSort}
+                    label="จำนวนบิล"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="quantity"
+                    onSort={changeSalesReportSort}
+                    label="จำนวนชิ้น"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="totalSalesSatang"
+                    onSort={changeSalesReportSort}
+                    label="ยอดขาย"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="totalCostSatang"
+                    onSort={changeSalesReportSort}
+                    label="ต้นทุน"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="profitSatang"
+                    onSort={changeSalesReportSort}
+                    label="กำไร"
+                  />
+                  <SortableTableHeader
+                    activeSortKey={salesReportSort.key}
+                    direction={salesReportSort.direction}
+                    sortKey="profitMarginPercent"
+                    onSort={changeSalesReportSort}
+                    label="กำไร%"
+                  />
                 </tr>
               </thead>
               <tbody>

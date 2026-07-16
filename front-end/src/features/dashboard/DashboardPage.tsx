@@ -222,19 +222,23 @@ export function DashboardPage() {
     ? fillEmptyHourlySalesSlots(dashboard.hourlySales ?? dashboard.bestTimeSlots.map((slot) => ({ ...slot, items: [] })))
     : []
   const selectedHourSales = hourlySales.find((slot) => slot.hour === selectedHour) ?? hourlySales[0]
-  const sortedSelectedHourItems = selectedHourSales
-    ? [...selectedHourSales.items].sort(
-        (leftItem, rightItem) =>
-          hourProductMetricValue(rightItem, selectedHourSales, hourlyMetric) -
-          hourProductMetricValue(leftItem, selectedHourSales, hourlyMetric),
+  // Sort by the currently selected hourly metric. The detail table below
+  // mirrors this order so the chart and the table always match.
+  const selectedHourItems = selectedHourSales
+    ? limitDashboardItems(
+        [...selectedHourSales.items].sort(
+          (leftItem, rightItem) =>
+            hourProductMetricValue(rightItem, selectedHourSales, hourlyMetric) -
+            hourProductMetricValue(leftItem, selectedHourSales, hourlyMetric),
+        ),
+        itemLimit,
       )
     : []
-  const selectedHourItems = limitDashboardItems(sortedSelectedHourItems, itemLimit)
   const maxSellerQuantity = Math.max(...bestSellers.map((item) => item.quantity), 1)
   const maxProfitSatang = Math.max(...bestProfitProducts.map((item) => item.profitSatang), 1)
   const maxSelectedHourMetricValue = selectedHourSales
     ? Math.max(
-        ...sortedSelectedHourItems.map((item) => hourProductMetricValue(item, selectedHourSales, hourlyMetric)),
+        ...selectedHourSales.items.map((item) => hourProductMetricValue(item, selectedHourSales, hourlyMetric)),
         1,
       )
     : 1
@@ -496,11 +500,11 @@ export function DashboardPage() {
                   <table aria-label="ตารางรายละเอียดสินค้าที่มีการขาย">
                     <thead>
                       <tr>
-                        <th>อันดับ</th>
-                        <th>สินค้า</th>
-                        <th>จำนวน</th>
-                        <th>ยอดขาย</th>
-                        <th>กำไร</th>
+                        <th scope="col">อันดับ</th>
+                        <th scope="col">สินค้า</th>
+                        <th scope="col">จำนวน</th>
+                        <th scope="col">ยอดขาย</th>
+                        <th scope="col">กำไร</th>
                       </tr>
                     </thead>
                     <tbody>

@@ -3,6 +3,7 @@ import { AppError } from "../../shared/errors/app-error.ts";
 import type { AuthenticatedUser } from "../auth/auth.middleware.ts";
 import {
   defaultUserRepository,
+  type SaleSummarySortKey,
   type UserRepository,
 } from "../users/user.repository.ts";
 import { checkoutSchema } from "./sale.schemas.ts";
@@ -40,6 +41,29 @@ function dateRange(request: Parameters<RequestHandler>[0]) {
   };
 }
 
+const allowedSaleSummarySortKeys: SaleSummarySortKey[] = [
+  "receiptNumber",
+  "soldAt",
+  "totalSatang",
+  "itemCount",
+  "totalCostSatang",
+  "profitSatang",
+  "profitMarginPercent",
+  "status",
+];
+
+function parseSort(request: Parameters<RequestHandler>[0]): {
+  sort: SaleSummarySortKey;
+  direction: "asc" | "desc";
+} {
+  const rawSort = typeof request.query.sort === "string" ? request.query.sort : "soldAt";
+  const sort = (allowedSaleSummarySortKeys as string[]).includes(rawSort)
+    ? (rawSort as SaleSummarySortKey)
+    : "soldAt";
+  const direction = request.query.direction === "asc" ? "asc" : "desc";
+  return { sort, direction };
+}
+
 export function listSalesController(deps?: { repository?: UserRepository }): RequestHandler {
   const repository = deps?.repository ?? defaultUserRepository;
 
@@ -48,10 +72,13 @@ export function listSalesController(deps?: { repository?: UserRepository }): Req
       const user = requireLocalUser(response);
       const pageSize = positiveInt(request.query.pageSize ?? request.query.limit, 10, 100);
       const page = positiveInt(request.query.page, 1, 100000);
+      const { sort, direction } = parseSort(request);
       const result = await repository.listSaleSummaries(user.storeId, {
         ...dateRange(request),
         page,
         pageSize,
+        sort,
+        direction,
       });
 
       response.json({ success: true, data: result });

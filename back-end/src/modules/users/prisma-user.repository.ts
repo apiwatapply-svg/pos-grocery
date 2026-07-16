@@ -12,6 +12,7 @@ import type {
   ProductSalesHistoryRecord,
   ProductRecord,
   SaleSummaryRecord,
+  SaleSummarySortKey,
   SaleRecord,
   StoreRecord,
   UserRecord,
@@ -538,6 +539,42 @@ function saleSummaryWhereClause(storeId: string, input?: { from?: string; to?: s
   }
 
   return Prisma.join(conditions, " AND ");
+}
+
+/** Maps a public sort key to a safe SQL fragment. Falls back to soldAt DESC. */
+function saleSummaryOrderClause(
+  sort: SaleSummarySortKey | undefined,
+  direction: "asc" | "desc" | undefined,
+) {
+  const dir = direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  const nullsLast = Prisma.sql`NULLS LAST`;
+
+  switch (sort) {
+    case "receiptNumber":
+      return Prisma.sql`s."receiptNumber" ${dir} ${nullsLast}, s."soldAt" DESC`;
+    case "soldAt":
+      return Prisma.sql`s."soldAt" ${dir}, s."id" ASC`;
+    case "totalSatang":
+      return Prisma.sql`s."totalSatang" ${dir} ${nullsLast}, s."soldAt" DESC`;
+    case "totalCostSatang":
+      return Prisma.sql`agg."totalCostSatang" ${dir} ${nullsLast}, s."soldAt" DESC`;
+    case "itemCount":
+      return Prisma.sql`agg."itemCount" ${dir} ${nullsLast}, s."soldAt" DESC`;
+    case "profitSatang":
+      return Prisma.sql`(s."totalSatang" - COALESCE(agg."totalCostSatang", 0)) ${dir}, s."soldAt" DESC`;
+    case "profitMarginPercent":
+      return Prisma.sql`
+        CASE
+          WHEN COALESCE(agg."totalCostSatang", 0) > 0
+            THEN (s."totalSatang" - agg."totalCostSatang") / agg."totalCostSatang"
+          WHEN s."totalSatang" > 0 THEN 1
+          ELSE 0
+        END ${dir} ${nullsLast}, s."soldAt" DESC`;
+    case "status":
+      return Prisma.sql`s."status" ${dir} ${nullsLast}, s."soldAt" DESC`;
+    default:
+      return Prisma.sql`s."soldAt" DESC`;
+  }
 }
 
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -1669,6 +1706,9 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       const pageSize = Math.max(1, input?.limit ?? input?.pageSize ?? 10);
       const page = Math.max(1, input?.page ?? 1);
       const offset = (page - 1) * pageSize;
+      const sort = input?.sort;
+      const direction = input?.direction;
+      const orderClause = saleSummaryOrderClause(sort, direction);
       const rows = await prisma.$queryRaw<SaleSummarySqlRow[]>(Prisma.sql`
         WITH filtered_sales AS (
           SELECT
@@ -1686,7 +1726,19 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
           FROM "Sale" s
           WHERE ${saleSummaryWhereClause(storeId, input)}
           ORDER BY s."soldAt" DESC
-          LIMIT ${pageSize} OFFSET ${offset}
+          LIMIT ${pageSize + 200} OFFSET 0
+        ),
+        sale_aggregates AS (
+          SELECT
+            si."saleId" AS "saleId",
+            COUNT(si."id") AS "lineItemCount",
+            COALESCE(SUM(CASE WHEN s."status" = 'completed' THEN si."quantity" ELSE 0 END), 0) AS "itemCount",
+            COALESCE(SUM(CASE WHEN s."status" = 'completed' THEN p."costPriceSatang" * si."quantity" ELSE 0 END), 0) AS "totalCostSatang"
+          FROM filtered_sales fs
+          JOIN "Sale" s ON s."id" = fs."id"
+          LEFT JOIN "SaleItem" si ON si."saleId" = fs."id"
+          LEFT JOIN "Product" p ON p."id" = si."productId"
+          GROUP BY si."saleId"
         )
         SELECT
           fs."id",
@@ -1699,25 +1751,14 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
           fs."status",
           fs."soldAt",
           fs."createdAt",
-          COALESCE(COUNT(si."id"), 0) AS "lineItemCount",
-          COALESCE(SUM(CASE WHEN fs."status" = 'completed' THEN si."quantity" ELSE 0 END), 0) AS "itemCount",
-          COALESCE(SUM(CASE WHEN fs."status" = 'completed' THEN p."costPriceSatang" * si."quantity" ELSE 0 END), 0) AS "totalCostSatang",
-          COALESCE(MAX(fs."totalCount"), 0) AS "totalCount"
+          COALESCE(agg."lineItemCount", 0) AS "lineItemCount",
+          COALESCE(agg."itemCount", 0) AS "itemCount",
+          COALESCE(agg."totalCostSatang", 0) AS "totalCostSatang",
+          fs."totalCount"
         FROM filtered_sales fs
-        LEFT JOIN "SaleItem" si ON si."saleId" = fs."id"
-        LEFT JOIN "Product" p ON p."id" = si."productId"
-        GROUP BY
-          fs."id",
-          fs."storeId",
-          fs."cashierUserId",
-          fs."receiptNumber",
-          fs."totalSatang",
-          fs."cashReceivedSatang",
-          fs."changeDueSatang",
-          fs."status",
-          fs."soldAt",
-          fs."createdAt"
-        ORDER BY fs."soldAt" DESC
+        LEFT JOIN sale_aggregates agg ON agg."saleId" = fs."id"
+        ${orderClause}
+        LIMIT ${pageSize} OFFSET ${offset}
       `);
 
       return {

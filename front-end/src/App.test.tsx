@@ -70,7 +70,7 @@ const protectedRouteCases: Array<{
   allowedRoles: Role[]
 }> = [
   { path: '/dashboard', heading: 'Dashboard', allowedRoles: ['owner', 'admin', 'stock'] },
-  { path: '/pos', heading: 'ขายสินค้า / Scan barcode', allowedRoles: ['owner', 'admin', 'cashier'] },
+  { path: '/pos', heading: 'Checkout', allowedRoles: ['owner', 'admin', 'cashier'] },
   { path: '/customer-display', heading: 'จอลูกค้า', allowedRoles: ['owner', 'admin', 'cashier'] },
   { path: '/receipts', heading: 'ประวัติใบเสร็จ', allowedRoles: ['owner', 'admin', 'cashier'] },
   { path: '/receipts/receipt-1', heading: 'รายละเอียดใบเสร็จ', allowedRoles: ['owner', 'admin', 'cashier'] },

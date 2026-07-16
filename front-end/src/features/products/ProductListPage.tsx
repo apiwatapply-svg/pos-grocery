@@ -10,6 +10,7 @@ import { canAccessRoute } from '../../lib/auth/permissions'
 import { readSession } from '../../lib/auth/session'
 import { formatBaht, formatNumber, formatPercent } from '../../lib/format/number'
 import { compressImageFile, productImageCompression } from '../../lib/images/imageCompression'
+import { SortableTableHeader, type SortDirection } from '../shared/SortableTableHeader'
 
 type Product = {
   id: string
@@ -26,8 +27,6 @@ type Product = {
   status: 'active' | 'inactive'
   averageMonthlySalesQuantity?: number
 }
-
-type SortDirection = 'ascending' | 'descending'
 
 type ProductSortKey =
   | 'rank'
@@ -646,38 +645,6 @@ export function ProductListPage() {
 
       return nextSort
     })
-  }
-
-  function productSortLabel(key: ProductSortKey, label: string) {
-    if (productSort?.key !== key) {
-      return `เรียงตาม${label}`
-    }
-
-    return `${label} เรียงจาก${productSort.direction === 'ascending' ? 'น้อยไปมาก' : 'มากไปน้อย'}`
-  }
-
-  function productSortIndicator(key: ProductSortKey) {
-    if (productSort?.key !== key) {
-      return '↕'
-    }
-
-    return productSort.direction === 'ascending' ? '↑' : '↓'
-  }
-
-  function sortableHeader(key: ProductSortKey, label: string) {
-    return (
-      <th aria-sort={productSort?.key === key ? productSort.direction : 'none'}>
-        <button
-          aria-label={productSortLabel(key, label)}
-          className="table-sort-button"
-          onClick={() => changeProductSort(key)}
-          type="button"
-        >
-          <span>{label}</span>
-          <span aria-hidden="true">{productSortIndicator(key)}</span>
-        </button>
-      </th>
-    )
   }
 
   function openProductHistory(product: Product) {
@@ -1466,19 +1433,85 @@ export function ProductListPage() {
         <table className="product-inventory-table">
           <thead>
             <tr>
-              {sortableHeader('rank', 'อันดับ')}
-              <th>รูป</th>
-              {sortableHeader('name', 'สินค้า')}
-              {sortableHeader('barcode', 'Barcode')}
-              {sortableHeader('unit', 'หน่วย')}
-              {sortableHeader('costPriceSatang', 'ต้นทุน')}
-              {sortableHeader('salePriceSatang', 'ราคาขาย')}
-              {sortableHeader('profitMargin', 'กำไร %')}
-              {sortableHeader('averageMonthlySalesQuantity', 'ยอดขายเฉลี่ย/เดือน')}
-              {sortableHeader('stockQuantity', 'คงเหลือ')}
-              {sortableHeader('stockStatus', 'สถานะสต็อก')}
-              {sortableHeader('status', 'สถานะสินค้า')}
-              <th>จัดการ</th>
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="rank"
+                onSort={changeProductSort}
+                label="อันดับ"
+              />
+              <th scope="col">รูป</th>
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="name"
+                onSort={changeProductSort}
+                label="สินค้า"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="barcode"
+                onSort={changeProductSort}
+                label="Barcode"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="unit"
+                onSort={changeProductSort}
+                label="หน่วย"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="costPriceSatang"
+                onSort={changeProductSort}
+                label="ต้นทุน"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="salePriceSatang"
+                onSort={changeProductSort}
+                label="ราคาขาย"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="profitMargin"
+                onSort={changeProductSort}
+                label="กำไร %"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="averageMonthlySalesQuantity"
+                onSort={changeProductSort}
+                label="ยอดขายเฉลี่ย/เดือน"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="stockQuantity"
+                onSort={changeProductSort}
+                label="คงเหลือ"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="stockStatus"
+                onSort={changeProductSort}
+                label="สถานะสต็อก"
+              />
+              <SortableTableHeader
+                activeSortKey={productSort?.key ?? 'rank'}
+                direction={productSort?.direction ?? 'ascending'}
+                sortKey="status"
+                onSort={changeProductSort}
+                label="สถานะสินค้า"
+              />
+              <th scope="col">จัดการ</th>
             </tr>
           </thead>
           <tbody>

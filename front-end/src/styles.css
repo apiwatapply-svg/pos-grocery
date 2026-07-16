@@ -1486,8 +1486,13 @@ td span {
 }
 
 .receiving-history-table th {
+  overflow: visible;
   position: sticky;
+  text-overflow: clip;
   top: 0;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
   z-index: 1;
 }
 
@@ -1716,30 +1721,49 @@ td span {
   padding: 6px 5px;
 }
 
+/* Header cells must always render their full label so column titles like
+   "คงเหลือในระบบ" or "ผลต่าง" never get truncated on narrow viewports. */
+.stock-counting-history-table th {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
 .stock-counting-history-table th:first-child,
 .stock-counting-history-table td:first-child {
-  width: 36px;
+  width: 44px;
+  min-width: 44px;
 }
 
 .stock-counting-history-table th:nth-child(2),
 .stock-counting-history-table td:nth-child(2) {
-  width: 96px;
+  width: 112px;
+  min-width: 112px;
 }
 
 .stock-counting-history-table th:nth-child(3),
 .stock-counting-history-table td:nth-child(3) {
   overflow-wrap: anywhere;
-  width: 110px;
+  word-break: break-word;
+  width: 144px;
+  min-width: 144px;
 }
 
 .stock-counting-history-table th:nth-child(4),
 .stock-counting-history-table td:nth-child(4) {
-  width: 96px;
+  width: 104px;
+  min-width: 104px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .stock-counting-history-table th:nth-child(5),
 .stock-counting-history-table td:nth-child(5) {
-  width: 72px;
+  width: 88px;
+  min-width: 88px;
+  text-align: right;
 }
 
 .stock-counting-history-table th:nth-child(6),
@@ -1748,10 +1772,11 @@ td span {
 .stock-counting-history-table td:nth-child(7),
 .stock-counting-history-table th:nth-child(8),
 .stock-counting-history-table td:nth-child(8) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 64px;
+  text-align: right;
+  white-space: normal;
+  word-break: break-word;
+  width: 80px;
+  min-width: 80px;
 }
 
 .stock-counting-history-panel {
@@ -2420,6 +2445,21 @@ button.table-action-link {
 
 .receipt-history-table th,
 .receipt-history-table td {
+  font-size: 12px;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.receipt-history-table th {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+  min-height: 44px;
+}
+
+.receipt-history-table td {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2427,11 +2467,36 @@ button.table-action-link {
 
 .receipt-history-table th:first-child,
 .receipt-history-table td:first-child,
+.receipt-history-table th:nth-child(4),
+.receipt-history-table td:nth-child(4),
 .receipt-history-table th:nth-child(5),
 .receipt-history-table td:nth-child(5),
+.receipt-history-table th:nth-child(6),
+.receipt-history-table td:nth-child(6),
 .receipt-history-table th:nth-child(7),
-.receipt-history-table td:nth-child(7) {
+.receipt-history-table td:nth-child(7),
+.receipt-history-table th:nth-child(8),
+.receipt-history-table td:nth-child(8) {
   text-align: right;
+}
+
+.receipt-history-date-time {
+  align-items: baseline;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.receipt-history-date {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.receipt-history-time {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .receipt-table-link {
@@ -2708,10 +2773,14 @@ button.table-action-link {
   font: inherit;
   font-weight: 900;
   gap: 6px;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0;
+  justify-content: flex-start;
+  line-height: 1.25;
+  min-height: 32px;
+  padding: 4px 2px;
+  text-align: left;
+  white-space: normal;
   width: 100%;
+  word-break: break-word;
 }
 
 .table-sort-button:hover {
@@ -2721,9 +2790,35 @@ button.table-action-link {
 
 .table-sort-button span:last-child {
   color: #15803d;
+  flex: 0 0 auto;
   font-size: 12px;
   line-height: 1;
   min-width: 12px;
+}
+
+.table-sort-button .table-sort-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Header cells that carry the sort button get more vertical room so wrapped
+   labels don't crowd the body cells below. This applies to every sortable
+   table on desktop and iPad portrait/landscape. */
+.table th.sortable,
+.table thead th.sortable,
+th[aria-sort] {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  vertical-align: middle;
+  min-height: 44px;
+}
+
+.table th.sortable .table-sort-button,
+.table thead th.sortable .table-sort-button {
+  min-height: 44px;
 }
 
 .product-inventory-table th:first-child,
@@ -4427,7 +4522,7 @@ button.table-action-link {
   }
 
   .stock-counting-history-table {
-    min-width: 480px;
+    min-width: 540px;
   }
 
   .stock-counting-history-table th,
@@ -4439,35 +4534,41 @@ button.table-action-link {
 
   .stock-counting-history-table th:first-child,
   .stock-counting-history-table td:first-child {
-    width: 26px;
+    width: 32px;
+    min-width: 32px;
   }
 
   .stock-counting-history-table th:nth-child(2),
   .stock-counting-history-table td:nth-child(2) {
     width: 96px;
+    min-width: 96px;
   }
 
   .stock-counting-history-table th:nth-child(3),
   .stock-counting-history-table td:nth-child(3) {
     overflow-wrap: anywhere;
-    width: 116px;
+    width: 132px;
+    min-width: 132px;
   }
 
   .stock-counting-history-table th:nth-child(5),
   .stock-counting-history-table td:nth-child(5) {
-    width: 56px;
+    width: 72px;
+    min-width: 72px;
   }
 
   .stock-counting-history-table th:nth-child(6),
   .stock-counting-history-table td:nth-child(6),
   .stock-counting-history-table th:nth-child(7),
   .stock-counting-history-table td:nth-child(7) {
-    width: 48px;
+    width: 64px;
+    min-width: 64px;
   }
 
   .stock-counting-history-table th:nth-child(8),
   .stock-counting-history-table td:nth-child(8) {
-    width: 64px;
+    width: 80px;
+    min-width: 80px;
   }
 
   .receiving-summary-panel {
@@ -4559,37 +4660,33 @@ button.table-action-link {
   }
 
   .receipt-history-table th:nth-child(3),
-  .receipt-history-table td:nth-child(3),
-  .receipt-history-table th:nth-child(4),
-  .receipt-history-table td:nth-child(4) {
-    width: 70px;
+  .receipt-history-table td:nth-child(3) {
+    width: 96px;
   }
 
+  .receipt-history-table th:nth-child(4),
+  .receipt-history-table td:nth-child(4),
   .receipt-history-table th:nth-child(5),
-  .receipt-history-table td:nth-child(5),
-  .receipt-history-table th:nth-child(7),
-  .receipt-history-table td:nth-child(7) {
-    width: 74px;
+  .receipt-history-table td:nth-child(5) {
+    width: 78px;
   }
 
   .receipt-history-table th:nth-child(6),
   .receipt-history-table td:nth-child(6),
+  .receipt-history-table th:nth-child(7),
+  .receipt-history-table td:nth-child(7),
   .receipt-history-table th:nth-child(8),
-  .receipt-history-table td:nth-child(8),
-  .receipt-history-table th:nth-child(9),
-  .receipt-history-table td:nth-child(9),
-  .receipt-history-table th:nth-child(10),
-  .receipt-history-table td:nth-child(10) {
-    width: 62px;
+  .receipt-history-table td:nth-child(8) {
+    width: 64px;
   }
 
-  .receipt-history-table th:nth-child(11),
-  .receipt-history-table td:nth-child(11) {
+  .receipt-history-table th:nth-child(9),
+  .receipt-history-table td:nth-child(9) {
     width: 78px;
   }
 
-  .receipt-history-table th:nth-child(12),
-  .receipt-history-table td:nth-child(12) {
+  .receipt-history-table th:nth-child(10),
+  .receipt-history-table td:nth-child(10) {
     width: 82px;
   }
 

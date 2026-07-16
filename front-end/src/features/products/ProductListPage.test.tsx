@@ -350,7 +350,7 @@ describe('ProductListPage', () => {
     expect(await screen.findByText('SQL Product')).toBeInTheDocument()
 
     const stockHeader = screen.getByRole('columnheader', { name: /คงเหลือ/ })
-    fireEvent.click(within(stockHeader).getByRole('button', { name: 'เรียงตามคงเหลือ' }))
+    fireEvent.click(within(stockHeader).getByRole('button', { name: /คงเหลือ · เรียงลำดับ/ }))
 
     expect(stockHeader).toHaveAttribute('aria-sort', 'ascending')
     expect(localStorage.getItem('pos-grocery:product-table-sort')).toBe(
@@ -363,7 +363,7 @@ describe('ProductListPage', () => {
       screen.getByRole('row', { name: /2 SQL Product SQL Product SQL-001 box 1\.23 4\.56 270.7% 12\.5 ชิ้น 9 พร้อมขาย active แก้ไข ประวัติขาย ปิดขาย/ }),
     ).toBeInTheDocument()
 
-    fireEvent.click(within(stockHeader).getByRole('button', { name: 'คงเหลือ เรียงจากน้อยไปมาก' }))
+    fireEvent.click(within(stockHeader).getByRole('button', { name: /คงเหลือ · เรียงจากน้อยไปมาก/ }))
 
     expect(stockHeader).toHaveAttribute('aria-sort', 'descending')
     expect(localStorage.getItem('pos-grocery:product-table-sort')).toBe(

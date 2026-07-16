@@ -9,6 +9,8 @@ import { Tabs, TabsList, TabsPanel, TabsTrigger } from '../../components/ui/Tabs
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatBaht, formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
+import { SortableTableHeader } from '../shared/SortableTableHeader'
+import { useSortableTable } from '../shared/useSortableTable'
 
 type Product = {
   id: string
@@ -97,6 +99,13 @@ type ReceivingHistoryPage = {
 }
 
 const RECEIVING_HISTORY_PAGE_SIZE = 20
+
+type ReceivingHistorySortKey =
+  | 'createdAt'
+  | 'productName'
+  | 'barcode'
+  | 'quantityChange'
+  | 'balanceAfterChange'
 
 function bahtFromSatang(value: number) {
   return formatBaht(value / 100)
@@ -269,6 +278,22 @@ export function InventoryReceivingPage() {
 
   const totalQuantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0)
   const totalValue = lines.reduce((sum, line) => sum + lineTotal(line), 0)
+  const {
+    sortKey: historySortKey,
+    direction: historySortDirection,
+    setSortKey: setHistorySortKey,
+    sortedRows: sortedHistory,
+  } = useSortableTable<ReceivingHistory, ReceivingHistorySortKey>(history, {
+    initialKey: 'createdAt',
+    initialDirection: 'descending',
+    columns: {
+      createdAt: { get: (row) => row.createdAt },
+      productName: { get: (row) => row.productName },
+      barcode: { get: (row) => row.barcode },
+      quantityChange: { type: 'number', get: (row) => row.quantityChange },
+      balanceAfterChange: { type: 'number', get: (row) => row.balanceAfterChange },
+    },
+  })
   const scanOptions = useMemo<SearchableDropdownOption[]>(
     () =>
       products.map((product) => ({
@@ -634,16 +659,40 @@ export function InventoryReceivingPage() {
                 <table aria-label="ประวัติรับของเข้า" className="receiving-history-table">
                   <thead>
                     <tr>
-                      <th>ลำดับ</th>
-                      <th>สินค้า</th>
-                      <th>ก่อนหน้า</th>
-                      <th>เพิ่ม</th>
-                      <th>หลังเพิ่ม</th>
-                      <th>เวลา</th>
+                      <th scope="col">ลำดับ</th>
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="productName"
+                        onSort={setHistorySortKey}
+                        label="สินค้า"
+                      />
+                      <th scope="col">ก่อนหน้า</th>
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="quantityChange"
+                        onSort={setHistorySortKey}
+                        label="เพิ่ม"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="balanceAfterChange"
+                        onSort={setHistorySortKey}
+                        label="หลังเพิ่ม"
+                      />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="createdAt"
+                        onSort={setHistorySortKey}
+                        label="เวลา"
+                      />
                     </tr>
                   </thead>
                   <tbody>
-                    {history.length > 0 ? history.map((transaction, index) => (
+                    {sortedHistory.length > 0 ? sortedHistory.map((transaction, index) => (
                       <tr key={transaction.id}>
                         <td>{formatNumber((historyPage - 1) * historyPageSize + index + 1)}</td>
                         <td>

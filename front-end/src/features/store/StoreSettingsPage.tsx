@@ -6,6 +6,8 @@ import { apiGet, apiPatch, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmAction } from '../../lib/ui/confirm'
 import { compressImageFile, logoImageCompression } from '../../lib/images/imageCompression'
+import { SortableTableHeader } from '../shared/SortableTableHeader'
+import { useSortableTable } from '../shared/useSortableTable'
 
 type Store = {
   id: string
@@ -28,6 +30,8 @@ const emptyForm: StoreForm = {
   status: 'active',
 }
 
+type StoreSortKey = 'name' | 'phone' | 'ownerName' | 'status' | 'id'
+
 function formFromStore(store: Store): StoreForm {
   return {
     name: store.name,
@@ -46,6 +50,16 @@ export function StoreSettingsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [message, setMessage] = useState('กำลังโหลดข้อมูลร้าน')
   const pendingLogoUrlRef = useRef<Promise<string> | null>(null)
+  const { sortKey, direction, setSortKey, sortedRows } = useSortableTable<Store, StoreSortKey>(stores, {
+    initialKey: 'id',
+    columns: {
+      name: { get: (store) => store.name },
+      phone: { get: (store) => store.phone },
+      ownerName: { get: (store) => store.ownerName },
+      status: { get: (store) => store.status },
+      id: { get: (store) => store.id },
+    },
+  })
 
   const activeStoreCount = stores.filter((store) => store.status === 'active').length
   const inactiveStoreCount = stores.filter((store) => store.status === 'inactive').length
@@ -238,17 +252,47 @@ export function StoreSettingsPage() {
               <tr>
                 <th scope="col">No</th>
                 <th scope="col">Logo</th>
-                <th scope="col">ชื่อร้าน</th>
-                <th scope="col">เบอร์โทร</th>
+                <SortableTableHeader
+                  activeSortKey={sortKey}
+                  direction={direction}
+                  sortKey="name"
+                  onSort={setSortKey}
+                  label="ชื่อร้าน"
+                />
+                <SortableTableHeader
+                  activeSortKey={sortKey}
+                  direction={direction}
+                  sortKey="phone"
+                  onSort={setSortKey}
+                  label="เบอร์โทร"
+                />
                 <th scope="col">ที่อยู่</th>
-                <th scope="col">เจ้าของร้าน</th>
-                <th scope="col">สถานะ</th>
-                <th scope="col">Store ID</th>
+                <SortableTableHeader
+                  activeSortKey={sortKey}
+                  direction={direction}
+                  sortKey="ownerName"
+                  onSort={setSortKey}
+                  label="เจ้าของร้าน"
+                />
+                <SortableTableHeader
+                  activeSortKey={sortKey}
+                  direction={direction}
+                  sortKey="status"
+                  onSort={setSortKey}
+                  label="สถานะ"
+                />
+                <SortableTableHeader
+                  activeSortKey={sortKey}
+                  direction={direction}
+                  sortKey="id"
+                  onSort={setSortKey}
+                  label="Store ID"
+                />
                 <th scope="col">จัดการ</th>
               </tr>
             </thead>
             <tbody>
-              {stores.length > 0 ? stores.map((store, index) => (
+              {sortedRows.length > 0 ? sortedRows.map((store, index) => (
                 <tr key={store.id}>
                   <td>{formatNumber(index + 1)}</td>
                   <td>
