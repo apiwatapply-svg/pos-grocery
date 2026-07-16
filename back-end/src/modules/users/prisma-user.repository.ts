@@ -541,39 +541,42 @@ function saleSummaryWhereClause(storeId: string, input?: { from?: string; to?: s
   return Prisma.join(conditions, " AND ");
 }
 
-/** Maps a public sort key to a safe SQL fragment. Falls back to soldAt DESC. */
+/**
+ * Maps a public sort key to a safe SQL string for the ORDER BY clause.
+ * Returns a raw SQL string (validated inputs only) that the caller should
+ * wrap in `Prisma.raw()` so it is interpolated as raw SQL instead of a
+ * parameterized placeholder. Falls back to soldAt DESC.
+ */
 function saleSummaryOrderClause(
   sort: SaleSummarySortKey | undefined,
   direction: "asc" | "desc" | undefined,
-) {
-  const dir = direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-  const nullsLast = Prisma.sql`NULLS LAST`;
+): string {
+  const dir = direction === "asc" ? "ASC" : "DESC";
 
   switch (sort) {
     case "receiptNumber":
-      return Prisma.sql`fs."receiptNumber" ${dir} ${nullsLast}, fs."soldAt" DESC`;
+      return `fs."receiptNumber" ${dir} NULLS LAST, fs."soldAt" DESC`;
     case "soldAt":
-      return Prisma.sql`fs."soldAt" ${dir}, fs."id" ASC`;
+      return `fs."soldAt" ${dir}, fs."id" ASC`;
     case "totalSatang":
-      return Prisma.sql`fs."totalSatang" ${dir} ${nullsLast}, fs."soldAt" DESC`;
+      return `fs."totalSatang" ${dir} NULLS LAST, fs."soldAt" DESC`;
     case "totalCostSatang":
-      return Prisma.sql`agg."totalCostSatang" ${dir} ${nullsLast}, fs."soldAt" DESC`;
+      return `agg."totalCostSatang" ${dir} NULLS LAST, fs."soldAt" DESC`;
     case "itemCount":
-      return Prisma.sql`agg."itemCount" ${dir} ${nullsLast}, fs."soldAt" DESC`;
+      return `agg."itemCount" ${dir} NULLS LAST, fs."soldAt" DESC`;
     case "profitSatang":
-      return Prisma.sql`(fs."totalSatang" - COALESCE(agg."totalCostSatang", 0)) ${dir}, fs."soldAt" DESC`;
+      return `(fs."totalSatang" - COALESCE(agg."totalCostSatang", 0)) ${dir}, fs."soldAt" DESC`;
     case "profitMarginPercent":
-      return Prisma.sql`
-        CASE
-          WHEN COALESCE(agg."totalCostSatang", 0) > 0
-            THEN (fs."totalSatang" - agg."totalCostSatang") / agg."totalCostSatang"
-          WHEN fs."totalSatang" > 0 THEN 1
-          ELSE 0
-        END ${dir} ${nullsLast}, fs."soldAt" DESC`;
+      return `CASE
+        WHEN COALESCE(agg."totalCostSatang", 0) > 0
+          THEN (fs."totalSatang" - agg."totalCostSatang") / agg."totalCostSatang"
+        WHEN fs."totalSatang" > 0 THEN 1
+        ELSE 0
+      END ${dir} NULLS LAST, fs."soldAt" DESC`;
     case "status":
-      return Prisma.sql`fs."status" ${dir} ${nullsLast}, fs."soldAt" DESC`;
+      return `fs."status" ${dir} NULLS LAST, fs."soldAt" DESC`;
     default:
-      return Prisma.sql`fs."soldAt" DESC`;
+      return `fs."soldAt" DESC`;
   }
 }
 
@@ -1758,7 +1761,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
           (SELECT "totalCount" FROM counted) AS "totalCount"
         FROM filtered_sales fs
         LEFT JOIN sale_aggregates agg ON agg."saleId" = fs."id"
-        ${orderClause}
+        ORDER BY ${Prisma.raw(orderClause)}
         LIMIT ${pageSize} OFFSET ${offset}
       `);
 
