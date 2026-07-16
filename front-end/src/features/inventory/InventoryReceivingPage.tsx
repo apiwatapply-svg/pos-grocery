@@ -5,6 +5,7 @@ import {
   type SearchableDropdownHandle,
   type SearchableDropdownOption,
 } from '../../components/ui/SearchableDropdown'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '../../components/ui/Tabs'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatBaht, formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
@@ -487,134 +488,150 @@ export function InventoryReceivingPage() {
           </div>
         </section>
 
-        <div className="receiving-main-layout">
-          <section
-            aria-label="ตารางคิวรับของเข้าแบบเต็มหน้า"
-            className="panel receiving-queue-panel receiving-queue-panel-full receiving-queue-panel-compact"
-          >
-            <div className="receiving-queue-header">
-              <div>
-                <h2 id="receiving-queue-title">คิวรับของเข้า</h2>
-                <p>รวม {formatNumber(totalQuantity)} ชิ้น</p>
-                <p>มูลค่ารับเข้า {formatBaht(totalValue)} บาท</p>
-              </div>
-              <button
-                className="success-button"
-                disabled={lines.length === 0}
-                onClick={() => void saveReceivingQueue()}
-                type="button"
-              >
-                บันทึกรับของ {formatNumber(lines.length)} รายการ
-              </button>
-            </div>
+        <Tabs
+          ariaLabel="สลับระหว่างคิวรับของเข้าและประวัติรับของเข้า"
+          className="receiving-tabs"
+          defaultValue="queue"
+        >
+          <TabsList>
+            <TabsTrigger value="queue">
+              คิวรับของเข้า
+              <span className="tabs-trigger-badge">{formatNumber(lines.length)}</span>
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              ประวัติรับของเข้า
+              <span className="tabs-trigger-badge">{formatNumber(history.length)}</span>
+            </TabsTrigger>
+          </TabsList>
 
-            <div aria-label="ตารางรับของเข้าแบบเต็มหน้า" className="receiving-table-wrap receiving-table-wrap-full">
-              <table className="receiving-table">
-                <thead>
-                  <tr>
-                    <th>อันดับ</th>
-                    <th>สินค้า</th>
-                    <th>คงเหลือเดิม</th>
-                    <th>จำนวน</th>
-                    <th>หลังรับเข้า</th>
-                    <th>ต้นทุน/หน่วย</th>
-                    <th>รวม</th>
-                    <th>จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.length > 0 ? (
-                    lines.map((line, index) => (
-                      <tr key={line.product.id}>
-                        <td>{formatNumber(index + 1)}</td>
-                        <td><strong>{line.product.name}</strong></td>
-                        <td>{formatNumber(line.product.stockQuantity)}</td>
-                        <td>
-                          <input
-                            aria-label={`จำนวนรับเข้า ${line.product.name}`}
-                            className="receiving-quantity-input"
-                            min="0"
-                            type="number"
-                            value={line.quantity}
-                            onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
-                          />
-                        </td>
-                        <td>{formatNumber(line.product.stockQuantity + Number(line.quantity || 0))}</td>
-                        <td>
-                          <input
-                            aria-label={`ต้นทุนต่อหน่วย ${line.product.name}`}
-                            className="receiving-cost-input"
-                            min="0"
-                            step="0.01"
-                            type="number"
-                            value={line.unitCost}
-                            onChange={(event) => updateLine(line.product.id, 'unitCost', event.target.value)}
-                          />
-                        </td>
-                        <td>{formatBaht(lineTotal(line))}</td>
-                        <td>
-                          <button
-                            className="danger-button compact"
-                            onClick={() => removeLine(line.product.id)}
-                            type="button"
-                          >
-                            ลบ
-                          </button>
-                        </td>
+          <TabsPanel value="queue">
+            <section
+              aria-label="ตารางคิวรับของเข้าแบบเต็มหน้า"
+              className="panel receiving-queue-panel receiving-queue-panel-full receiving-queue-panel-compact"
+            >
+              <div className="receiving-queue-header">
+                <p className="receiving-queue-meta">
+                  รวม {formatNumber(totalQuantity)} ชิ้น · มูลค่ารับเข้า {formatBaht(totalValue)} บาท
+                </p>
+                <button
+                  className="success-button"
+                  disabled={lines.length === 0}
+                  onClick={() => void saveReceivingQueue()}
+                  type="button"
+                >
+                  บันทึกรับของ {formatNumber(lines.length)} รายการ
+                </button>
+              </div>
+
+              <div aria-label="ตารางรับของเข้าแบบเต็มหน้า" className="receiving-table-wrap receiving-table-wrap-full">
+                <table className="receiving-table">
+                  <thead>
+                    <tr>
+                      <th>อันดับ</th>
+                      <th>สินค้า</th>
+                      <th>คงเหลือเดิม</th>
+                      <th>จำนวน</th>
+                      <th>หลังรับเข้า</th>
+                      <th>ต้นทุน/หน่วย</th>
+                      <th>รวม</th>
+                      <th>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.length > 0 ? (
+                      lines.map((line, index) => (
+                        <tr key={line.product.id}>
+                          <td>{formatNumber(index + 1)}</td>
+                          <td><strong>{line.product.name}</strong></td>
+                          <td>{formatNumber(line.product.stockQuantity)}</td>
+                          <td>
+                            <input
+                              aria-label={`จำนวนรับเข้า ${line.product.name}`}
+                              className="receiving-quantity-input"
+                              min="0"
+                              type="number"
+                              value={line.quantity}
+                              onChange={(event) => updateLine(line.product.id, 'quantity', event.target.value)}
+                            />
+                          </td>
+                          <td>{formatNumber(line.product.stockQuantity + Number(line.quantity || 0))}</td>
+                          <td>
+                            <input
+                              aria-label={`ต้นทุนต่อหน่วย ${line.product.name}`}
+                              className="receiving-cost-input"
+                              min="0"
+                              step="0.01"
+                              type="number"
+                              value={line.unitCost}
+                              onChange={(event) => updateLine(line.product.id, 'unitCost', event.target.value)}
+                            />
+                          </td>
+                          <td>{formatBaht(lineTotal(line))}</td>
+                          <td>
+                            <button
+                              className="danger-button compact"
+                              onClick={() => removeLine(line.product.id)}
+                              type="button"
+                            >
+                              ลบ
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8}>ยังไม่มีสินค้าในคิวรับของ</td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={8}>ยังไม่มีสินค้าในคิวรับของ</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="summary">{message}</p>
-          </section>
-
-          <section className="panel receiving-history-panel" aria-labelledby="receiving-history-title">
-            <div className="receiving-history-header">
-              <div>
-                <h2 id="receiving-history-title">ประวัติรับของเข้า</h2>
-                <p>100 รายการล่าสุด</p>
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <strong>{formatNumber(history.length)} รายการ</strong>
-            </div>
-            <div className="receiving-history-scroll" role="region" aria-label="ประวัติรับของเข้าล่าสุด">
-              <table aria-label="ประวัติรับของเข้า 100 รายการล่าสุด" className="receiving-history-table">
-                <thead>
-                  <tr>
-                    <th>สินค้า</th>
-                    <th>ก่อนหน้า</th>
-                    <th>เพิ่ม</th>
-                    <th>หลังเพิ่ม</th>
-                    <th>เวลา</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.length > 0 ? history.map((transaction) => (
-                    <tr key={transaction.id}>
-                      <td>
-                        <strong>{transaction.productName}</strong>
-                        <span>{transaction.barcode}</span>
-                      </td>
-                      <td>{formatNumber(previousStock(transaction))}</td>
-                      <td>+{formatNumber(transaction.quantityChange)}</td>
-                      <td>{formatNumber(transaction.balanceAfterChange)}</td>
-                      <td>{historyDateTime(transaction.createdAt)}</td>
-                    </tr>
-                  )) : (
+              <p className="summary">{message}</p>
+            </section>
+          </TabsPanel>
+
+          <TabsPanel value="history">
+            <section className="panel receiving-history-panel" aria-label="ประวัติรับของเข้า">
+              <div className="receiving-history-header">
+                <p className="receiving-history-meta">100 รายการล่าสุด</p>
+                <strong>{formatNumber(history.length)} รายการ</strong>
+              </div>
+              <div className="receiving-history-scroll" role="region" aria-label="ประวัติรับของเข้าล่าสุด">
+                <table aria-label="ประวัติรับของเข้า 100 รายการล่าสุด" className="receiving-history-table">
+                  <thead>
                     <tr>
-                      <td colSpan={5}>ยังไม่มีประวัติรับของเข้า</td>
+                      <th>ลำดับ</th>
+                      <th>สินค้า</th>
+                      <th>ก่อนหน้า</th>
+                      <th>เพิ่ม</th>
+                      <th>หลังเพิ่ม</th>
+                      <th>เวลา</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+                  </thead>
+                  <tbody>
+                    {history.length > 0 ? history.map((transaction, index) => (
+                      <tr key={transaction.id}>
+                        <td>{formatNumber(index + 1)}</td>
+                        <td>
+                          <strong>{transaction.productName}</strong>
+                          <span>{transaction.barcode}</span>
+                        </td>
+                        <td>{formatNumber(previousStock(transaction))}</td>
+                        <td>+{formatNumber(transaction.quantityChange)}</td>
+                        <td>{formatNumber(transaction.balanceAfterChange)}</td>
+                        <td>{historyDateTime(transaction.createdAt)}</td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={6}>ยังไม่มีประวัติรับของเข้า</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </TabsPanel>
+        </Tabs>
       </div>
     </section>
   )

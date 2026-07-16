@@ -88,7 +88,9 @@ describe('Inventory pages', () => {
 
     const scanInput = await screen.findByLabelText('สแกนหรือค้นหาสินค้า')
     expect(scanInput).toHaveFocus()
-    expect(screen.getByText('คิวรับของเข้า')).toBeInTheDocument()
+    expect(
+      screen.getByText((content) => content.includes('คิวรับของเข้า')),
+    ).toBeInTheDocument()
     expect(scanInput).toHaveAttribute('placeholder', 'สแกน barcode หรือพิมพ์ชื่อสินค้า')
     expect(screen.queryByRole('button', { name: 'เพิ่มเข้าคิว' })).not.toBeInTheDocument()
     // Open the dropdown to inspect the available suggestions.
@@ -112,8 +114,8 @@ describe('Inventory pages', () => {
     )
     expect(targetRow).toBeDefined()
     expect(targetRow?.textContent).toMatch(/1.*SQL Inventory Product.*12.*14.*14\.50/)
-    expect(screen.getByText('รวม 2 ชิ้น')).toBeInTheDocument()
-    expect(screen.getByText('มูลค่ารับเข้า 14.50 บาท')).toBeInTheDocument()
+    expect(screen.getByText((content) => content.includes('รวม 2 ชิ้น'))).toBeInTheDocument()
+    expect(screen.getByText((content) => content.includes('มูลค่ารับเข้า 14.50 บาท'))).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'บันทึกรับของ 1 รายการ' }))
 
@@ -170,10 +172,14 @@ describe('Inventory pages', () => {
       'receiving-queue-panel-compact',
     )
     expect(screen.getByLabelText('ตารางรับของเข้าแบบเต็มหน้า')).toHaveClass('receiving-table-wrap-full')
+    // The history table is hidden by default (Tab panel is not active until
+    // the receiver switches to it), so we click the trigger first.
+    const historyTab = await screen.findByRole('tab', { name: /ประวัติรับของเข้า/ })
+    fireEvent.click(historyTab)
     expect(screen.getByRole('region', { name: 'ประวัติรับของเข้าล่าสุด' })).toBeInTheDocument()
     expect(screen.getByRole('table', { name: 'ประวัติรับของเข้า 100 รายการล่าสุด' })).toBeInTheDocument()
     expect(
-      screen.getByRole('row', { name: /SQL Inventory Product SQL-INV-001 12 \+5 17 29\/06\/2026 15:05/ }),
+      screen.getByRole('row', { name: /1 SQL Inventory Product SQL-INV-001 12 \+5 17 29\/06\/2026 15:05/ }),
     ).toBeInTheDocument()
     expect(mockedApiGet).toHaveBeenCalledWith('/inventory/transactions?limit=100')
   })
@@ -230,7 +236,7 @@ describe('Inventory pages', () => {
     expect(targetRow).toBeDefined()
     // Quantity must stay at 1, not 2, even though the scanner sent Enter.
     expect(targetRow?.textContent).toMatch(/1.*SQL Inventory Product.*12.*13/)
-    expect(screen.getByText('รวม 1 ชิ้น')).toBeInTheDocument()
+    expect(screen.getByText((content) => content.includes('รวม 1 ชิ้น'))).toBeInTheDocument()
     expect(scanInput).toHaveValue('')
     expect(scanInput).toHaveFocus()
   })
@@ -275,7 +281,9 @@ describe('Inventory pages', () => {
     expect(scanInput).toHaveFocus()
     expect(scanInput).toHaveAttribute('placeholder', 'สแกน barcode หรือพิมพ์ชื่อสินค้า')
     expect(screen.queryByRole('button', { name: 'เพิ่มเข้าคิว' })).not.toBeInTheDocument()
-    expect(screen.getByText('คิวตรวจนับ stock')).toBeInTheDocument()
+    expect(
+      screen.getByText((content) => content.includes('คิวตรวจนับ stock')),
+    ).toBeInTheDocument()
     // Open the dropdown to inspect the available suggestions.
     fireEvent.focus(scanInput)
     fireEvent.change(scanInput, { target: { value: 'SQL' } })
@@ -284,14 +292,21 @@ describe('Inventory pages', () => {
     expect(countingOptions).toHaveLength(1)
     expect(countingOptions[0]).toHaveTextContent('SQL Inventory Product')
     expect(countingOptions[0]).toHaveTextContent('SQL-INV-001')
-    const countingLayout = screen.getByLabelText('คิวตรวจนับ stock ซ้าย และประวัติการปรับ stock ขวา')
-    expect(countingLayout.children[0]).toHaveClass('stock-counting-queue-panel')
-    expect(countingLayout.children[1]).toHaveClass('stock-counting-history-panel')
+    // The queue/history surfaces are now separate Tabs. The history table
+    // is hidden until the user activates the "ประวัติการปรับ stock" tab.
+    expect(screen.getByRole('tab', { name: /คิวตรวจนับ stock/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /ประวัติการปรับ stock/ })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.queryByRole('table', { name: 'ประวัติการปรับ stock' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /ประวัติการปรับ stock/ }))
+    expect(screen.getByRole('tab', { name: /คิวตรวจนับ stock/ })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: /ประวัติการปรับ stock/ })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('table', { name: 'ประวัติการปรับ stock' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'ยอดจริงปัจจุบัน' })).toBeInTheDocument()
     expect(
       screen.getByRole('row', { name: /1 29\/06\/2026 15:00 SQL Inventory Product SQL-INV-001 ตรวจนับ \+2 14 Owner/ }),
     ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /คิวตรวจนับ stock/ }))
 
     fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
     fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
@@ -333,5 +348,86 @@ describe('Inventory pages', () => {
     })
     expect(scanInput).toHaveValue('')
     expect(scanInput).toHaveFocus()
+  })
+
+  it('exposes the receiving tabs with proper ARIA state and supports keyboard navigation', async () => {
+    render(<InventoryReceivingPage />)
+
+    const queueTab = await screen.findByRole('tab', { name: /คิวรับของเข้า/ })
+    const historyTab = screen.getByRole('tab', { name: /ประวัติรับของเข้า/ })
+    const tablist = screen.getByRole('tablist', { name: 'สลับระหว่างคิวรับของเข้าและประวัติรับของเข้า' })
+
+    expect(queueTab).toHaveAttribute('aria-selected', 'true')
+    expect(historyTab).toHaveAttribute('aria-selected', 'false')
+    expect(queueTab).toHaveAttribute('tabindex', '0')
+    expect(historyTab).toHaveAttribute('tabindex', '-1')
+    expect(queueTab).toHaveAttribute('aria-controls')
+    expect(historyTab).toHaveAttribute('aria-controls')
+
+    // Tab list captures ArrowRight, moves focus, and flips aria-selected.
+    queueTab.focus()
+    fireEvent.keyDown(tablist, { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(historyTab).toHaveAttribute('aria-selected', 'true')
+    })
+    await waitFor(() => {
+      expect(historyTab).toHaveFocus()
+    })
+    expect(queueTab).toHaveAttribute('aria-selected', 'false')
+
+    // ArrowLeft wraps to the previous tab and brings the queue back.
+    fireEvent.keyDown(tablist, { key: 'ArrowLeft' })
+    await waitFor(() => {
+      expect(queueTab).toHaveAttribute('aria-selected', 'true')
+    })
+    await waitFor(() => {
+      expect(queueTab).toHaveFocus()
+    })
+  })
+
+  it('exposes the stock-counting tabs with proper ARIA state and supports keyboard navigation', async () => {
+    render(<StockCountingPage />)
+
+    const queueTab = await screen.findByRole('tab', { name: /คิวตรวจนับ stock/ })
+    const historyTab = screen.getByRole('tab', { name: /ประวัติการปรับ stock/ })
+    const tablist = screen.getByRole('tablist', {
+      name: 'สลับระหว่างคิวตรวจนับ stock และประวัติการปรับ stock',
+    })
+
+    expect(queueTab).toHaveAttribute('aria-selected', 'true')
+    expect(historyTab).toHaveAttribute('aria-selected', 'false')
+    expect(queueTab).toHaveAttribute('tabindex', '0')
+    expect(historyTab).toHaveAttribute('tabindex', '-1')
+
+    // Home jumps to the first tab.
+    historyTab.focus()
+    fireEvent.keyDown(tablist, { key: 'Home' })
+    await waitFor(() => {
+      expect(queueTab).toHaveAttribute('aria-selected', 'true')
+    })
+    await waitFor(() => {
+      expect(queueTab).toHaveFocus()
+    })
+
+    // End jumps to the last tab.
+    fireEvent.keyDown(tablist, { key: 'End' })
+    await waitFor(() => {
+      expect(historyTab).toHaveAttribute('aria-selected', 'true')
+    })
+    await waitFor(() => {
+      expect(historyTab).toHaveFocus()
+    })
+  })
+
+  it('does not render the duplicate counting hint under the scan field', async () => {
+    render(<StockCountingPage />)
+
+    await screen.findByLabelText('สแกนหรือค้นหาสินค้าเพื่อตรวจนับ')
+    expect(
+      screen.getByText('สแกนสินค้าซ้ำเพื่อเพิ่มจำนวนที่นับได้ทีละ 1 ชิ้น'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getAllByText('สแกนสินค้าซ้ำเพื่อเพิ่มจำนวนที่นับได้ทีละ 1 ชิ้น'),
+    ).toHaveLength(1)
   })
 })

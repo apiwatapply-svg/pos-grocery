@@ -5,6 +5,7 @@ import {
   type SearchableDropdownHandle,
   type SearchableDropdownOption,
 } from '../../components/ui/SearchableDropdown'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '../../components/ui/Tabs'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
@@ -430,7 +431,6 @@ export function StockCountingPage() {
               }}
               onSelect={(option) => handleScanSelect(option)}
             />
-            <small>สแกนสินค้าซ้ำเพื่อเพิ่มจำนวนที่นับได้ทีละ 1 ชิ้น</small>
           </label>
         </section>
 
@@ -449,139 +449,155 @@ export function StockCountingPage() {
           </div>
         </section>
 
-        <div className="stock-counting-main-layout" aria-label="คิวตรวจนับ stock ซ้าย และประวัติการปรับ stock ขวา">
-          <section
-            className="panel receiving-queue-panel receiving-queue-panel-full stock-counting-queue-panel"
-            aria-label="คิวตรวจนับ stock"
-          >
-            <div className="receiving-queue-header">
-              <div>
-                <h2>คิวตรวจนับ stock</h2>
-                <p>รวม {formatNumber(totalLines)} รายการ</p>
-                <p>นับได้ {formatNumber(totalCounted)} ชิ้น</p>
+        <Tabs
+          ariaLabel="สลับระหว่างคิวตรวจนับ stock และประวัติการปรับ stock"
+          className="stock-counting-tabs"
+          defaultValue="queue"
+        >
+          <TabsList>
+            <TabsTrigger value="queue">
+              คิวตรวจนับ stock
+              <span className="tabs-trigger-badge">{formatNumber(totalLines)}</span>
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              ประวัติการปรับ stock
+              <span className="tabs-trigger-badge">{formatNumber(history.length)}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsPanel value="queue">
+            <section
+              className="panel receiving-queue-panel receiving-queue-panel-full stock-counting-queue-panel"
+              aria-label="คิวตรวจนับ stock"
+            >
+              <div className="receiving-queue-header">
+                <p className="receiving-queue-meta">
+                  รวม {formatNumber(totalLines)} รายการ · นับได้ {formatNumber(totalCounted)} ชิ้น
+                </p>
+                <button
+                  className="success-button"
+                  disabled={lines.length === 0}
+                  onClick={() => void saveCountingQueue()}
+                  type="button"
+                >
+                  บันทึกตรวจนับ {formatNumber(lines.length)} รายการ
+                </button>
               </div>
-              <button
-                className="success-button"
-                disabled={lines.length === 0}
-                onClick={() => void saveCountingQueue()}
-                type="button"
-              >
-                บันทึกตรวจนับ {formatNumber(lines.length)} รายการ
-              </button>
-            </div>
 
-            <div className="receiving-table-wrap receiving-table-wrap-full stock-counting-queue-table-wrap">
-              <table className="receiving-table">
-                <thead>
-                  <tr>
-                    <th>อันดับ</th>
-                    <th>สินค้า</th>
-                    <th>Barcode</th>
-                    <th>หน่วย</th>
-                    <th>คงเหลือในระบบ</th>
-                    <th>นับได้</th>
-                    <th>ผลต่าง</th>
-                    <th>จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.length > 0 ? (
-                    lines.map((line, index) => {
-                      const difference = line.countedQuantity - line.product.stockQuantity
-
-                      return (
-                        <tr key={line.product.id}>
-                          <td>{formatNumber(index + 1)}</td>
-                          <td><strong>{line.product.name}</strong></td>
-                          <td>{line.product.barcode}</td>
-                          <td>{line.product.unit ?? '-'}</td>
-                          <td>{formatNumber(line.product.stockQuantity)}</td>
-                          <td>
-                            <input
-                              aria-label={`จำนวนที่นับได้ ${line.product.name}`}
-                              min="0"
-                              type="number"
-                              value={line.countedQuantity}
-                              onChange={(event) => updateLine(line.product.id, event.target.value)}
-                            />
-                          </td>
-                          <td className={difference === 0 ? 'stock-difference-even' : 'stock-difference-alert'}>
-                            {formatNumber(difference)}
-                          </td>
-                          <td>
-                            <button
-                              className="danger-button compact"
-                              onClick={() => removeLine(line.product.id)}
-                              type="button"
-                            >
-                              ลบ
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  ) : (
+              <div className="receiving-table-wrap receiving-table-wrap-full stock-counting-queue-table-wrap">
+                <table className="receiving-table">
+                  <thead>
                     <tr>
-                      <td colSpan={8}>ยังไม่มีสินค้าในคิวตรวจนับ</td>
+                      <th>อันดับ</th>
+                      <th>สินค้า</th>
+                      <th>Barcode</th>
+                      <th>หน่วย</th>
+                      <th>คงเหลือในระบบ</th>
+                      <th>นับได้</th>
+                      <th>ผลต่าง</th>
+                      <th>จัดการ</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="summary">{message}</p>
-          </section>
+                  </thead>
+                  <tbody>
+                    {lines.length > 0 ? (
+                      lines.map((line, index) => {
+                        const difference = line.countedQuantity - line.product.stockQuantity
 
-          <section
-            className="panel receiving-history-panel stock-counting-history-panel"
-            aria-label="ประวัติการปรับ stock"
-          >
-            <div className="receiving-history-header">
-              <div>
-                <h2>ประวัติการปรับ stock</h2>
-                <p>แสดง 50 รายการล่าสุด พร้อมยอดจริงปัจจุบันหลังการปรับ</p>
-              </div>
-              <strong>{formatNumber(history.length)} รายการ</strong>
-            </div>
-            <div className="receiving-history-scroll stock-counting-history-scroll">
-              <table aria-label="ประวัติการปรับ stock" className="receiving-history-table stock-counting-history-table">
-                <thead>
-                  <tr>
-                    <th>ลำดับ</th>
-                    <th>วันที่เวลา</th>
-                    <th>สินค้า</th>
-                    <th>Barcode</th>
-                    <th>ประเภท</th>
-                    <th>ปรับ</th>
-                    <th>ยอดจริงปัจจุบัน</th>
-                    <th>ผู้บันทึก</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.length > 0 ? (
-                    history.map((transaction, index) => (
-                      <tr key={transaction.id}>
-                        <td>{formatNumber(index + 1)}</td>
-                        <td>{formatHistoryDateTime(transaction.createdAt)}</td>
-                        <td><strong>{transaction.productName}</strong></td>
-                        <td>{transaction.barcode}</td>
-                        <td>{stockTransactionTypeLabel(transaction.type)}</td>
-                        <td className={transaction.quantityChange >= 0 ? 'stock-difference-even' : 'stock-difference-alert'}>
-                          {signedQuantity(transaction.quantityChange)}
-                        </td>
-                        <td><strong>{formatNumber(transaction.balanceAfterChange)}</strong></td>
-                        <td>{transaction.createdBy ?? '-'}</td>
+                        return (
+                          <tr key={line.product.id}>
+                            <td>{formatNumber(index + 1)}</td>
+                            <td><strong>{line.product.name}</strong></td>
+                            <td>{line.product.barcode}</td>
+                            <td>{line.product.unit ?? '-'}</td>
+                            <td>{formatNumber(line.product.stockQuantity)}</td>
+                            <td>
+                              <input
+                                aria-label={`จำนวนที่นับได้ ${line.product.name}`}
+                                min="0"
+                                type="number"
+                                value={line.countedQuantity}
+                                onChange={(event) => updateLine(line.product.id, event.target.value)}
+                              />
+                            </td>
+                            <td className={difference === 0 ? 'stock-difference-even' : 'stock-difference-alert'}>
+                              {formatNumber(difference)}
+                            </td>
+                            <td>
+                              <button
+                                className="danger-button compact"
+                                onClick={() => removeLine(line.product.id)}
+                                type="button"
+                              >
+                                ลบ
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={8}>ยังไม่มีสินค้าในคิวตรวจนับ</td>
                       </tr>
-                    ))
-                  ) : (
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="summary">{message}</p>
+            </section>
+          </TabsPanel>
+
+          <TabsPanel value="history">
+            <section
+              className="panel receiving-history-panel stock-counting-history-panel"
+              aria-label="ประวัติการปรับ stock"
+            >
+              <div className="receiving-history-header">
+                <p className="receiving-history-meta">
+                  แสดง 50 รายการล่าสุด พร้อมยอดจริงปัจจุบันหลังการปรับ
+                </p>
+                <strong>{formatNumber(history.length)} รายการ</strong>
+              </div>
+              <div className="receiving-history-scroll stock-counting-history-scroll">
+                <table aria-label="ประวัติการปรับ stock" className="receiving-history-table stock-counting-history-table">
+                  <thead>
                     <tr>
-                      <td colSpan={8}>ยังไม่มีประวัติการปรับ stock</td>
+                      <th>ลำดับ</th>
+                      <th>วันที่เวลา</th>
+                      <th>สินค้า</th>
+                      <th>Barcode</th>
+                      <th>ประเภท</th>
+                      <th>ปรับ</th>
+                      <th>ยอดจริงปัจจุบัน</th>
+                      <th>ผู้บันทึก</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+                  </thead>
+                  <tbody>
+                    {history.length > 0 ? (
+                      history.map((transaction, index) => (
+                        <tr key={transaction.id}>
+                          <td>{formatNumber(index + 1)}</td>
+                          <td>{formatHistoryDateTime(transaction.createdAt)}</td>
+                          <td><strong>{transaction.productName}</strong></td>
+                          <td>{transaction.barcode}</td>
+                          <td>{stockTransactionTypeLabel(transaction.type)}</td>
+                          <td className={transaction.quantityChange >= 0 ? 'stock-difference-even' : 'stock-difference-alert'}>
+                            {signedQuantity(transaction.quantityChange)}
+                          </td>
+                          <td><strong>{formatNumber(transaction.balanceAfterChange)}</strong></td>
+                          <td>{transaction.createdBy ?? '-'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8}>ยังไม่มีประวัติการปรับ stock</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </TabsPanel>
+        </Tabs>
       </div>
     </section>
   )
