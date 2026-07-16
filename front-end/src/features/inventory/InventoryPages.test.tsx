@@ -482,9 +482,11 @@ describe('Inventory pages', () => {
 
     const table = await screen.findByRole('table', { name: 'ประวัติรับของเข้า' })
     expect(within(table).getByRole('columnheader', { name: 'ลำดับ' })).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: /Barcode/ })).toBeInTheDocument()
     const firstPageRows = within(table).getAllByRole('row').slice(1)
     expect(firstPageRows).toHaveLength(20)
     expect(firstPageRows[0]).toHaveTextContent('1')
+    expect(firstPageRows[0]).toHaveTextContent('SQL-INV-001')
     expect(firstPageRows[19]).toHaveTextContent('20')
     expect(
       screen.getByText((content) => content.includes('แสดง 1-20 จาก 25')),

@@ -667,6 +667,13 @@ export function InventoryReceivingPage() {
                         onSort={setHistorySortKey}
                         label="สินค้า"
                       />
+                      <SortableTableHeader
+                        activeSortKey={historySortKey}
+                        direction={historySortDirection}
+                        sortKey="barcode"
+                        onSort={setHistorySortKey}
+                        label="Barcode"
+                      />
                       <th scope="col">ก่อนหน้า</th>
                       <SortableTableHeader
                         activeSortKey={historySortKey}
@@ -695,10 +702,8 @@ export function InventoryReceivingPage() {
                     {sortedHistory.length > 0 ? sortedHistory.map((transaction, index) => (
                       <tr key={transaction.id}>
                         <td>{formatNumber((historyPage - 1) * historyPageSize + index + 1)}</td>
-                        <td>
-                          <strong>{transaction.productName}</strong>
-                          <span>{transaction.barcode}</span>
-                        </td>
+                        <td><strong>{transaction.productName}</strong></td>
+                        <td>{transaction.barcode}</td>
                         <td>{formatNumber(previousStock(transaction))}</td>
                         <td>+{formatNumber(transaction.quantityChange)}</td>
                         <td>{formatNumber(transaction.balanceAfterChange)}</td>
@@ -706,7 +711,7 @@ export function InventoryReceivingPage() {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={6}>ยังไม่มีประวัติรับของเข้า</td>
+                        <td colSpan={7}>ยังไม่มีประวัติรับของเข้า</td>
                       </tr>
                     )}
                   </tbody>

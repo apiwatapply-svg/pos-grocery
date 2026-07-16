@@ -1525,65 +1525,62 @@ td span {
   width: 100%;
 }
 
-.receiving-history-table td:nth-child(2) strong,
-.receiving-history-table td:nth-child(2) span {
-  display: block;
-  overflow-wrap: anywhere;
-}
-
-.receiving-history-table td:nth-child(2) span {
-  color: #66746b;
-  font-size: 12px;
-  font-weight: 800;
-  margin-top: 2px;
-}
-
 .receiving-history-table td:nth-child(3),
+.receiving-history-table th:nth-child(3) {
+  text-align: left;
+  overflow-wrap: anywhere;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.receiving-workspace-full .receiving-history-table td:nth-child(3),
+.receiving-workspace-full .receiving-history-table th:nth-child(3) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
 .receiving-history-table td:nth-child(4),
 .receiving-history-table td:nth-child(5),
-.receiving-history-table th:nth-child(3),
+.receiving-history-table td:nth-child(6),
 .receiving-history-table th:nth-child(4),
-.receiving-history-table th:nth-child(5) {
+.receiving-history-table th:nth-child(5),
+.receiving-history-table th:nth-child(6) {
   text-align: right;
 }
 
-.receiving-history-table td:nth-child(6),
-.receiving-history-table th:nth-child(6) {
+.receiving-history-table td:nth-child(7),
+.receiving-history-table th:nth-child(7) {
   white-space: normal;
 }
 
-.receiving-history-table th:nth-child(3),
-.receiving-history-table td:nth-child(3),
 .receiving-history-table th:nth-child(4),
 .receiving-history-table td:nth-child(4),
 .receiving-history-table th:nth-child(5),
-.receiving-history-table td:nth-child(5) {
+.receiving-history-table td:nth-child(5),
+.receiving-history-table th:nth-child(6),
+.receiving-history-table td:nth-child(6) {
   width: 56px;
 }
 
-.receiving-history-table th:nth-child(6),
-.receiving-history-table td:nth-child(6) {
+.receiving-history-table th:nth-child(7),
+.receiving-history-table td:nth-child(7) {
   width: 102px;
 }
 
-.receiving-workspace-full .receiving-history-table th:nth-child(3),
-.receiving-workspace-full .receiving-history-table td:nth-child(3),
 .receiving-workspace-full .receiving-history-table th:nth-child(4),
 .receiving-workspace-full .receiving-history-table td:nth-child(4),
 .receiving-workspace-full .receiving-history-table th:nth-child(5),
-.receiving-workspace-full .receiving-history-table td:nth-child(5) {
+.receiving-workspace-full .receiving-history-table td:nth-child(5),
+.receiving-workspace-full .receiving-history-table th:nth-child(6),
+.receiving-workspace-full .receiving-history-table td:nth-child(6) {
   width: 48px;
 }
 
-.receiving-workspace-full .receiving-history-table th:nth-child(6),
-.receiving-workspace-full .receiving-history-table td:nth-child(6) {
+.receiving-workspace-full .receiving-history-table th:nth-child(7),
+.receiving-workspace-full .receiving-history-table td:nth-child(7) {
   width: 106px;
-}
-
-.receiving-workspace-full .receiving-history-table td:nth-child(2) strong,
-.receiving-workspace-full .receiving-history-table td:nth-child(2) span,
-.receiving-workspace-full .receiving-history-table td:nth-child(6) {
-  overflow-wrap: anywhere;
 }
 
 .stock-counting-workspace {
