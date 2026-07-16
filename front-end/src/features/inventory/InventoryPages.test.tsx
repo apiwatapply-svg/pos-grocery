@@ -57,7 +57,12 @@ beforeEach(() => {
     }
 
     if (path.startsWith('/inventory/transactions')) {
-      return apiInventoryTransactions
+      return {
+        items: apiInventoryTransactions,
+        total: apiInventoryTransactions.length,
+        page: 1,
+        pageSize: 20,
+      }
     }
 
     return apiProducts
@@ -177,11 +182,13 @@ describe('Inventory pages', () => {
     const historyTab = await screen.findByRole('tab', { name: /ประวัติรับของเข้า/ })
     fireEvent.click(historyTab)
     expect(screen.getByRole('region', { name: 'ประวัติรับของเข้าล่าสุด' })).toBeInTheDocument()
-    expect(screen.getByRole('table', { name: 'ประวัติรับของเข้า 100 รายการล่าสุด' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: 'ประวัติรับของเข้า' })).toBeInTheDocument()
     expect(
       screen.getByRole('row', { name: /1 SQL Inventory Product SQL-INV-001 12 \+5 17 29\/06\/2026 15:05/ }),
     ).toBeInTheDocument()
-    expect(mockedApiGet).toHaveBeenCalledWith('/inventory/transactions?limit=100')
+    expect(mockedApiGet).toHaveBeenCalledWith(
+      '/inventory/transactions?page=1&pageSize=20&type=receive',
+    )
   })
 
   it('lets staff search a product name and edit queued receiving quantity before saving', async () => {
@@ -258,19 +265,24 @@ describe('Inventory pages', () => {
       }
 
       if (path.startsWith('/inventory/transactions')) {
-        return [
-          {
-            id: 'inv-history-1',
-            productId: 'sql-inventory-product',
-            productName: 'SQL Inventory Product',
-            barcode: 'SQL-INV-001',
-            type: 'count',
-            quantityChange: 2,
-            balanceAfterChange: 14,
-            createdAt: '2026-06-29T08:00:00.000Z',
-            createdBy: 'Owner',
-          },
-        ]
+        return {
+          items: [
+            {
+              id: 'inv-history-1',
+              productId: 'sql-inventory-product',
+              productName: 'SQL Inventory Product',
+              barcode: 'SQL-INV-001',
+              type: 'count',
+              quantityChange: 2,
+              balanceAfterChange: 14,
+              createdAt: '2026-06-29T08:00:00.000Z',
+              createdBy: 'Owner',
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+        }
       }
 
       return []
@@ -429,5 +441,150 @@ describe('Inventory pages', () => {
     expect(
       screen.getAllByText('สแกนสินค้าซ้ำเพื่อเพิ่มจำนวนที่นับได้ทีละ 1 ชิ้น'),
     ).toHaveLength(1)
+  })
+
+  it('paginates the receiving history and renders entries with the correct page-relative index', async () => {
+    const receivingHistory = Array.from({ length: 25 }, (_, index) => ({
+      id: `receive-history-${index + 1}`,
+      productId: 'sql-inventory-product',
+      productName: 'SQL Inventory Product',
+      barcode: 'SQL-INV-001',
+      type: 'receive' as const,
+      quantityChange: index + 1,
+      balanceAfterChange: 12 + (index + 1),
+      createdAt: `2026-06-${String(index + 1).padStart(2, '0')}T08:00:00.000Z`,
+      createdBy: 'Owner',
+    }))
+
+    mockedApiGet.mockImplementation(async (path) => {
+      if (path === '/products?view=inventory') {
+        return apiProducts
+      }
+
+      if (path.startsWith('/inventory/transactions')) {
+        const pageMatch = /page=(\d+)/.exec(path)
+        const requestedPage = pageMatch ? Number(pageMatch[1]) : 1
+        const offset = (requestedPage - 1) * 20
+        return {
+          items: receivingHistory.slice(offset, offset + 20),
+          total: receivingHistory.length,
+          page: requestedPage,
+          pageSize: 20,
+        }
+      }
+
+      return apiProducts
+    })
+
+    render(<InventoryReceivingPage />)
+    const historyTab = await screen.findByRole('tab', { name: /ประวัติรับของเข้า/ })
+    fireEvent.click(historyTab)
+
+    const table = await screen.findByRole('table', { name: 'ประวัติรับของเข้า' })
+    expect(within(table).getByRole('columnheader', { name: 'ลำดับ' })).toBeInTheDocument()
+    const firstPageRows = within(table).getAllByRole('row').slice(1)
+    expect(firstPageRows).toHaveLength(20)
+    expect(firstPageRows[0]).toHaveTextContent('1')
+    expect(firstPageRows[19]).toHaveTextContent('20')
+    expect(
+      screen.getByText((content) => content.includes('แสดง 1-20 จาก 25')),
+    ).toBeInTheDocument()
+
+    // Move to page 2 and confirm the index restarts from 21 and the
+    // request carries the new page number.
+    fireEvent.click(screen.getByRole('button', { name: /ถัดไป/ }))
+    await waitFor(() => {
+      expect(mockedApiGet).toHaveBeenCalledWith(
+        '/inventory/transactions?page=2&pageSize=20&type=receive',
+      )
+    })
+    const secondPageRows = within(table).getAllByRole('row').slice(1)
+    expect(secondPageRows).toHaveLength(5)
+    expect(secondPageRows[0]).toHaveTextContent('21')
+    expect(secondPageRows[4]).toHaveTextContent('25')
+    expect(
+      screen.getByText((content) => content.includes('แสดง 21-25 จาก 25')),
+    ).toBeInTheDocument()
+
+    // Going back to page 1 should be available.
+    expect(screen.getByRole('button', { name: /ก่อนหน้า/ })).not.toBeDisabled()
+  })
+
+  it('paginates the stock-counting history with a back-to-first-page refresh after saving', async () => {
+    const stockHistory = Array.from({ length: 30 }, (_, index) => ({
+      id: `count-history-${index + 1}`,
+      productId: 'sql-inventory-product',
+      productName: 'SQL Inventory Product',
+      barcode: 'SQL-INV-001',
+      type: 'count' as const,
+      quantityChange: index + 1,
+      balanceAfterChange: 12 + (index + 1),
+      createdAt: `2026-06-${String(index + 1).padStart(2, '0')}T08:00:00.000Z`,
+      createdBy: 'Owner',
+    }))
+
+    mockedApiGet.mockImplementation(async (path) => {
+      if (path === '/products?view=inventory') {
+        return apiProducts
+      }
+
+      if (path.startsWith('/inventory/transactions')) {
+        const pageMatch = /page=(\d+)/.exec(path)
+        const requestedPage = pageMatch ? Number(pageMatch[1]) : 1
+        const offset = (requestedPage - 1) * 20
+        return {
+          items: stockHistory.slice(offset, offset + 20),
+          total: stockHistory.length,
+          page: requestedPage,
+          pageSize: 20,
+        }
+      }
+
+      return []
+    })
+
+    render(<StockCountingPage />)
+    const historyTab = await screen.findByRole('tab', { name: /ประวัติการปรับ stock/ })
+    fireEvent.click(historyTab)
+
+    const table = await screen.findByRole('table', { name: 'ประวัติการปรับ stock' })
+    expect(within(table).getByRole('columnheader', { name: 'ลำดับ' })).toBeInTheDocument()
+    const firstPageRows = within(table).getAllByRole('row').slice(1)
+    expect(firstPageRows).toHaveLength(20)
+    expect(firstPageRows[0]).toHaveTextContent('1')
+    expect(firstPageRows[19]).toHaveTextContent('20')
+
+    // Move to page 2.
+    fireEvent.click(screen.getByRole('button', { name: /ถัดไป/ }))
+    await waitFor(() => {
+      expect(mockedApiGet).toHaveBeenCalledWith(
+        '/inventory/transactions?page=2&pageSize=20',
+      )
+    })
+    const secondPageRows = within(table).getAllByRole('row').slice(1)
+    expect(secondPageRows).toHaveLength(10)
+    expect(secondPageRows[0]).toHaveTextContent('21')
+    expect(secondPageRows[9]).toHaveTextContent('30')
+
+    // Now switch to queue, add a counting line, and save it. The page
+    // should refresh back to page 1 of the history so the new entry sits
+    // on top.
+    fireEvent.click(screen.getByRole('tab', { name: /คิวตรวจนับ stock/ }))
+    const scanInput = await screen.findByLabelText('สแกนหรือค้นหาสินค้าเพื่อตรวจนับ')
+    fireEvent.change(scanInput, { target: { value: 'SQL-INV-001' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'บันทึกตรวจนับ 1 รายการ' }))
+
+    await waitFor(() => {
+      expect(mockedApiPost).toHaveBeenCalledWith('/inventory/count', {
+        productId: 'sql-inventory-product',
+        countedQuantity: 12,
+      })
+    })
+    await waitFor(() => {
+      expect(mockedApiGet).toHaveBeenCalledWith(
+        '/inventory/transactions?page=1&pageSize=20',
+      )
+    })
   })
 })

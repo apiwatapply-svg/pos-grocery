@@ -16,7 +16,9 @@ function requireLocalUser(response: Parameters<RequestHandler>[1]) {
 }
 
 function inventoryTransactionResponse(
-  transaction: Awaited<ReturnType<UserRepository["listInventoryTransactions"]>>[number],
+  transaction: Awaited<
+    ReturnType<UserRepository["listInventoryTransactions"]>
+  >["items"][number],
 ) {
   return {
     id: transaction.id,
@@ -99,17 +101,44 @@ export function countInventoryController(deps?: { repository?: UserRepository })
 
 export function listInventoryTransactionsController(deps?: { repository?: UserRepository }): RequestHandler {
   const repository = deps?.repository ?? defaultUserRepository;
+  const allowedTypes = new Set(["receive", "count", "sale", "void"]);
 
   return async (request, response, next) => {
     try {
       const user = requireLocalUser(response);
-      const requestedLimit = typeof request.query.limit === "string" ? Number(request.query.limit) : 50;
-      const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
-        ? Math.min(requestedLimit, 100)
-        : 50;
-      const transactions = await repository.listInventoryTransactions(user.storeId, { limit });
+      // Default `page`/`pageSize` keep the payload small for typical POS
+      // sessions. `pageSize` is capped at 100 so the route can never
+      // stream the full history at once.
+      const requestedPageSize = typeof request.query.pageSize === "string"
+        ? Number(request.query.pageSize)
+        : 20;
+      const pageSize = Number.isInteger(requestedPageSize) && requestedPageSize > 0
+        ? Math.min(requestedPageSize, 100)
+        : 20;
+      const requestedPage = typeof request.query.page === "string"
+        ? Number(request.query.page)
+        : 1;
+      const page = Number.isInteger(requestedPage) && requestedPage > 0
+        ? requestedPage
+        : 1;
+      const rawType = typeof request.query.type === "string" ? request.query.type : undefined;
+      const type = rawType && allowedTypes.has(rawType) ? rawType : undefined;
+      const offset = (page - 1) * pageSize;
+      const { items, total } = await repository.listInventoryTransactions(user.storeId, {
+        limit: pageSize,
+        offset,
+        type,
+      });
 
-      response.json({ success: true, data: transactions.map(inventoryTransactionResponse) });
+      response.json({
+        success: true,
+        data: {
+          items: items.map(inventoryTransactionResponse),
+          total,
+          page,
+          pageSize,
+        },
+      });
     } catch (error) {
       next(error);
     }

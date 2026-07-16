@@ -207,8 +207,11 @@ export type UserRepository = {
   }): Promise<{ product: ProductRecord; transaction: InventoryTransactionRecord } | null>;
   listInventoryTransactions(
     storeId: string,
-    input?: { limit?: number },
-  ): Promise<InventoryTransactionWithProductRecord[]>;
+    input?: { limit?: number; offset?: number; type?: string },
+  ): Promise<{
+    items: InventoryTransactionWithProductRecord[];
+    total: number;
+  }>;
 
   createSale(input: Omit<SaleRecord, "id" | "createdAt">): Promise<SaleRecord>;
   createSaleWithInventory(input: Omit<SaleRecord, "id" | "createdAt">): Promise<SaleRecord | null>;
@@ -575,28 +578,34 @@ export function createInMemoryUserRepository(seed?: {
           .map((product) => [product.id, product]),
       );
       const limit = input?.limit ?? 50;
-
-      return Array.from(inventoryTransactions.values())
+      const offset = input?.offset ?? 0;
+      const typeFilter = input?.type;
+      const sorted = Array.from(inventoryTransactions.values())
         .filter((transaction) => productById.has(transaction.productId))
-        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-        .slice(0, limit)
-        .map((transaction) => {
-          const createdByUser = transaction.createdByUserId
-            ? users.get(transaction.createdByUserId)
-            : undefined;
+        .filter((transaction) => (typeFilter ? transaction.type === typeFilter : true))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+      const total = sorted.length;
+      const slice = sorted.slice(offset, offset + limit);
 
-          return {
-            ...transaction,
-            product: productById.get(transaction.productId)!,
-            createdBy: createdByUser
-              ? {
-                  id: createdByUser.id,
-                  username: createdByUser.username,
-                  displayName: createdByUser.displayName,
-                }
-              : undefined,
-          };
-        });
+      const items = slice.map((transaction) => {
+        const createdByUser = transaction.createdByUserId
+          ? users.get(transaction.createdByUserId)
+          : undefined;
+
+        return {
+          ...transaction,
+          product: productById.get(transaction.productId)!,
+          createdBy: createdByUser
+            ? {
+                id: createdByUser.id,
+                username: createdByUser.username,
+                displayName: createdByUser.displayName,
+              }
+            : undefined,
+        };
+      });
+
+      return { items, total };
     },
     async createSale(input) {
       const id = createId("sale");

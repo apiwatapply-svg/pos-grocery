@@ -831,27 +831,38 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       });
     },
     async listInventoryTransactions(storeId, input) {
-      const transactions = await prisma.inventoryTransaction.findMany({
-        where: { product: { storeId } },
-        orderBy: { createdAt: "desc" },
-        take: input?.limit ?? 50,
-        include: {
-          product: {
-            select: {
-              id: true,
-              storeId: true,
-              categoryId: true,
-              name: true,
-              barcode: true,
-              unit: true,
-              costPriceSatang: true,
-              salePriceSatang: true,
-              stockQuantity: true,
-              status: true,
+      const limit = input?.limit ?? 50;
+      const offset = input?.offset ?? 0;
+      const typeFilter = input?.type;
+      const where = typeFilter
+        ? { product: { storeId }, type: typeFilter }
+        : { product: { storeId } };
+
+      const [transactions, total] = await Promise.all([
+        prisma.inventoryTransaction.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: offset,
+          take: limit,
+          include: {
+            product: {
+              select: {
+                id: true,
+                storeId: true,
+                categoryId: true,
+                name: true,
+                barcode: true,
+                unit: true,
+                costPriceSatang: true,
+                salePriceSatang: true,
+                stockQuantity: true,
+                status: true,
+              },
             },
           },
-        },
-      });
+        }),
+        prisma.inventoryTransaction.count({ where }),
+      ]);
       const userIds = Array.from(
         new Set(
           transactions
@@ -867,7 +878,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         : [];
       const createdByById = new Map(createdByUsers.map((user) => [user.id, user]));
 
-      return transactions.map((transaction) =>
+      const items = transactions.map((transaction) =>
         mapInventoryTransactionWithProduct({
           ...transaction,
           createdByUser: transaction.createdByUserId
@@ -875,6 +886,8 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
             : null,
         }),
       );
+
+      return { items, total };
     },
     async createSale(input) {
       const sale = await prisma.sale.create({

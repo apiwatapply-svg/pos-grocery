@@ -89,6 +89,15 @@ type ReceivingHistory = {
   createdAt: string
 }
 
+type ReceivingHistoryPage = {
+  items: ReceivingHistory[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+const RECEIVING_HISTORY_PAGE_SIZE = 20
+
 function bahtFromSatang(value: number) {
   return formatBaht(value / 100)
 }
@@ -181,6 +190,10 @@ export function InventoryReceivingPage() {
   const scanCharTimestampsRef = useRef<number[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<ReceivingHistory[]>([])
+  const [historyTotal, setHistoryTotal] = useState(0)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize] = useState(RECEIVING_HISTORY_PAGE_SIZE)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [scanValue, setScanValue] = useState('')
   const [lines, setLines] = useState<ReceivingLine[]>(() => loadPersistedQueue())
   const [message, setMessage] = useState('กำลังโหลดสินค้า')
@@ -191,9 +204,21 @@ export function InventoryReceivingPage() {
     setMessage(apiProducts.length > 0 ? '' : 'ยังไม่มีสินค้าในฐานข้อมูล')
   }
 
-  async function loadReceivingHistory() {
-    const transactions = await apiGet<ReceivingHistory[]>('/inventory/transactions?limit=100')
-    setHistory(transactions.filter((transaction) => transaction.type === 'receive').slice(0, 100))
+  async function loadReceivingHistory(page: number) {
+    setHistoryLoading(true)
+    try {
+      // The endpoint is paginated server-side and supports an optional
+      // `?type=` filter so we only fetch receive transactions; this
+      // keeps the response small for stores that sell a lot of items.
+      const response = await apiGet<ReceivingHistoryPage>(
+        `/inventory/transactions?page=${page}&pageSize=${historyPageSize}&type=receive`,
+      )
+      setHistory(response.items)
+      setHistoryTotal(response.total)
+      setHistoryPage(page)
+    } finally {
+      setHistoryLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -207,9 +232,13 @@ export function InventoryReceivingPage() {
           setMessage(apiProducts.length > 0 ? '' : 'ยังไม่มีสินค้าในฐานข้อมูล')
         }
 
-        const transactions = await apiGet<ReceivingHistory[]>('/inventory/transactions?limit=100')
+        const response = await apiGet<ReceivingHistoryPage>(
+          `/inventory/transactions?page=1&pageSize=${historyPageSize}&type=receive`,
+        )
         if (active) {
-          setHistory(transactions.filter((transaction) => transaction.type === 'receive').slice(0, 100))
+          setHistory(response.items)
+          setHistoryTotal(response.total)
+          setHistoryPage(1)
         }
       } catch (error: unknown) {
         if (active) {
@@ -223,7 +252,7 @@ export function InventoryReceivingPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [historyPageSize])
 
   useEffect(() => {
     scanInputRef.current?.focus()
@@ -410,7 +439,9 @@ export function InventoryReceivingPage() {
       setLines([])
       setMessage('บันทึกรับของแล้ว')
       await loadProducts()
-      await loadReceivingHistory()
+      // After a successful receive, jump the user back to page 1 so the
+      // new entry is at the top of the freshly fetched list.
+      await loadReceivingHistory(1)
       scanInputRef.current?.focus()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'บันทึกรับของไม่สำเร็จ')
@@ -469,7 +500,6 @@ export function InventoryReceivingPage() {
               }}
               onSelect={(option) => handleScanSelect(option)}
             />
-            <small>สแกนหรือเลือกสินค้าจากช่องค้นหาแล้วระบบจะเพิ่มเข้าคิวทันที</small>
           </label>
         </section>
 
@@ -500,7 +530,7 @@ export function InventoryReceivingPage() {
             </TabsTrigger>
             <TabsTrigger value="history">
               ประวัติรับของเข้า
-              <span className="tabs-trigger-badge">{formatNumber(history.length)}</span>
+              <span className="tabs-trigger-badge">{formatNumber(historyTotal)}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -593,11 +623,15 @@ export function InventoryReceivingPage() {
           <TabsPanel value="history">
             <section className="panel receiving-history-panel" aria-label="ประวัติรับของเข้า">
               <div className="receiving-history-header">
-                <p className="receiving-history-meta">100 รายการล่าสุด</p>
-                <strong>{formatNumber(history.length)} รายการ</strong>
+                <p className="receiving-history-meta">
+                  {historyTotal > 0
+                    ? `หน้า ${formatNumber(historyPage)} จาก ${formatNumber(Math.max(1, Math.ceil(historyTotal / historyPageSize)))}`
+                    : 'ยังไม่มีประวัติรับของเข้า'}
+                </p>
+                <strong>{formatNumber(historyTotal)} รายการ</strong>
               </div>
               <div className="receiving-history-scroll" role="region" aria-label="ประวัติรับของเข้าล่าสุด">
-                <table aria-label="ประวัติรับของเข้า 100 รายการล่าสุด" className="receiving-history-table">
+                <table aria-label="ประวัติรับของเข้า" className="receiving-history-table">
                   <thead>
                     <tr>
                       <th>ลำดับ</th>
@@ -611,7 +645,7 @@ export function InventoryReceivingPage() {
                   <tbody>
                     {history.length > 0 ? history.map((transaction, index) => (
                       <tr key={transaction.id}>
-                        <td>{formatNumber(index + 1)}</td>
+                        <td>{formatNumber((historyPage - 1) * historyPageSize + index + 1)}</td>
                         <td>
                           <strong>{transaction.productName}</strong>
                           <span>{transaction.barcode}</span>
@@ -629,6 +663,31 @@ export function InventoryReceivingPage() {
                   </tbody>
                 </table>
               </div>
+              {historyTotal > 0 && (
+                <div className="history-pagination" role="navigation" aria-label="เปลี่ยนหน้าประวัติรับของเข้า">
+                  <button
+                    className="ghost-button"
+                    disabled={historyPage <= 1 || historyLoading}
+                    type="button"
+                    onClick={() => void loadReceivingHistory(historyPage - 1)}
+                  >
+                    ‹ ก่อนหน้า
+                  </button>
+                  <span className="history-pagination-info">
+                    {historyLoading
+                      ? 'กำลังโหลด...'
+                      : `หน้า ${formatNumber(historyPage)} จาก ${formatNumber(Math.max(1, Math.ceil(historyTotal / historyPageSize)))} · แสดง ${formatNumber((historyPage - 1) * historyPageSize + 1)}-${formatNumber(Math.min(historyTotal, historyPage * historyPageSize))} จาก ${formatNumber(historyTotal)}`}
+                  </span>
+                  <button
+                    className="ghost-button"
+                    disabled={historyPage >= Math.ceil(historyTotal / historyPageSize) || historyLoading}
+                    type="button"
+                    onClick={() => void loadReceivingHistory(historyPage + 1)}
+                  >
+                    ถัดไป ›
+                  </button>
+                </div>
+              )}
             </section>
           </TabsPanel>
         </Tabs>

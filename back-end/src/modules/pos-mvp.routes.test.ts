@@ -183,26 +183,33 @@ describe("POS Grocery MVP API", () => {
       .set("Authorization", authHeader(owner));
 
     expect(transactions.status).toBe(200);
-    expect(transactions.body.data).toEqual([
+    expect(transactions.body.data).toEqual(
       expect.objectContaining({
-        productId: product.body.data.id,
-        productName: "Instant Noodles",
-        barcode: "8850001000011",
-        type: "count",
-        quantityChange: -2,
-        balanceAfterChange: 22,
-        createdBy: "Owner",
+        total: 2,
+        page: 1,
+        pageSize: 20,
+        items: [
+          expect.objectContaining({
+            productId: product.body.data.id,
+            productName: "Instant Noodles",
+            barcode: "8850001000011",
+            type: "count",
+            quantityChange: -2,
+            balanceAfterChange: 22,
+            createdBy: "Owner",
+          }),
+          expect.objectContaining({
+            productId: product.body.data.id,
+            productName: "Instant Noodles",
+            barcode: "8850001000011",
+            type: "receive",
+            quantityChange: 24,
+            balanceAfterChange: 24,
+            createdBy: "Owner",
+          }),
+        ],
       }),
-      expect.objectContaining({
-        productId: product.body.data.id,
-        productName: "Instant Noodles",
-        barcode: "8850001000011",
-        type: "receive",
-        quantityChange: 24,
-        balanceAfterChange: 24,
-        createdBy: "Owner",
-      }),
-    ]);
+    );
 
     const exported = await request(app)
       .get("/api/inventory/export.xlsx")

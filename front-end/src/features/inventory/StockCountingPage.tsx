@@ -35,6 +35,15 @@ type StockAdjustmentHistory = {
   createdBy?: string
 }
 
+type StockAdjustmentHistoryPage = {
+  items: StockAdjustmentHistory[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+const STOCK_ADJUSTMENT_HISTORY_PAGE_SIZE = 20
+
 // Barcode scanners type a full barcode in a tight, even burst. Real
 // wireless scanners can introduce one outlier interval because their HID
 // buffer flushes in chunks (e.g. 4 chars + 200ms pause + 4 chars + Enter).
@@ -152,6 +161,10 @@ export function StockCountingPage() {
   const scanCharTimestampsRef = useRef<number[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [history, setHistory] = useState<StockAdjustmentHistory[]>([])
+  const [historyTotal, setHistoryTotal] = useState(0)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize] = useState(STOCK_ADJUSTMENT_HISTORY_PAGE_SIZE)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [scanValue, setScanValue] = useState('')
   const [lines, setLines] = useState<CountingLine[]>([])
   const [message, setMessage] = useState('กำลังโหลดสินค้า')
@@ -162,9 +175,18 @@ export function StockCountingPage() {
     setMessage(apiProducts.length > 0 ? '' : 'ยังไม่มีสินค้าในฐานข้อมูล')
   }
 
-  async function loadHistory() {
-    const transactions = await apiGet<StockAdjustmentHistory[]>('/inventory/transactions?limit=100')
-    setHistory(transactions)
+  async function loadHistory(page: number) {
+    setHistoryLoading(true)
+    try {
+      const response = await apiGet<StockAdjustmentHistoryPage>(
+        `/inventory/transactions?page=${page}&pageSize=${historyPageSize}`,
+      )
+      setHistory(response.items)
+      setHistoryTotal(response.total)
+      setHistoryPage(page)
+    } finally {
+      setHistoryLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -182,9 +204,13 @@ export function StockCountingPage() {
           setMessage(apiProducts.length > 0 ? '' : 'ยังไม่มีสินค้าในฐานข้อมูล')
         }
 
-        const transactions = await apiGet<StockAdjustmentHistory[]>('/inventory/transactions?limit=100')
+        const response = await apiGet<StockAdjustmentHistoryPage>(
+          `/inventory/transactions?page=1&pageSize=${historyPageSize}`,
+        )
         if (active) {
-          setHistory(transactions)
+          setHistory(response.items)
+          setHistoryTotal(response.total)
+          setHistoryPage(1)
         }
       } catch (error: unknown) {
         if (active) {
@@ -198,7 +224,7 @@ export function StockCountingPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [historyPageSize])
 
   const totalLines = lines.length
   const totalCounted = lines.reduce((sum, line) => sum + line.countedQuantity, 0)
@@ -358,7 +384,9 @@ export function StockCountingPage() {
         ),
       )
       await loadProducts()
-      await loadHistory()
+      // After a successful count, jump the user back to page 1 so the
+      // new adjustments are at the top of the freshly fetched list.
+      await loadHistory(1)
       setLines([])
       setMessage('บันทึกตรวจนับ stock แล้ว')
       await Swal.fire({
@@ -461,7 +489,7 @@ export function StockCountingPage() {
             </TabsTrigger>
             <TabsTrigger value="history">
               ประวัติการปรับ stock
-              <span className="tabs-trigger-badge">{formatNumber(history.length)}</span>
+              <span className="tabs-trigger-badge">{formatNumber(historyTotal)}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -553,9 +581,11 @@ export function StockCountingPage() {
             >
               <div className="receiving-history-header">
                 <p className="receiving-history-meta">
-                  แสดง 50 รายการล่าสุด พร้อมยอดจริงปัจจุบันหลังการปรับ
+                  {historyTotal > 0
+                    ? `หน้า ${formatNumber(historyPage)} จาก ${formatNumber(Math.max(1, Math.ceil(historyTotal / historyPageSize)))}`
+                    : 'ยังไม่มีประวัติการปรับ stock'}
                 </p>
-                <strong>{formatNumber(history.length)} รายการ</strong>
+                <strong>{formatNumber(historyTotal)} รายการ</strong>
               </div>
               <div className="receiving-history-scroll stock-counting-history-scroll">
                 <table aria-label="ประวัติการปรับ stock" className="receiving-history-table stock-counting-history-table">
@@ -575,7 +605,7 @@ export function StockCountingPage() {
                     {history.length > 0 ? (
                       history.map((transaction, index) => (
                         <tr key={transaction.id}>
-                          <td>{formatNumber(index + 1)}</td>
+                          <td>{formatNumber((historyPage - 1) * historyPageSize + index + 1)}</td>
                           <td>{formatHistoryDateTime(transaction.createdAt)}</td>
                           <td><strong>{transaction.productName}</strong></td>
                           <td>{transaction.barcode}</td>
@@ -595,6 +625,31 @@ export function StockCountingPage() {
                   </tbody>
                 </table>
               </div>
+              {historyTotal > 0 && (
+                <div className="history-pagination" role="navigation" aria-label="เปลี่ยนหน้าประวัติการปรับ stock">
+                  <button
+                    className="ghost-button"
+                    disabled={historyPage <= 1 || historyLoading}
+                    type="button"
+                    onClick={() => void loadHistory(historyPage - 1)}
+                  >
+                    ‹ ก่อนหน้า
+                  </button>
+                  <span className="history-pagination-info">
+                    {historyLoading
+                      ? 'กำลังโหลด...'
+                      : `หน้า ${formatNumber(historyPage)} จาก ${formatNumber(Math.max(1, Math.ceil(historyTotal / historyPageSize)))} · แสดง ${formatNumber((historyPage - 1) * historyPageSize + 1)}-${formatNumber(Math.min(historyTotal, historyPage * historyPageSize))} จาก ${formatNumber(historyTotal)}`}
+                  </span>
+                  <button
+                    className="ghost-button"
+                    disabled={historyPage >= Math.ceil(historyTotal / historyPageSize) || historyLoading}
+                    type="button"
+                    onClick={() => void loadHistory(historyPage + 1)}
+                  >
+                    ถัดไป ›
+                  </button>
+                </div>
+              )}
             </section>
           </TabsPanel>
         </Tabs>
