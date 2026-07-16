@@ -115,6 +115,91 @@ function posCartStorageKey(storeId: string) {
   return `${posCartStorageKeyPrefix}:${storeId}`
 }
 
+const OUT_OF_STOCK_FLASH_MS = 1500
+const OUT_OF_STOCK_TOAST_MS = 2500
+const BEEP_FREQUENCY_HZ = 880
+const BEEP_DURATION_MS = 220
+const BEEP_GAIN = 0.18
+
+interface BeepController {
+  ensureContext(): void
+  play(): void
+}
+
+function createBeepController(): BeepController {
+  // We use a runtime-only AudioContext reference to stay compatible with
+  // older WebKit (webkitAudioContext) and to avoid breaking when running in
+  // jsdom (where AudioContext is undefined). All typed access goes through
+  // the optional chaining + try/catch so the cashier flow is never blocked
+  // by an audio failure.
+  type AudioContextCtor = new () => AudioContext
+  let context: AudioContext | null = null
+
+  const detectCtor = (): AudioContextCtor | null => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+    const w = window as unknown as {
+      AudioContext?: AudioContextCtor
+      webkitAudioContext?: AudioContextCtor
+    }
+    if (typeof w.AudioContext === 'function') {
+      return w.AudioContext
+    }
+    if (typeof w.webkitAudioContext === 'function') {
+      return w.webkitAudioContext
+    }
+    return null
+  }
+
+  const ensureContext = () => {
+    if (context) {
+      return
+    }
+    const Ctor = detectCtor()
+    if (!Ctor) {
+      return
+    }
+    try {
+      context = new Ctor()
+    } catch {
+      context = null
+    }
+  }
+
+  const play = () => {
+    if (!context) {
+      ensureContext()
+    }
+    const ctx = context
+    if (!ctx) {
+      return
+    }
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => undefined)
+    }
+    try {
+      const oscillator = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const startTime = ctx.currentTime
+      const endTime = startTime + BEEP_DURATION_MS / 1000
+      oscillator.type = 'square'
+      oscillator.frequency.value = BEEP_FREQUENCY_HZ
+      gain.gain.setValueAtTime(BEEP_GAIN, startTime)
+      gain.gain.setValueAtTime(0, endTime)
+      oscillator.connect(gain)
+      gain.connect(ctx.destination)
+      oscillator.start(startTime)
+      oscillator.stop(endTime)
+    } catch {
+      // Audio is a best-effort feedback; never break the cashier flow if
+      // the device rejects sound (muted tab, missing user gesture, etc.).
+    }
+  }
+
+  return { ensureContext, play }
+}
+
 function loadCartFromStorage(storeId: string): CartItem[] {
   try {
     const raw = localStorage.getItem(posCartStorageKey(storeId))
@@ -392,6 +477,11 @@ export function PosCheckoutPage() {
   // trailing Enter apart from a user pressing Enter after manually typing
   // a barcode.
   const scanCharTimestampsRef = useRef<number[]>([])
+  // Cached AudioContext wrapper. Initialised lazily on the first user
+  // gesture (autoplay policy) so the cashier's first scan can produce a
+  // beep without us spawning an AudioContext too early. Using useState's
+  // lazy initializer avoids touching a ref during render.
+  const [beepController] = useState<BeepController>(() => createBeepController())
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [productQuery, setProductQuery] = useState('')
@@ -402,6 +492,12 @@ export function PosCheckoutPage() {
   const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false)
   const [heldBills, setHeldBills] = useState<HeldBill[]>([])
   const [isHeldBillsModalOpen, setIsHeldBillsModalOpen] = useState(false)
+  // When the cashier scans or selects a product with zero stock we briefly
+  // highlight the scan field in red and switch the status pill to an error
+  // state so the cashier does not lose their scanning rhythm. The toast +
+  // beep are the additional non-blocking notifications.
+  const [outOfStockFlash, setOutOfStockFlash] = useState(false)
+  const [isOutOfStockError, setIsOutOfStockError] = useState(false)
   const [scanDebug, setScanDebug] = useState<{
     buffer: number
     lastInterval: number | null
@@ -421,6 +517,10 @@ export function PosCheckoutPage() {
   const activeProducts = products.filter((product) => product.status === 'active')
 
   function focusProductQuery() {
+    // Lazy-init the AudioContext on the first focus attempt so the beep
+    // can play in response to a subsequent scan (browsers reject
+    // AudioContext creation outside of a user gesture).
+    beepController.ensureContext()
     productQueryInputRef.current?.focus()
   }
 
@@ -436,6 +536,35 @@ export function PosCheckoutPage() {
   useEffect(() => {
     focusProductQuery()
   }, [])
+
+  useEffect(() => {
+    if (!outOfStockFlash) {
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setOutOfStockFlash(false)
+    }, OUT_OF_STOCK_FLASH_MS)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [outOfStockFlash])
+
+  function notifyOutOfStock(product: Product) {
+    setNotice(`สินค้า "${product.name}" หมด stock`)
+    setIsOutOfStockError(true)
+    setOutOfStockFlash(true)
+    beepController.play()
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'warning',
+      title: `สินค้า "${product.name}" หมด stock`,
+      text: 'เพิ่มสต็อกก่อนขายต่อ',
+      timer: OUT_OF_STOCK_TOAST_MS,
+      timerProgressBar: true,
+      showConfirmButton: false,
+    })
+  }
 
   const checkoutRef = useRef<() => Promise<void>>(async () => {})
   const hasCartItemsRef = useRef(false)
@@ -734,20 +863,10 @@ export function PosCheckoutPage() {
     )
   }
 
-  async function addProductToCart(product: Product) {
+  async function addProductToCart(product: Product, source: 'scan' | 'manual' = 'scan') {
     if (product.stockQuantity <= 0) {
       setProductQuery('')
-      setNotice(`สินค้า "${product.name}" หมด stock`)
-      await Swal.fire({
-        title: 'สินค้าหมด stock',
-        text: `"${product.name}" หมด stock แล้ว กรุณาไปเพิ่ม stock ที่หน้ารับสินค้าเข้าก่อน`,
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        confirmButtonColor: '#15803d',
-        allowEscapeKey: false,
-        allowOutsideClick: false,
-      })
-      setProductQuery('')
+      notifyOutOfStock(product)
       focusProductQuery()
       return
     }
@@ -755,6 +874,7 @@ export function PosCheckoutPage() {
     const existingQuantity = cart.find((item) => item.productId === product.id)?.quantity ?? 0
     if (product.stockQuantity < existingQuantity + 1) {
       setNotice('stock ไม่พอ')
+      setIsOutOfStockError(false)
       setProductQuery('')
       focusProductQuery()
       return
@@ -781,7 +901,11 @@ export function PosCheckoutPage() {
       ]
     })
     setProductQuery('')
+    setIsOutOfStockError(false)
     setNotice(`${product.name} added`)
+    // `source` is reserved for future analytics on scan vs. manual adds; the
+    // non-blocking out-of-stock notification already covers both paths.
+    void source
     focusProductQuery()
   }
 
@@ -802,7 +926,7 @@ export function PosCheckoutPage() {
     // so the keydown handler and the global focus-handoff can ignore it
     // instead of adding the same product again or moving focus away.
     isConsumingScanEnterRef.current = true
-    void addProductToCart(product)
+    void addProductToCart(product, 'scan')
   }
 
   async function handleProductSelect(option: SearchableDropdownOption) {
@@ -818,7 +942,7 @@ export function PosCheckoutPage() {
       setProductQuery('')
       return
     }
-    await addProductToCart(product)
+    await addProductToCart(product, 'manual')
   }
 
   function handleProductScanEnter() {
@@ -1167,10 +1291,24 @@ export function PosCheckoutPage() {
                   {scanDebug.isScanner ? 'scanner' : 'manual'}
                 </span>
               </div>
-              <div className="status-pill">{notice}</div>
+              <div
+                className={
+                  isOutOfStockError ? 'status-pill status-pill-error' : 'status-pill'
+                }
+                role={isOutOfStockError ? 'alert' : undefined}
+                aria-live={isOutOfStockError ? 'assertive' : 'polite'}
+              >
+                {notice}
+              </div>
             </div>
           </div>
-          <div className="pos-scan-bar">
+          <div
+            className={
+              outOfStockFlash
+                ? 'pos-scan-bar pos-scan-bar-out-of-stock'
+                : 'pos-scan-bar'
+            }
+          >
             <label className="field" htmlFor="pos-product-query">
               <SearchableDropdown
                 ref={productQueryInputRef}

@@ -1087,7 +1087,7 @@ describe('PosCheckoutPage', () => {
     expect(screen.queryByText('Drinking Water')).not.toBeInTheDocument()
   })
 
-  it('shows SweetAlert when scanning a product with zero stock, blocks adding to cart, and refocuses scan input after OK', async () => {
+  it('shows a non-blocking toast when scanning a product with zero stock and keeps the scan field focused', async () => {
     const outOfStockProduct = {
       id: 'product-out-of-stock',
       storeId: 'store-1',
@@ -1103,7 +1103,6 @@ describe('PosCheckoutPage', () => {
     mockApiResponses({
       productResponses: [[...apiProducts, outOfStockProduct]],
     })
-    mockedSwal.fire.mockResolvedValueOnce(confirmedDialog)
 
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()
@@ -1116,18 +1115,156 @@ describe('PosCheckoutPage', () => {
     await waitFor(() => {
       expect(mockedSwal.fire).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'สินค้าหมด stock',
-          confirmButtonText: 'OK',
+          toast: true,
           icon: 'warning',
+          timer: 2500,
+          showConfirmButton: false,
+          title: `สินค้า "Out Of Stock Item" หมด stock`,
         }),
       )
     })
+    // We never open a blocking confirmation dialog so the cashier can keep
+    // scanning immediately.
+    expect(mockedSwal.fire).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmButtonText: 'OK',
+        allowEscapeKey: false,
+        allowOutsideClick: false,
+      }),
+    )
     expect(screen.queryByText('Out Of Stock Item')).not.toBeInTheDocument()
     expect(screen.getByText('สแกนหรือเลือกสินค้าจากช่องค้นหา')).toBeInTheDocument()
+    expect(document.querySelector('.pos-scan-bar-out-of-stock')).not.toBeNull()
+    expect(document.querySelector('.status-pill.status-pill-error')).not.toBeNull()
     await waitFor(() => {
       expect(scan).toHaveValue('')
       expect(scan).toHaveFocus()
     })
+  })
+
+  it('clears the out-of-stock flash class after the timer expires', async () => {
+    const outOfStockProduct = {
+      id: 'product-out-of-stock',
+      storeId: 'store-1',
+      name: 'Out Of Stock Item',
+      barcode: 'OUT-OF-STOCK-001',
+      unit: 'pack',
+      costPriceSatang: 500,
+      salePriceSatang: 900,
+      stockQuantity: 0,
+      status: 'active',
+      images: [],
+    }
+    mockApiResponses({
+      productResponses: [[...apiProducts, outOfStockProduct]],
+    })
+
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scan = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.change(scan, {
+      target: { value: 'OUT-OF-STOCK-001' },
+    })
+
+    await waitFor(() => {
+      expect(document.querySelector('.pos-scan-bar-out-of-stock')).not.toBeNull()
+    })
+    // Real-time wait — long enough to outlast the flash duration, short
+    // enough to keep the test fast. We intentionally do not use
+    // vi.useFakeTimers here because it interferes with @testing-library's
+    // internal waitFor polling and leaks fake timer state to later tests.
+    await new Promise((resolve) => setTimeout(resolve, 1700))
+    expect(document.querySelector('.pos-scan-bar-out-of-stock')).toBeNull()
+  })
+
+  it('plays a beep on out-of-stock scan and lazily creates the AudioContext on focus', async () => {
+    class FakeOscillator {
+      type: OscillatorType = 'sine'
+      frequency = { value: 0 }
+      connect(destination: AudioNode) {
+        return destination
+      }
+      start() {
+        return undefined
+      }
+      stop() {
+        return undefined
+      }
+    }
+    class FakeGain {
+      gain = {
+        value: 0,
+        setValueAtTime: vi.fn(),
+      }
+      connect(destination: AudioNode) {
+        return destination
+      }
+    }
+    const oscillatorInstances: FakeOscillator[] = []
+    class FakeAudioContext {
+      state = 'running'
+      destination = {} as AudioNode
+      currentTime = 0
+      createOscillator() {
+        const instance = new FakeOscillator()
+        oscillatorInstances.push(instance)
+        return instance
+      }
+      createGain() {
+        return new FakeGain()
+      }
+      async resume() {
+        return undefined
+      }
+    }
+    const audioContextInstances: FakeAudioContext[] = []
+    const AudioContextStub = vi.fn(function () {
+      const instance = new FakeAudioContext()
+      audioContextInstances.push(instance)
+      return instance
+    })
+    const originalAudioContext = (window as unknown as { AudioContext?: unknown }).AudioContext
+    ;(window as unknown as { AudioContext?: unknown }).AudioContext = AudioContextStub
+
+    const outOfStockProduct = {
+      id: 'product-out-of-stock',
+      storeId: 'store-1',
+      name: 'Out Of Stock Item',
+      barcode: 'OUT-OF-STOCK-001',
+      unit: 'pack',
+      costPriceSatang: 500,
+      salePriceSatang: 900,
+      stockQuantity: 0,
+      status: 'active',
+      images: [],
+    }
+    mockApiResponses({
+      productResponses: [[...apiProducts, outOfStockProduct]],
+    })
+
+    try {
+      render(<PosCheckoutPage />)
+      await waitForProductsLoaded()
+
+      const scan = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+      fireEvent.change(scan, {
+        target: { value: 'OUT-OF-STOCK-001' },
+      })
+
+      await waitFor(() => {
+        expect(mockedSwal.fire).toHaveBeenCalledWith(
+          expect.objectContaining({ toast: true }),
+        )
+      })
+      // Exactly one AudioContext was created (lazy init) and the beep was
+      // triggered by allocating an oscillator + gain node.
+      expect(AudioContextStub).toHaveBeenCalledTimes(1)
+      expect(audioContextInstances).toHaveLength(1)
+      expect(oscillatorInstances.length).toBeGreaterThanOrEqual(1)
+    } finally {
+      ;(window as unknown as { AudioContext?: unknown }).AudioContext = originalAudioContext
+    }
   })
 
   it('keeps the scan field focused when clicking outside allowed controls', async () => {
