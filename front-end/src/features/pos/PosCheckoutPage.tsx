@@ -253,7 +253,7 @@ function buildSaleSummaryHtml(sale: Sale, cart: CartItem[]): string {
       const lineTotal = item.quantity * item.unitPrice
       return `
         <tr>
-          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #e0e5dd;">${item.productName}</td>
+          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #e0e5dd;word-break:break-word;overflow-wrap:break-word;">${item.productName}</td>
           <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${formatNumber(item.quantity)}</td>
           <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(item.unitPrice)}</td>
           <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(lineTotal)}</td>
@@ -267,13 +267,19 @@ function buildSaleSummaryHtml(sale: Sale, cart: CartItem[]): string {
       <p style="margin:0 0 8px;color:#536259;">
         เลขที่บิล <strong style="color:#102017;">${sale.receiptNumber}</strong>
       </p>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+      <table class="pos-swal-table" style="width:100%;border-collapse:collapse;margin-bottom:10px;table-layout:fixed;">
+        <colgroup>
+          <col style="width:48%;" />
+          <col style="width:12%;" />
+          <col style="width:18%;" />
+          <col style="width:22%;" />
+        </colgroup>
         <thead>
           <tr style="background:#eef2ed;">
-            <th style="text-align:left;padding:6px 8px;font-size:12px;color:#4a5a50;">สินค้า</th>
-            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">จำนวน</th>
-            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">ราคา</th>
-            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">รวม</th>
+            <th style="text-align:left;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:normal;word-break:keep-all;">สินค้า</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:nowrap;">จำนวน</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:nowrap;">ราคา</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:nowrap;">รวม</th>
           </tr>
         </thead>
         <tbody>${itemRows}</tbody>
@@ -302,7 +308,7 @@ function buildConfirmationHtml(cart: CartItem[], cartTotal: number, cashReceived
       const lineTotal = item.quantity * item.unitPrice
       return `
         <tr>
-          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #e0e5dd;">${item.productName}</td>
+          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #e0e5dd;word-break:break-word;overflow-wrap:break-word;">${item.productName}</td>
           <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${formatNumber(item.quantity)}</td>
           <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(item.unitPrice)}</td>
           <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #e0e5dd;white-space:nowrap;">${baht(lineTotal)}</td>
@@ -314,13 +320,19 @@ function buildConfirmationHtml(cart: CartItem[], cartTotal: number, cashReceived
   return `
     <div style="text-align:left;font-size:14px;color:#17201b;">
       <p style="margin:0 0 8px;color:#536259;">รายการสินค้าในตะกร้า</p>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+      <table class="pos-swal-table" style="width:100%;border-collapse:collapse;margin-bottom:10px;table-layout:fixed;">
+        <colgroup>
+          <col style="width:48%;" />
+          <col style="width:12%;" />
+          <col style="width:18%;" />
+          <col style="width:22%;" />
+        </colgroup>
         <thead>
           <tr style="background:#eef2ed;">
-            <th style="text-align:left;padding:6px 8px;font-size:12px;color:#4a5a50;">สินค้า</th>
-            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">จำนวน</th>
-            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">ราคา</th>
-            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;">รวม</th>
+            <th style="text-align:left;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:normal;word-break:keep-all;">สินค้า</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:nowrap;">จำนวน</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:nowrap;">ราคา</th>
+            <th style="text-align:right;padding:6px 8px;font-size:12px;color:#4a5a50;white-space:nowrap;">รวม</th>
           </tr>
         </thead>
         <tbody>${itemRows}</tbody>
