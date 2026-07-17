@@ -1604,6 +1604,13 @@ export function PosCheckoutPage() {
               <p className="empty-hint">ยังไม่มีบิลที่พัก</p>
             ) : (
               <table className="held-bills-table" aria-label="รายการบิลที่พัก">
+                <colgroup>
+                  <col className="held-bills-col-time" />
+                  <col className="held-bills-col-name" />
+                  <col className="held-bills-col-count" />
+                  <col className="held-bills-col-total" />
+                  <col className="held-bills-col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>พักเมื่อ</th>

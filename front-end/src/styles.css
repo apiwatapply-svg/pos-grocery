@@ -3548,14 +3548,25 @@ th[aria-sort] {
 .held-bills-table {
   border-collapse: collapse;
   font-size: 14px;
+  table-layout: fixed; /* ใช้ explicit column widths เพื่อไม่ให้ปุ่ม "ลบ" ล้นออกนอก modal */
   width: 100%;
 }
+
+/* Column widths (table-layout: fixed requires explicit widths so the
+   action buttons always fit inside the modal). ผลรวม = 100% */
+.held-bills-table col.held-bills-col-time { width: 22%; }
+.held-bills-table col.held-bills-col-name { width: 28%; }
+.held-bills-table col.held-bills-col-count { width: 12%; }
+.held-bills-table col.held-bills-col-total { width: 16%; }
+.held-bills-table col.held-bills-col-actions { width: 22%; }
 
 .held-bills-table th,
 .held-bills-table td {
   border-bottom: 1px solid #e0e5dd;
+  overflow-wrap: break-word;
   padding: 8px 10px;
   text-align: left;
+  word-break: break-word;
 }
 
 .held-bills-table th {
@@ -3567,6 +3578,7 @@ th[aria-sort] {
 
 .held-bills-table .held-bills-row-actions {
   display: flex;
+  flex-wrap: wrap; /* กันปุ่ม wrap ถ้า column แคบจริงๆ (defensive) */
   gap: 6px;
   justify-content: flex-end;
   white-space: nowrap;
