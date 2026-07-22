@@ -20,7 +20,7 @@ async function resolveWritableStoreId(
   authUser: AuthenticatedUser,
   requestedStoreId: string | undefined,
 ) {
-  if (authUser.role !== "admin") {
+  if (authUser.role !== "super_admin") {
     return authUser.storeId;
   }
 
@@ -35,7 +35,7 @@ async function resolveWritableStoreId(
 }
 
 function canManageUser(authUser: AuthenticatedUser, target: { storeId: string }) {
-  return authUser.role === "admin" || target.storeId === authUser.storeId;
+  return authUser.role === "super_admin" || target.storeId === authUser.storeId;
 }
 
 export function listUsersController(deps?: { repository?: UserRepository }): RequestHandler {
@@ -44,7 +44,7 @@ export function listUsersController(deps?: { repository?: UserRepository }): Req
   return async (_request, response, next) => {
     try {
       const user = requireLocalUser(response);
-      const users = user.role === "admin"
+      const users = user.role === "super_admin"
         ? await repository.listAllUsers()
         : await repository.listUsers(user.storeId);
 

@@ -23,7 +23,7 @@ const session: Session = {
     id: 'user-1',
     username: 'admin',
     displayName: 'Admin',
-    role: 'owner',
+    role: 'super_admin',
   },
 }
 

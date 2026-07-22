@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
@@ -8,7 +8,7 @@ import {
   readRememberedUsername,
   rememberUsername,
 } from '../../lib/auth/credentials'
-import { readSession, saveSession } from '../../lib/auth/session'
+import { clearSession, readSession, saveSession } from '../../lib/auth/session'
 import type { Role } from '../../lib/auth/permissions'
 
 type LoginResponse = {
@@ -22,25 +22,36 @@ type LoginResponse = {
 }
 
 function defaultPathForRole(role: Role) {
-  if (role === 'admin' || role === 'cashier') {
-    return '/pos'
-  }
-  if (role === 'stock') {
-    return '/inventory'
+  if (role === 'super_admin') {
+    return '/settings/store'
   }
 
-  return '/dashboard'
+  return '/login'
+}
+
+function readLoginSession() {
+  const session = readSession()
+
+  // The locked-down UI only allows the super_admin role. Any other role
+  // that finds a session still in storage is logged out so the login
+  // form can take over without looping back to itself.
+  if (session && session.user.role !== 'super_admin') {
+    clearSession()
+    return null
+  }
+
+  return session
 }
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const currentSession = readSession()
+  const [currentSession] = useState(readLoginSession)
   const [username, setUsername] = useState(readRememberedUsername)
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('เข้าสู่ระบบเพื่อเริ่มขายหน้าร้าน')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  if (currentSession) {
+  if (currentSession && currentSession.user.role === 'super_admin') {
     return <Navigate replace to={defaultPathForRole(currentSession.user.role)} />
   }
 

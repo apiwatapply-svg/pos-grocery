@@ -6,37 +6,17 @@ import type { Role } from './lib/auth/permissions'
 import { saveSession, type Session } from './lib/auth/session'
 import { App } from './App'
 
-const ownerSession: Session = {
-  token: 'token-owner',
+const superAdminSession: Session = {
+  token: 'token-super-admin',
   user: {
-    id: 'owner-1',
+    id: 'super-admin-1',
     username: 'admin',
     displayName: 'Admin',
-    role: 'owner',
+    role: 'super_admin',
   },
 }
 
-const cashierSession: Session = {
-  ...ownerSession,
-  user: {
-    id: 'cashier-1',
-    username: 'cashier',
-    displayName: 'Cashier One',
-    role: 'cashier',
-  },
-}
-
-const stockSession: Session = {
-  ...ownerSession,
-  user: {
-    id: 'stock-1',
-    username: 'stock',
-    displayName: 'Stock One',
-    role: 'stock',
-  },
-}
-
-function renderApp(path: string, session: Session | null = ownerSession) {
+function renderApp(path: string, session: Session | null = superAdminSession) {
   if (session) {
     saveSession(session)
   }
@@ -49,43 +29,22 @@ function renderApp(path: string, session: Session | null = ownerSession) {
 }
 
 function sessionForRole(role: Role): Session {
-  if (role === 'cashier') {
-    return cashierSession
-  }
-  if (role === 'stock') {
-    return stockSession
-  }
   return {
-    ...ownerSession,
+    ...superAdminSession,
     user: {
-      ...ownerSession.user,
+      ...superAdminSession.user,
+      id: `${role}-1`,
       role,
     },
   }
 }
 
-const protectedRouteCases: Array<{
-  path: string
-  heading: string
-  allowedRoles: Role[]
-}> = [
-  { path: '/dashboard', heading: 'Dashboard', allowedRoles: ['owner', 'admin', 'stock'] },
-  { path: '/pos', heading: 'Checkout', allowedRoles: ['owner', 'admin', 'cashier'] },
-  { path: '/customer-display', heading: 'จอลูกค้า', allowedRoles: ['owner', 'admin', 'cashier'] },
-  { path: '/receipts', heading: 'ประวัติใบเสร็จ', allowedRoles: ['owner', 'admin', 'cashier'] },
-  { path: '/receipts/receipt-1', heading: 'รายละเอียดใบเสร็จ', allowedRoles: ['owner', 'admin', 'cashier'] },
-  { path: '/products', heading: 'สินค้า', allowedRoles: ['owner', 'admin', 'cashier', 'stock'] },
-  { path: '/products/new', heading: 'เพิ่มสินค้า', allowedRoles: ['owner', 'admin'] },
-  { path: '/products/product-water/edit', heading: 'แก้ไขสินค้า', allowedRoles: ['owner', 'admin'] },
-  { path: '/inventory', heading: 'สินค้า', allowedRoles: ['owner', 'admin', 'stock'] },
-  { path: '/inventory/receiving', heading: 'รับของเข้า', allowedRoles: ['owner', 'admin', 'stock'] },
-  { path: '/inventory/counting', heading: 'ตรวจนับ stock', allowedRoles: ['owner', 'admin', 'stock'] },
-  { path: '/reports/sales', heading: 'รายงานยอดขาย', allowedRoles: ['owner', 'admin'] },
-  { path: '/settings/store', heading: 'จัดการร้านค้า', allowedRoles: ['admin'] },
-  { path: '/settings/users', heading: 'ผู้ใช้ระบบ', allowedRoles: ['admin'] },
+const superAdminOnlyRoutes: Array<{ path: string; heading: string }> = [
+  { path: '/settings/store', heading: 'จัดการร้านค้า' },
+  { path: '/settings/users', heading: 'ผู้ใช้ระบบ' },
 ]
 
-const roles: Role[] = ['owner', 'admin', 'cashier', 'stock']
+const roles: Role[] = ['super_admin', 'store_admin', 'cashier', 'stock']
 
 afterEach(() => {
   localStorage.clear()
@@ -98,51 +57,31 @@ describe('App routes', () => {
     expect(screen.getByRole('heading', { name: 'เข้าสู่ระบบร้านค้า' })).toBeInTheDocument()
   })
 
-  it('renders authenticated pages inside the app shell', () => {
-    renderApp('/dashboard')
-
-    expect(screen.getByRole('navigation', { name: 'เมนูหลัก' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
-  })
-
-  it('blocks forbidden direct route access', () => {
-    renderApp('/settings/users', cashierSession)
+  it('blocks forbidden direct route access for non-super-admin users', () => {
+    renderApp('/settings/users', sessionForRole('cashier'))
 
     expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
   })
 
-  it('keeps each major feature on a separate route', () => {
-    renderApp('/products')
-    expect(screen.getByRole('heading', { name: 'สินค้า' })).toBeInTheDocument()
-
-    localStorage.clear()
-    renderApp('/inventory/receiving')
-    expect(screen.getByRole('heading', { name: 'รับของเข้า' })).toBeInTheDocument()
-  })
-
-  it('uses Dashboard as the only page for best-seller insights', () => {
+  it('shows the not-found page for unknown paths', () => {
     renderApp('/reports/best-sellers')
 
     expect(screen.getByRole('heading', { name: 'ไม่พบหน้านี้' })).toBeInTheDocument()
   })
 
-  it.each(protectedRouteCases)('renders allowed roles for $path', ({ path, heading, allowedRoles }) => {
-    allowedRoles.forEach((role) => {
-      cleanup()
-      localStorage.clear()
-      renderApp(path, sessionForRole(role))
+  it.each(superAdminOnlyRoutes)('lets super_admin open $path', ({ path, heading }) => {
+    renderApp(path)
 
-      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
-    })
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
   })
 
-  it.each(protectedRouteCases)('blocks forbidden roles for $path', ({ path, allowedRoles }) => {
-    const forbiddenRoles = roles.filter((role) => !allowedRoles.includes(role))
+  it('keeps every other role out of the management pages', () => {
+    const forbiddenRoles = roles.filter((role) => role !== 'super_admin')
 
     forbiddenRoles.forEach((role) => {
       cleanup()
       localStorage.clear()
-      renderApp(path, sessionForRole(role))
+      renderApp('/settings/store', sessionForRole(role))
 
       expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
     })

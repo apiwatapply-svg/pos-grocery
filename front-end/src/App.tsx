@@ -23,14 +23,8 @@ import { readSession } from './lib/auth/session'
 function defaultRouteForCurrentUser() {
   const role = readSession()?.user.role
 
-  if (role === 'cashier') {
-    return '/pos'
-  }
-  if (role === 'stock') {
-    return '/inventory'
-  }
-  if (role === 'owner' || role === 'admin') {
-    return '/dashboard'
+  if (role === 'super_admin') {
+    return '/settings/store'
   }
 
   return '/login'

@@ -16,19 +16,19 @@ export function createStoreRouter(deps?: {
 }) {
   const router = Router();
 
-  router.get("/", requireAuth(deps), requireRole(["owner", "admin"]), readCacheMiddleware(), listStoresController(deps));
-  router.post("/", requireAuth(deps), requireRole(["owner", "admin"]), createStoreController(deps));
+  router.get("/", requireAuth(deps), requireRole(["super_admin"]), readCacheMiddleware(), listStoresController(deps));
+  router.post("/", requireAuth(deps), requireRole(["super_admin"]), createStoreController(deps));
   router.get("/current", requireAuth(deps), readCacheMiddleware(), getCurrentStoreController(deps));
   router.patch(
     "/current",
     requireAuth(deps),
-    requireRole(["owner", "admin"]),
+    requireRole(["super_admin"]),
     updateCurrentStoreController(deps),
   );
   router.patch(
     "/:storeId",
     requireAuth(deps),
-    requireRole(["owner", "admin"]),
+    requireRole(["super_admin"]),
     updateStoreByIdController(deps),
   );
 

@@ -124,7 +124,7 @@ export function ReceiptListPage() {
   const [sortKey, setSortKey] = useState<SaleSortKey>('soldAt')
   const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('descending')
   const sales = receiptPage?.items ?? []
-  const canManageReceipt = session?.user.role === 'owner' || session?.user.role === 'admin'
+  const canManageReceipt = session?.user.role === 'super_admin'
 
   useEffect(() => {
     let active = true

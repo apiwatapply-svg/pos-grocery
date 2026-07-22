@@ -82,6 +82,72 @@ Image storage:
 - Production deploy: manual GitHub Actions workflow only while the project is
   in local-first development
 
+## Role-Based Access Control
+
+The system uses four roles to lock down the in-app surface and to scope
+write access to a single store or to all stores.
+
+### Roles
+
+- `super_admin` — manages **every store** and every user in the system.
+  This is the only role that can reach the store settings page and the
+  user management page. This replaces the old `admin` role.
+- `store_admin` — manages a single store and its users. Replaces the old
+  `owner` role. In the current locked-down UI the store admin cannot
+  reach any in-app page; the login form is the only screen the store
+  admin can open.
+- `cashier` — front-of-house staff. Cannot reach any in-app page in the
+  current locked-down UI; the login form is the only screen they can
+  open.
+- `stock` — warehouse/inventory staff. Same restriction as `cashier`.
+
+### Frontend page rules
+
+- The **Login** page (`/login`) is the only page every user can open
+  before authentication.
+- After login, only `super_admin` can reach any in-app page. The two
+  pages allowed for `super_admin` are:
+  - `/settings/store` (store management)
+  - `/settings/users` (user management)
+- Every other role is redirected back to the Login page after login and
+  any session they previously had is cleared. The
+  `App.tsx > defaultRouteForCurrentUser` helper and the
+  `lib/auth/permissions.ts > routePermissions` map are the single source
+  of truth for this rule. If you add a new page, add it to
+  `routePermissions` and decide which roles may open it; an empty array
+  means "no one".
+
+### Backend authorization rules
+
+- All write endpoints (POST/PATCH/DELETE) under `/api/products`,
+  `/api/sales`, `/api/inventory`, `/api/users`, and `/api/store` require
+  `super_admin` in the current access model.
+- Read endpoints (GET) accept any authenticated user. The repository
+  layer is still responsible for filtering by `storeId` so a
+  `store_admin` only ever sees their own store's data.
+- JWT tokens carry `role` and `storeId`. `auth.middleware.ts >
+  tokenRole()` whitelists the four valid roles. Any unknown role in a
+  token raises `INVALID_TOKEN`.
+- `user.controller.ts > resolveWritableStoreId` and `canManageUser`
+  only relax store scoping for `super_admin`. Every other role is
+  pinned to its own `storeId`.
+- The `seed-admin.ts` script creates the initial user with the
+  `super_admin` role.
+
+### Migrations
+
+- The migration `20260722110000_rename_user_roles` (plus any later
+  Prisma-generated companion migration) renames the historical roles:
+  - `admin` → `super_admin`
+  - `owner` → `store_admin`
+- Do not introduce new role names without updating `UserRole` in
+  `back-end/src/modules/users/user.repository.ts`, the
+  `userRoleSchema` in `user.schemas.ts`, the `tokenRole()` whitelist in
+  `auth.middleware.ts`, the prisma mapper in
+  `prisma-user.repository.ts`, the frontend `Role` union in
+  `lib/auth/permissions.ts`, and the role labels rendered by
+  `UserManagementPage`.
+
 ## Routing
 
 - Frontend/UI work goes in `front-end/`.

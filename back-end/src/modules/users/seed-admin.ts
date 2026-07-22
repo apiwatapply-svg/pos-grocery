@@ -47,7 +47,7 @@ export async function seedInitialAdmin(deps: {
       username: deps.adminUsername,
       passwordHash: await hashPassword(deps.adminPassword),
       displayName: deps.adminUsername,
-      role: "admin",
+      role: "super_admin",
       status: "active",
     });
   }

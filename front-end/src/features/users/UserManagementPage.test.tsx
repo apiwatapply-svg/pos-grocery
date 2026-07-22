@@ -26,11 +26,11 @@ const mockedSwal = vi.mocked(Swal)
 
 const sqlUsers = [
   {
-    id: 'sql-owner',
+    id: 'sql-super-admin',
     storeId: 'store-main',
     username: 'sqladmin',
     displayName: 'SQL Admin',
-    role: 'owner',
+    role: 'super_admin',
     status: 'active',
   },
   {
@@ -83,7 +83,7 @@ describe('UserManagementPage', () => {
     expect(screen.getByRole('cell', { name: 'SQL Cashier' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'Main Store' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'Branch Store' })).toBeInTheDocument()
-    expect(screen.getByRole('row', { name: /1 Main Store sqladmin SQL Admin owner active/ })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /1 Main Store sqladmin SQL Admin super_admin active/ })).toBeInTheDocument()
     expect(screen.getByRole('row', { name: /2 Branch Store sqlcashier SQL Cashier cashier active/ })).toBeInTheDocument()
     expect(screen.queryByRole('cell', { name: 'admin' })).not.toBeInTheDocument()
     expect(mockedApiGet).toHaveBeenCalledWith('/users')
@@ -123,8 +123,8 @@ describe('UserManagementPage', () => {
     fireEvent.click(roleSelect)
     const roleOptions = within(dialog).getAllByRole('option')
     expect(roleOptions.map((option) => [option.getAttribute('data-option-index'), option.textContent])).toEqual([
-      ['0', 'เจ้าของร้าน (owner)'],
-      ['1', 'ผู้ดูแลระบบ (admin)'],
+      ['0', 'Super Admin (super_admin)'],
+      ['1', 'ผู้ดูแลร้าน (store_admin)'],
       ['2', 'แคชเชียร์ (cashier)'],
       ['3', 'สต็อก/คลังสินค้า (stock)'],
     ])
@@ -152,10 +152,10 @@ describe('UserManagementPage', () => {
 
   it('edits a user from an edit modal with existing values through the backend', async () => {
     mockedApiPatch.mockResolvedValueOnce({
-      id: 'sql-owner',
+      id: 'sql-super-admin',
       username: 'sqladmin2',
       displayName: 'SQL Admin 2',
-      role: 'admin',
+      role: 'store_admin',
       status: 'inactive',
       storeId: 'store-branch',
     })
@@ -168,7 +168,7 @@ describe('UserManagementPage', () => {
     expect(within(dialog).getByDisplayValue('sqladmin')).toBeInTheDocument()
     expect(within(dialog).getByDisplayValue('SQL Admin')).toBeInTheDocument()
     // Custom select renders the current value as the button label.
-    expect(within(dialog).getByLabelText('สิทธิ์การใช้งาน')).toHaveTextContent('owner')
+    expect(within(dialog).getByLabelText('สิทธิ์การใช้งาน')).toHaveTextContent('super_admin')
     expect(within(dialog).getByLabelText('ร้านค้า')).toHaveTextContent('Main Store')
     expect(within(dialog).getByLabelText('สถานะผู้ใช้')).toHaveTextContent('active')
     expect(within(dialog).getByLabelText('password ใหม่')).toHaveValue('')
@@ -182,7 +182,7 @@ describe('UserManagementPage', () => {
     // Open each custom select and pick a different option.
     fireEvent.click(within(dialog).getByLabelText('สิทธิ์การใช้งาน'))
     fireEvent.mouseDown(
-      within(dialog).getByRole('option', { name: 'ผู้ดูแลระบบ (admin)' }),
+      within(dialog).getByRole('option', { name: 'ผู้ดูแลร้าน (store_admin)' }),
     )
     fireEvent.click(within(dialog).getByLabelText('สถานะผู้ใช้'))
     fireEvent.mouseDown(within(dialog).getByRole('option', { name: 'inactive' }))
@@ -191,10 +191,10 @@ describe('UserManagementPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     await waitFor(() => {
-      expect(mockedApiPatch).toHaveBeenCalledWith('/users/sql-owner', {
+      expect(mockedApiPatch).toHaveBeenCalledWith('/users/sql-super-admin', {
         username: 'sqladmin2',
         displayName: 'SQL Admin 2',
-        role: 'admin',
+        role: 'store_admin',
         storeId: 'store-branch',
         status: 'inactive',
       })
@@ -202,7 +202,7 @@ describe('UserManagementPage', () => {
     })
     expect(screen.getByRole('cell', { name: 'sqladmin2' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'SQL Admin 2' })).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: 'admin' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'store_admin' })).toBeInTheDocument()
     expect(screen.getByRole('cell', { name: 'inactive' })).toBeInTheDocument()
   })
 
@@ -271,8 +271,8 @@ describe('UserManagementPage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'ปิดใช้งาน' })[0])
 
     await waitFor(() => {
-      expect(mockedApiDelete).toHaveBeenCalledWith('/users/sql-owner')
-      expect(screen.getByRole('row', { name: /sqladmin SQL Admin owner inactive/ })).toBeInTheDocument()
+      expect(mockedApiDelete).toHaveBeenCalledWith('/users/sql-super-admin')
+      expect(screen.getByRole('row', { name: /sqladmin SQL Admin super_admin inactive/ })).toBeInTheDocument()
     })
   })
 })

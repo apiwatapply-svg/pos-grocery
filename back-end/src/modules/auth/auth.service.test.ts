@@ -23,7 +23,7 @@ describe("auth service", () => {
       username: "admin",
       passwordHash: "hash",
       displayName: "Admin",
-      role: "owner",
+      role: "super_admin",
       status: "active",
     };
     const token = createAuthToken(user, "test-secret-that-is-long-enough");
@@ -33,7 +33,7 @@ describe("auth service", () => {
       sub: "user-1",
       storeId: "store-1",
       username: "admin",
-      role: "owner",
+      role: "super_admin",
     });
     expect(payload).not.toHaveProperty("exp");
   });

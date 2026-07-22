@@ -23,19 +23,18 @@ describe('route permissions', () => {
     expect(Object.keys(routePermissions).sort()).toEqual([...routes].sort())
   })
 
-  it.each([
-    [
-      'owner',
-      routes.filter(
-        (route) => route !== 'store-settings' && route !== 'user-management',
-      ),
-    ],
-    ['admin', routes],
-    ['cashier', ['pos', 'customer-display', 'receipts', 'receipt-detail', 'products']],
-    ['stock', ['dashboard', 'products', 'inventory', 'inventory-receiving', 'stock-counting']],
-  ] as [Role, AppRouteId[]][])('allows %s to access the expected pages', (role, allowedRoutes) => {
-    for (const route of routes) {
-      expect(canAccessRoute(role, route)).toBe(allowedRoutes.includes(route))
+  it('only super_admin can access the two protected management pages', () => {
+    expect(canAccessRoute('super_admin', 'store-settings')).toBe(true)
+    expect(canAccessRoute('super_admin', 'user-management')).toBe(true)
+  })
+
+  it('keeps every other role off the in-app pages', () => {
+    const nonSuperAdminRoles: Role[] = ['store_admin', 'cashier', 'stock']
+
+    for (const role of nonSuperAdminRoles) {
+      for (const route of routes) {
+        expect(canAccessRoute(role, route)).toBe(false)
+      }
     }
   })
 })

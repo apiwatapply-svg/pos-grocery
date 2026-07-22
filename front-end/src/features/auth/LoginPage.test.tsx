@@ -22,7 +22,9 @@ vi.mock('sweetalert2', () => ({
 const mockedApiPost = vi.mocked(apiPost)
 const mockedSwal = vi.mocked(Swal)
 
-function loginResponse(role: 'owner' | 'admin' | 'cashier' | 'stock') {
+type LoginRole = 'super_admin' | 'store_admin' | 'cashier' | 'stock'
+
+function loginResponse(role: LoginRole) {
   return {
     token: `token-${role}`,
     user: {
@@ -39,9 +41,7 @@ function renderLogin() {
     <MemoryRouter initialEntries={['/login']}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/dashboard" element={<h1>Dashboard</h1>} />
-        <Route path="/pos" element={<h1>POS Checkout</h1>} />
-        <Route path="/inventory" element={<h1>Inventory</h1>} />
+        <Route path="/settings/store" element={<h1>จัดการร้านค้า</h1>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -67,25 +67,18 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
   })
 
-  it.each([
-    ['owner', 'Dashboard'],
-    ['admin', 'POS Checkout'],
-    ['cashier', 'POS Checkout'],
-    ['stock', 'Inventory'],
-  ] as const)('redirects %s to the correct starting page', async (role, heading) => {
-    mockedApiPost.mockResolvedValueOnce(loginResponse(role))
+  it('routes super_admin to the store management page after login', async () => {
+    mockedApiPost.mockResolvedValueOnce(loginResponse('super_admin'))
 
     renderLogin()
     await submitLogin()
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'จัดการร้านค้า' })).toBeInTheDocument()
     })
     expect(readSession()).toMatchObject({
-      token: `token-${role}`,
-      user: {
-        role,
-      },
+      token: 'token-super_admin',
+      user: { role: 'super_admin' },
     })
     expect(mockedSwal.fire).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,20 +88,53 @@ describe('LoginPage', () => {
     )
   })
 
+  it('keeps every non-super-admin role pinned to the login page after login', async () => {
+    const roles: LoginRole[] = ['store_admin', 'cashier', 'stock']
+
+    for (const role of roles) {
+      mockedApiPost.mockResolvedValueOnce(loginResponse(role))
+
+      const { unmount } = render(
+        <MemoryRouter initialEntries={['/login']}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/settings/store" element={<h1>จัดการร้านค้า</h1>} />
+          </Routes>
+        </MemoryRouter>,
+      )
+
+      await submitLogin()
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
+      })
+      expect(screen.queryByRole('heading', { name: 'จัดการร้านค้า' })).not.toBeInTheDocument()
+      expect(readSession()).toMatchObject({ user: { role } })
+
+      unmount()
+      localStorage.clear()
+    }
+  })
+
   it.each([
-    ['owner', 'Dashboard'],
-    ['admin', 'POS Checkout'],
-    ['cashier', 'POS Checkout'],
-    ['stock', 'Inventory'],
-  ] as const)('redirects already authenticated %s users away from login', async (role, heading) => {
+    'super_admin',
+    'store_admin',
+    'cashier',
+    'stock',
+  ] as const)('redirects already authenticated %s users to their default page', async (role) => {
     saveSession(loginResponse(role))
 
     renderLogin()
 
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
-    })
-    expect(screen.queryByRole('button', { name: /login/i })).not.toBeInTheDocument()
+    if (role === 'super_admin') {
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'จัดการร้านค้า' })).toBeInTheDocument()
+      })
+    } else {
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
+      })
+    }
     expect(mockedApiPost).not.toHaveBeenCalled()
   })
 
@@ -133,11 +159,11 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /กำลังเข้าสู่ระบบ/i })).toBeDisabled()
 
     await act(async () => {
-      resolveLogin(loginResponse('admin'))
+      resolveLogin(loginResponse('super_admin'))
     })
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'POS Checkout' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'จัดการร้านค้า' })).toBeInTheDocument()
     })
     expect(mockedSwal.close).toHaveBeenCalled()
   })

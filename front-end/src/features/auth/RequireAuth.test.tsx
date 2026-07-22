@@ -5,26 +5,29 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { saveSession, type Session } from '../../lib/auth/session'
 import { RequireAuth } from './RequireAuth'
 
-const ownerSession: Session = {
-  token: 'token-owner',
+const superAdminSession: Session = {
+  token: 'token-super-admin',
   user: {
-    id: 'owner-1',
+    id: 'super-admin-1',
     username: 'admin',
     displayName: 'Admin',
-    role: 'owner',
+    role: 'super_admin',
   },
 }
 
-function renderGuardedRoute(initialPath = '/reports/sales') {
-  render(
+function renderGuardedRoute(
+  initialPath = '/settings/store',
+  routeId: 'store-settings' | 'sales-report' = 'store-settings',
+) {
+  return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/login" element={<h1>Login Page</h1>} />
         <Route
-          path="/reports/sales"
+          path={initialPath}
           element={
-            <RequireAuth routeId="sales-report">
-              <h1>Sales Report</h1>
+            <RequireAuth routeId={routeId}>
+              <h1>Guarded Content</h1>
             </RequireAuth>
           }
         />
@@ -46,9 +49,9 @@ describe('RequireAuth', () => {
 
   it('renders access denied for users without route permission', () => {
     saveSession({
-      ...ownerSession,
+      ...superAdminSession,
       user: {
-        ...ownerSession.user,
+        ...superAdminSession.user,
         role: 'cashier',
       },
     })
@@ -59,10 +62,10 @@ describe('RequireAuth', () => {
   })
 
   it('renders the route content for users with permission', () => {
-    saveSession(ownerSession)
+    saveSession(superAdminSession)
 
     renderGuardedRoute()
 
-    expect(screen.getByRole('heading', { name: 'Sales Report' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Guarded Content' })).toBeInTheDocument()
   })
 })

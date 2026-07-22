@@ -19,9 +19,9 @@ export function createSaleRouter(deps?: {
 
   router.use(requireAuth(deps));
   router.get("/", readCacheMiddleware(), listSalesController(deps));
-  router.post("/checkout", requireRole(["owner", "admin", "cashier"]), checkoutController(deps));
-  router.post("/:id/cancel", requireRole(["owner", "admin"]), cancelSaleController(deps));
-  router.post("/:id/activate", requireRole(["owner", "admin"]), activateSaleController(deps));
+  router.post("/checkout", requireRole(["super_admin"]), checkoutController(deps));
+  router.post("/:id/cancel", requireRole(["super_admin"]), cancelSaleController(deps));
+  router.post("/:id/activate", requireRole(["super_admin"]), activateSaleController(deps));
   router.get("/:id", readCacheMiddleware(), getSaleController(deps));
   router.get("/:id/receipt", readCacheMiddleware(), getReceiptController(deps));
 

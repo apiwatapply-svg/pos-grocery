@@ -174,7 +174,7 @@ beforeEach(() => {
       id: 'owner-sql-1',
       username: 'owner',
       displayName: 'SQL Owner',
-      role: 'owner',
+      role: 'super_admin',
     },
   })
   mockedSwal.fire.mockResolvedValue({ isConfirmed: true, isDenied: false, isDismissed: false })

@@ -21,7 +21,7 @@ async function createStoreFixture() {
     username: "owner",
     passwordHash: await hashPassword("admin"),
     displayName: "Owner",
-    role: "owner",
+    role: "super_admin",
     status: "active",
   });
   const cashier = await repository.createUser({

@@ -14,9 +14,9 @@ export function createUserRouter(deps?: {
   jwtSecret?: string;
 }) {
   const router = Router();
-  const ownerOrAdmin = ["owner", "admin"] as const;
+  const superAdminOnly = ["super_admin"] as const;
 
-  router.use(requireAuth(deps), requireRole([...ownerOrAdmin]));
+  router.use(requireAuth(deps), requireRole([...superAdminOnly]));
   router.get("/", readCacheMiddleware(), listUsersController(deps));
   router.post("/", createUserController(deps));
   router.patch("/:id", updateUserController(deps));

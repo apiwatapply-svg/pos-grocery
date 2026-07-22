@@ -31,15 +31,15 @@ async function createMultiStoreFixture() {
     username: "system-admin",
     passwordHash: await hashPassword("admin123"),
     displayName: "System Admin",
-    role: "admin",
+    role: "super_admin",
     status: "active",
   });
-  const owner = await repository.createUser({
+  const storeAdmin = await repository.createUser({
     storeId: firstStore.id,
-    username: "main-owner",
-    passwordHash: await hashPassword("owner123"),
-    displayName: "Main Owner",
-    role: "owner",
+    username: "main-store-admin",
+    passwordHash: await hashPassword("admin123"),
+    displayName: "Main Store Admin",
+    role: "store_admin",
     status: "active",
   });
   await repository.createUser({
@@ -51,7 +51,7 @@ async function createMultiStoreFixture() {
     status: "active",
   });
 
-  return { repository, firstStore, secondStore, systemAdmin, owner };
+  return { repository, firstStore, secondStore, systemAdmin, storeAdmin };
 }
 
 describe("user routes", () => {
@@ -87,14 +87,14 @@ describe("user routes", () => {
     });
   });
 
-  it("keeps owner-managed users scoped to the owner's own store", async () => {
-    const { repository, firstStore, secondStore, owner } = await createMultiStoreFixture();
+  it("forbids store-admin from listing or managing users", async () => {
+    const { repository, firstStore, secondStore, storeAdmin } = await createMultiStoreFixture();
     const app = createApp({ repository, jwtSecret });
 
-    const listed = await request(app).get("/api/users").set("Authorization", authHeader(owner));
+    const listed = await request(app).get("/api/users").set("Authorization", authHeader(storeAdmin));
     const created = await request(app)
       .post("/api/users")
-      .set("Authorization", authHeader(owner))
+      .set("Authorization", authHeader(storeAdmin))
       .send({
         storeId: secondStore.id,
         username: "wrong-store-cashier",
@@ -103,14 +103,10 @@ describe("user routes", () => {
         role: "cashier",
       });
 
-    expect(listed.status).toBe(200);
-    expect(listed.body.data).toEqual(
-      expect.arrayContaining([expect.objectContaining({ username: "main-owner", storeId: firstStore.id })]),
-    );
-    expect(listed.body.data).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ username: "second-cashier" })]),
-    );
-    expect(created.status).toBe(201);
-    expect(created.body.data.storeId).toBe(firstStore.id);
+    expect(listed.status).toBe(403);
+    expect(created.status).toBe(403);
+    // Even though the store-admin already exists for firstStore, the user
+    // management API is reserved for super_admin in the current access model.
+    expect(firstStore.id).toBe(storeAdmin.storeId);
   });
 });

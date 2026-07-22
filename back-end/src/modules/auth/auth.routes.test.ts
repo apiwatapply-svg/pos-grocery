@@ -20,7 +20,7 @@ async function createRepositoryWithOwner() {
     username: "admin",
     passwordHash: await hashPassword("admin"),
     displayName: "Admin",
-    role: "owner",
+    role: "super_admin",
     status: "active",
   });
   return repository;
@@ -78,7 +78,7 @@ describe("auth routes", () => {
     expect(response.body.data.user).toMatchObject({
       username: "admin",
       displayName: "Admin",
-      role: "owner",
+      role: "super_admin",
       status: "active",
     });
   });
@@ -97,7 +97,7 @@ describe("auth routes", () => {
       username: "admin",
       passwordHash: await hashPassword("database-password"),
       displayName: "Admin",
-      role: "owner",
+      role: "super_admin",
       status: "active",
     });
 

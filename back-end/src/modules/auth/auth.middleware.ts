@@ -25,7 +25,7 @@ function readBearerToken(header: string | undefined): string {
 }
 
 function tokenRole(role: string): UserRole {
-  if (role === "admin" || role === "owner" || role === "cashier" || role === "stock") {
+  if (role === "super_admin" || role === "store_admin" || role === "cashier" || role === "stock") {
     return role;
   }
 

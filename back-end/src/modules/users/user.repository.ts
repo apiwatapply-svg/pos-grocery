@@ -2,7 +2,7 @@ import { createPrismaUserRepository } from "./prisma-user.repository.ts";
 import { AppError } from "../../shared/errors/app-error.ts";
 import { buildReceiptContent } from "../sales/receipt.service.ts";
 
-export type UserRole = "owner" | "admin" | "cashier" | "stock";
+export type UserRole = "super_admin" | "store_admin" | "cashier" | "stock";
 export type UserStatus = "active" | "inactive";
 export type StoreStatus = "active" | "inactive";
 export type ProductStatus = "active" | "inactive";

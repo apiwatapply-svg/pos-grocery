@@ -89,7 +89,7 @@ function mapUser(user: {
     username: user.username,
     passwordHash: user.passwordHash,
     displayName: user.displayName,
-    role: user.role === "cashier" || user.role === "stock" || user.role === "admin" ? user.role : "owner",
+    role: user.role === "cashier" || user.role === "stock" || user.role === "super_admin" || user.role === "store_admin" ? user.role : "store_admin",
     status: user.status === "inactive" ? "inactive" : "active",
   };
 }

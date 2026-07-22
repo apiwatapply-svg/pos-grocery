@@ -13,7 +13,7 @@ type User = {
   storeId: string
   username: string
   displayName: string
-  role: 'owner' | 'admin' | 'cashier' | 'stock'
+  role: 'super_admin' | 'store_admin' | 'cashier' | 'stock'
   status: 'active' | 'inactive'
 }
 
@@ -98,8 +98,8 @@ export function UserManagementPage() {
 
   const roleOptions = useMemo<SelectOption[]>(
     () => [
-      { value: 'owner', label: 'เจ้าของร้าน (owner)' },
-      { value: 'admin', label: 'ผู้ดูแลระบบ (admin)' },
+      { value: 'super_admin', label: 'Super Admin (super_admin)' },
+      { value: 'store_admin', label: 'ผู้ดูแลร้าน (store_admin)' },
       { value: 'cashier', label: 'แคชเชียร์ (cashier)' },
       { value: 'stock', label: 'สต็อก/คลังสินค้า (stock)' },
     ],

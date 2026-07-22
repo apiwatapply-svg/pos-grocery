@@ -14,23 +14,13 @@ vi.mock('sweetalert2', () => ({
 
 const mockedSwal = vi.mocked(Swal)
 
-const cashierSession: Session = {
-  token: 'token-cashier',
+const superAdminSession: Session = {
+  token: 'token-super-admin',
   user: {
-    id: 'cashier-1',
-    username: 'cashier',
-    displayName: 'Cashier One',
-    role: 'cashier',
-  },
-}
-
-const stockSession: Session = {
-  token: 'token-stock',
-  user: {
-    id: 'stock-1',
-    username: 'stock',
-    displayName: 'Stock One',
-    role: 'stock',
+    id: 'super-admin-1',
+    username: 'admin',
+    displayName: 'Admin',
+    role: 'super_admin',
   },
 }
 
@@ -39,7 +29,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-function renderShell(session = cashierSession) {
+function renderShell(session = superAdminSession) {
   saveSession(session)
   return render(
     <MemoryRouter>
@@ -51,22 +41,21 @@ function renderShell(session = cashierSession) {
 }
 
 describe('AppShell', () => {
-  it('shows only sidebar links allowed for the current role', () => {
+  it('shows only the two management links for super_admin', () => {
     renderShell()
 
-    expect(screen.getByRole('link', { name: 'ขายสินค้า' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'จอลูกค้า' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'ใบเสร็จ' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'รายงานยอดขาย' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'ผู้ใช้ระบบ' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ข้อมูลร้าน' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ผู้ใช้ระบบ' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'ขายสินค้า' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
   })
 
   it('shows the user info and logout in the sidebar footer and keeps page content visible', () => {
     renderShell()
 
     expect(screen.getByText('POS Grocery')).toBeInTheDocument()
-    expect(screen.getByText('Cashier One')).toBeInTheDocument()
-    expect(screen.getByText('cashier')).toBeInTheDocument()
+    expect(screen.getByText('Admin')).toBeInTheDocument()
+    expect(screen.getByText('super_admin')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Page Content' })).toBeInTheDocument()
   })
@@ -85,7 +74,7 @@ describe('AppShell', () => {
         }),
       )
     })
-    expect(readSession()).toMatchObject({ token: cashierSession.token })
+    expect(readSession()).toMatchObject({ token: superAdminSession.token })
   })
 
   it('clears the session when logout confirmation is accepted', async () => {
@@ -97,29 +86,6 @@ describe('AppShell', () => {
     await waitFor(() => {
       expect(readSession()).toBeNull()
     })
-  })
-
-  it('uses the products page as the single product and inventory list in the sidebar', () => {
-    renderShell(stockSession)
-
-    expect(screen.getByRole('link', { name: 'สินค้า' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'สินค้าคงคลัง' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'เพิ่มสินค้า' })).not.toBeInTheDocument()
-  })
-
-  it('keeps best-seller insights inside Dashboard instead of a separate sidebar page', () => {
-    renderShell({
-      token: 'token-owner',
-      user: {
-        id: 'owner-1',
-        username: 'owner',
-        displayName: 'Owner One',
-        role: 'owner',
-      },
-    })
-
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'สินค้าขายดี' })).not.toBeInTheDocument()
   })
 
   it('collapses the desktop sidebar and remembers the preference', () => {
