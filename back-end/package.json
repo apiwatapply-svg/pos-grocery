@@ -13,7 +13,9 @@
     "start": "tsx src/server.ts",
     "prisma": "prisma",
     "seed:products": "tsx scripts/ensure-grocery-products.ts",
-    "sync:sheets": "tsx scripts/sync-products-from-sheets.ts"
+    "sync:sheets": "tsx scripts/sync-products-from-sheets.ts",
+    "sync:images": "tsx scripts/sync-product-images.ts",
+    "db:clear": "tsx scripts/clear-products-data.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

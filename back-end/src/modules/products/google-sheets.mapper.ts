@@ -20,7 +20,7 @@ export const EXPECTED_HEADERS = [
   "Picture",
   "สินค้า",
   "จำนวน",
-  "บาร์โค้ด",
+  "บาร์โค็ด",
   "หน่วย",
   "ต้นทุนต่อ 1 หน่วย",
   "ราคาต้นทุนต่อรายการ",
@@ -222,6 +222,14 @@ export function mapRowToDraft(
 
   // Skip rows where name AND barcode are both empty
   if (!name?.trim() && !barcode?.trim()) {
+    return null;
+  }
+
+  // Skip rows that have a name but no barcode (we cannot satisfy unique(storeId, barcode))
+  if (!name?.trim()) {
+    return null;
+  }
+  if (!barcode?.trim()) {
     return null;
   }
 

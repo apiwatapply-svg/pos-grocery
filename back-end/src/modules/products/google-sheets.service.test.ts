@@ -79,7 +79,7 @@ describe("fetchSheetsDrafts", () => {
   it("returns parsed drafts from a valid CSV", async () => {
     env.GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/test/export?format=csv&gid=0";
     const csv = [
-      "No,Picture,สินค้า,จำนวน,บาร์โค้ด,หน่วย,ต้นทุนต่อ 1 หน่วย,ราคาต้นทุนต่อรายการ,ราคาขายต่อ 1 หน่วย",
+      "No,Picture,สินค้า,จำนวน,บาร์โค็ด,หน่วย,ต้นทุนต่อ 1 หน่วย,ราคาต้นทุนต่อรายการ,ราคาขายต่อ 1 หน่วย",
       "1,,Product A,5,111,ชิ้น,10,50,20",
     ].join("\n");
 

@@ -1,4 +1,4 @@
-﻿# POS Grocery Agent Rules
+# POS Grocery Agent Rules
 
 This project is the POS Grocery application. It is a code project under the
 SecondBrain workspace for building a grocery point-of-sale system and should use
@@ -218,6 +218,87 @@ an explicit stack choice from the user.
   user explicitly requests expiring sessions.
 - Keep sales, inventory, product catalog, customer, payment, and reporting logic
   explicit and covered by tests when behavior is non-trivial.
+
+## Data Sync from Google Sheets
+
+The product catalog can be populated from a public Google Sheet that the user
+shares with "Anyone with the link = Editor". Sync is **ADDITIVE ONLY** — it
+never overwrites or removes existing products.
+
+### Hard rules
+
+- **ถ้าตัวไหนเคยเพิ่มแล้ว ไม่ต้องไปแตะ ให้เพิ่มเฉพาะตัวใหม่** — the sync inserts
+  only products whose barcode is not already in the database. Existing products
+  (active or soft-deleted) are left completely untouched — no field updates, no
+  restore, no soft-delete, no hard-delete.
+- **ครั้งถัดไปไม่ต้องลบข้อมูลเก่า นอกจากสั่ง** — never wipe Product, Sale,
+  InventoryTransaction, ProductImage, Category, Payment, Receipt, or any
+  existing data unless the user explicitly tells you to in the current
+  conversation. The `db:clear` script, the sync scripts, and any ad-hoc SQL
+  must all leave existing rows alone by default.
+- If a row in the sheet has no barcode, skip it (the schema requires barcode as
+  part of the `UNIQUE(storeId, barcode)` constraint).
+- If a row has no product name, skip it.
+- `npm run db:clear` exists for the rare case the user explicitly wants a
+  full wipe. **Do not invoke it automatically.**
+
+### Required env (back-end `.env`)
+
+```
+GOOGLE_SHEETS_CSV_URL=https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0
+```
+
+The URL must be the public CSV export endpoint, not the regular `/edit` URL.
+
+### CLI scripts (back-end)
+
+- `npm run sync:sheets` — fetches the Sheet, parses rows, and inserts new
+  products into the first available store (or the storeId passed as
+  `npm run sync:sheets <storeId>`).
+- `npm run sync:images` — attaches product images via Open Food Facts barcode
+  lookup, Google Custom Search (when configured), or an SVG placeholder
+  fallback.
+- `npm run db:clear` — wipes Category, Product, ProductImage,
+  InventoryTransaction, Sale, SaleItem, Payment, Receipt. **Preserves Store and
+  User records.**
+
+### Image Sync (back-end)
+
+- `sync:images` is also **additive only**: products that already have an image
+  are skipped.
+- Image source order: Open Food Facts (barcode lookup, free, no key) → Google
+  Custom Search (requires `GOOGLE_CUSTOM_SEARCH_API_KEY` and
+  `GOOGLE_CUSTOM_SEARCH_ENGINE_ID`) → SVG placeholder generated locally and
+  uploaded to Cloudinary.
+- All images are stored in Cloudinary; only metadata (URL, publicId, width,
+  height, bytes) is kept in Turso.
+
+### Sync flow when the user wants to refresh the catalog
+
+1. Confirm with the user that a `db:clear` is wanted (it deletes sales,
+   inventory, and images). Do not assume or skip this step.
+2. `npm run db:clear`
+3. `npm run sync:sheets`
+4. `npm run sync:images`
+
+If the user only wants to add new products, skip step 1 and run only steps
+3 and 4. Existing products and their images will be left as-is.
+
+## Data Wipe Rules
+
+**ครั้งถัดไปไม่ต้องลบข้อมูลเก่า นอกจากสั่ง** — this is a project-wide rule that
+applies to every code change, not just the sync scripts.
+
+- Never run `npm run db:clear`, write a custom DELETE statement, or call any
+  repository method that removes products, sales, inventory, images, or
+  categories unless the user has explicitly asked for a wipe in the current
+  message.
+- When the user adds new products or images, treat existing rows as read-only.
+  Insert-only operations, never update + delete cycles.
+- If a future task seems to require wiping data, stop and ask the user to
+  confirm before touching anything destructive.
+- The same rule applies to migrations: never write a migration that drops
+  production data without an explicit user instruction.
 
 ## Boundaries
 

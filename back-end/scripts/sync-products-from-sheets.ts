@@ -81,9 +81,9 @@ async function main(): Promise<void> {
   console.log("📋 SYNC SUMMARY");
   console.log(formatLine("="));
   console.log(`Total rows in sheet:       ${summary.total}`);
-  console.log(`Products soft-deleted:     ${summary.deleted}`);
   console.log(`Products created:          ${summary.created}`);
-  console.log(`Failed:                    ${summary.total - summary.created}`);
+  console.log(`Products skipped:          ${summary.skipped}  (already in DB, not touched)`);
+  console.log(`Failed:                    ${summary.total - summary.created - summary.skipped}`);
 
   const failed = summary.results.filter((r) => r.status === "failed");
   if (failed.length > 0) {

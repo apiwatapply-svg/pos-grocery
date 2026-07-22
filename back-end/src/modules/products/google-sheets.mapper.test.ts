@@ -110,10 +110,10 @@ describe("mapRowToDraft", () => {
     expect(mapRowToDraft(["", "", "", "", "", "", "", "", ""], 3)).toBeNull();
   });
 
-  it("throws when name is empty but other fields exist", () => {
+  it("returns null when name is empty but other fields exist (row cannot be inserted)", () => {
     const row = [...fullRow];
     row[2] = "";
-    expect(() => mapRowToDraft(row, 4)).toThrow(/Product name is required/);
+    expect(mapRowToDraft(row, 4)).toBeNull();
   });
 
   it("treats zero prices as valid", () => {
@@ -143,10 +143,10 @@ describe("mapRowToDraft", () => {
     expect(draft?.salePriceSatang).toBe(200000);
   });
 
-  it("throws when barcode is empty", () => {
+  it("returns null when barcode is empty (row cannot be inserted)", () => {
     const row = [...fullRow];
     row[4] = "";
-    expect(() => mapRowToDraft(row, 9)).toThrow(/Barcode is required/);
+    expect(mapRowToDraft(row, 9)).toBeNull();
   });
 
   it("rounds fractional stock quantity down to integer", () => {
@@ -192,12 +192,12 @@ describe("parseSheetsCsv", () => {
     expect(() => parseSheetsCsv(csv)).toThrow(SheetsParseError);
   });
 
-  it("throws INVALID_ROW_DATA when name is missing but other fields exist", () => {
+  it("skips rows with no name even if other fields exist", () => {
     const csv = [
       HEADER_ROW,
       buildRow([1, "", "", 5, "8850999000001", "ถุง", 52.5, 262.5, 63]),
     ].join("\n");
-    expect(() => parseSheetsCsv(csv)).toThrow(/Row 2/);
+    expect(parseSheetsCsv(csv)).toEqual([]);
   });
 
   it("skips rows with no name and no barcode", () => {

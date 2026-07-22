@@ -826,67 +826,76 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       }
     },
     async googleSheetsSync(input: SheetsSyncInput): Promise<SheetsSyncSummary> {
-      return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Step 1: Snapshot existing stock by barcode (excluding soft-deleted)
-        const existing = await tx.product.findMany({
-          where: { storeId: input.storeId, deletedAt: null },
-          select: { barcode: true, stockQuantity: true },
-        });
-        const stockByBarcode = new Map(
-          existing.map((p) => [p.barcode, p.stockQuantity]),
-        );
+      return prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          // ADDITIVE ONLY: insert new products, skip existing ones.
+          // Per project rule: "ถ้าตัวไหนเคยเพิ่มแล้ว ไม่ต้องไปแตะ
+          // ให้เพิ่มเฉพาะตัวใหม่" — do NOT update, do NOT soft-delete.
 
-        // Step 2: Soft-delete all active products in this store
-        const deletedResult = await tx.product.updateMany({
-          where: { storeId: input.storeId, deletedAt: null },
-          data: { deletedAt: new Date() },
-        });
+          // Step 1: Find existing barcodes (both active + soft-deleted)
+          const existing = await tx.product.findMany({
+            where: { storeId: input.storeId },
+            select: { barcode: true },
+          });
+          const existingBarcodes = new Set(existing.map((p) => p.barcode));
 
-        // Step 3: Insert new products from drafts
-        const results: SheetsSyncResultItem[] = [];
-        let created = 0;
+          // Step 2: Insert only drafts whose barcode is not already in DB
+          const results: SheetsSyncResultItem[] = [];
+          let created = 0;
+          let skipped = 0;
 
-        for (const draft of input.drafts) {
-          try {
-            const stockQuantity =
-              stockByBarcode.get(draft.barcode) ?? draft.stockQuantity;
-            await tx.product.create({
-              data: {
-                storeId: input.storeId,
-                name: draft.name,
+          for (const draft of input.drafts) {
+            if (existingBarcodes.has(draft.barcode)) {
+              skipped += 1;
+              results.push({
+                rowNumber: draft.rowNumber,
                 barcode: draft.barcode,
-                unit: draft.unit,
-                costPriceSatang: draft.costPriceSatang,
-                salePriceSatang: draft.salePriceSatang,
-                stockQuantity,
-                status: "active",
-              },
-            });
-            created += 1;
-            results.push({
-              rowNumber: draft.rowNumber,
-              barcode: draft.barcode,
-              name: draft.name,
-              status: "created",
-            });
-          } catch (error) {
-            results.push({
-              rowNumber: draft.rowNumber,
-              barcode: draft.barcode,
-              name: draft.name,
-              status: "failed",
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
+                name: draft.name,
+                status: "skipped",
+              });
+              continue;
+            }
 
-        return {
-          total: input.drafts.length,
-          deleted: deletedResult.count,
-          created,
-          results,
-        };
-      });
+            try {
+              await tx.product.create({
+                data: {
+                  storeId: input.storeId,
+                  name: draft.name,
+                  barcode: draft.barcode,
+                  unit: draft.unit,
+                  costPriceSatang: draft.costPriceSatang,
+                  salePriceSatang: draft.salePriceSatang,
+                  stockQuantity: draft.stockQuantity,
+                  status: "active",
+                },
+              });
+              created += 1;
+              results.push({
+                rowNumber: draft.rowNumber,
+                barcode: draft.barcode,
+                name: draft.name,
+                status: "created",
+              });
+            } catch (error) {
+              results.push({
+                rowNumber: draft.rowNumber,
+                barcode: draft.barcode,
+                name: draft.name,
+                status: "failed",
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+
+          return {
+            total: input.drafts.length,
+            skipped,
+            created,
+            results,
+          };
+        },
+        { timeout: 60000, maxWait: 10000 },
+      );
     },
     async adjustInventory(input) {
       return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -947,8 +956,8 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       const offset = input?.offset ?? 0;
       const typeFilter = input?.type;
       const where = typeFilter
-        ? { product: { storeId }, type: typeFilter }
-        : { product: { storeId } };
+        ? { product: { storeId, deletedAt: null }, type: typeFilter }
+        : { product: { storeId, deletedAt: null } };
 
       const [transactions, total] = await Promise.all([
         prisma.inventoryTransaction.findMany({
@@ -1713,7 +1722,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
     },
     async listProductSalesHistory(storeId, productId, input) {
       const product = await prisma.product.findFirst({
-        where: { id: productId, storeId },
+        where: { id: productId, storeId, deletedAt: null },
         select: { id: true },
       });
 

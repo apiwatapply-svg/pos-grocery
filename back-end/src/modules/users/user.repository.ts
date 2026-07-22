@@ -191,13 +191,13 @@ export type SheetsSyncResultItem = {
   rowNumber: number;
   barcode: string;
   name: string;
-  status: "created" | "failed";
+  status: "created" | "skipped" | "failed";
   error?: string;
 };
 
 export type SheetsSyncSummary = {
   total: number;
-  deleted: number;
+  skipped: number;
   created: number;
   results: SheetsSyncResultItem[];
 };
@@ -693,32 +693,36 @@ export function createInMemoryUserRepository(seed?: {
       return image;
     },
     async googleSheetsSync(input) {
-      // Step 1: Snapshot existing stock by barcode (excluding soft-deleted)
-      const stockByBarcode = new Map<string, number>();
-      let deletedCount = 0;
+      // ADDITIVE ONLY: insert new products, skip existing ones.
+      // Per project rule: "ถ้าตัวไหนเคยเพิ่มแล้ว ไม่ต้องไปแตะ
+      // ให้เพิ่มเฉพาะตัวใหม่" — do NOT update, do NOT soft-delete.
+
+      // Step 1: Find existing barcodes in this store
+      const existingBarcodes = new Set<string>();
       for (const product of products.values()) {
-        if (product.storeId === input.storeId && !product.deletedAt) {
-          stockByBarcode.set(product.barcode, product.stockQuantity);
+        if (product.storeId === input.storeId) {
+          existingBarcodes.add(product.barcode);
         }
       }
 
-      // Step 2: Soft-delete all active products in this store
-      const nowIsoString = nowIso();
-      for (const product of products.values()) {
-        if (product.storeId === input.storeId && !product.deletedAt) {
-          products.set(product.id, { ...product, deletedAt: nowIsoString });
-          deletedCount += 1;
-        }
-      }
-
-      // Step 3: Insert new products from drafts
+      // Step 2: Insert only drafts whose barcode is not already in DB
       const results: SheetsSyncResultItem[] = [];
       let created = 0;
+      let skipped = 0;
 
       for (const draft of input.drafts) {
+        if (existingBarcodes.has(draft.barcode)) {
+          skipped += 1;
+          results.push({
+            rowNumber: draft.rowNumber,
+            barcode: draft.barcode,
+            name: draft.name,
+            status: "skipped",
+          });
+          continue;
+        }
+
         try {
-          // Preserve stock for matching barcode, else use Sheet's quantity
-          const stockQuantity = stockByBarcode.get(draft.barcode) ?? draft.stockQuantity;
           const newProduct: ProductRecord = {
             id: createId("product"),
             storeId: input.storeId,
@@ -727,7 +731,7 @@ export function createInMemoryUserRepository(seed?: {
             unit: draft.unit,
             costPriceSatang: draft.costPriceSatang,
             salePriceSatang: draft.salePriceSatang,
-            stockQuantity,
+            stockQuantity: draft.stockQuantity,
             status: "active",
             images: [],
           };
@@ -752,7 +756,7 @@ export function createInMemoryUserRepository(seed?: {
 
       return {
         total: input.drafts.length,
-        deleted: deletedCount,
+        skipped,
         created,
         results,
       };
