@@ -12,7 +12,8 @@
     "build": "prisma generate && tsc --noEmit",
     "start": "tsx src/server.ts",
     "prisma": "prisma",
-    "seed:products": "tsx scripts/ensure-grocery-products.ts"
+    "seed:products": "tsx scripts/ensure-grocery-products.ts",
+    "sync:sheets": "tsx scripts/sync-products-from-sheets.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

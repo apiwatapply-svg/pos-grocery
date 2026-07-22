@@ -14,6 +14,9 @@ import type {
   SaleSummaryRecord,
   SaleSummarySortKey,
   SaleRecord,
+  SheetsSyncInput,
+  SheetsSyncResultItem,
+  SheetsSyncSummary,
   StoreRecord,
   UserRecord,
   UserRepository,
@@ -707,7 +710,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       const includeImages = input?.includeImages ?? true;
       const includeSalesStats = input?.includeSalesStats ?? true;
       const products = await prisma.product.findMany({
-        where: { storeId },
+        where: { storeId, deletedAt: null },
         include: {
           images: includeImages ? { orderBy: { createdAt: "desc" } } : false,
         },
@@ -752,15 +755,15 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       }));
     },
     async findProductById(id) {
-      const product = await prisma.product.findUnique({
-        where: { id },
+      const product = await prisma.product.findFirst({
+        where: { id, deletedAt: null },
         include: { images: { orderBy: { createdAt: "desc" } } },
       });
       return product ? mapProduct(product) : null;
     },
     async findProductByBarcode(storeId, barcode) {
-      const product = await prisma.product.findUnique({
-        where: { storeId_barcode: { storeId, barcode: barcode.trim() } },
+      const product = await prisma.product.findFirst({
+        where: { storeId, barcode: barcode.trim(), deletedAt: null },
         include: { images: { orderBy: { createdAt: "desc" } } },
       });
       return product ? mapProduct(product) : null;
@@ -776,6 +779,7 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         where: {
           storeId,
           barcode: { in: uniqueBarcodes },
+          deletedAt: null,
         },
       });
       return products.map((product) => mapProduct({ ...product, images: [] }));
@@ -799,6 +803,11 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
     },
     async updateProduct(id, input) {
       try {
+        const existing = await prisma.product.findFirst({
+          where: { id, deletedAt: null },
+          select: { id: true },
+        });
+        if (!existing) return null;
         const product = await prisma.product.update({
           where: { id },
           data: input,
@@ -816,10 +825,73 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
         return null;
       }
     },
+    async googleSheetsSync(input: SheetsSyncInput): Promise<SheetsSyncSummary> {
+      return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Step 1: Snapshot existing stock by barcode (excluding soft-deleted)
+        const existing = await tx.product.findMany({
+          where: { storeId: input.storeId, deletedAt: null },
+          select: { barcode: true, stockQuantity: true },
+        });
+        const stockByBarcode = new Map(
+          existing.map((p) => [p.barcode, p.stockQuantity]),
+        );
+
+        // Step 2: Soft-delete all active products in this store
+        const deletedResult = await tx.product.updateMany({
+          where: { storeId: input.storeId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+
+        // Step 3: Insert new products from drafts
+        const results: SheetsSyncResultItem[] = [];
+        let created = 0;
+
+        for (const draft of input.drafts) {
+          try {
+            const stockQuantity =
+              stockByBarcode.get(draft.barcode) ?? draft.stockQuantity;
+            await tx.product.create({
+              data: {
+                storeId: input.storeId,
+                name: draft.name,
+                barcode: draft.barcode,
+                unit: draft.unit,
+                costPriceSatang: draft.costPriceSatang,
+                salePriceSatang: draft.salePriceSatang,
+                stockQuantity,
+                status: "active",
+              },
+            });
+            created += 1;
+            results.push({
+              rowNumber: draft.rowNumber,
+              barcode: draft.barcode,
+              name: draft.name,
+              status: "created",
+            });
+          } catch (error) {
+            results.push({
+              rowNumber: draft.rowNumber,
+              barcode: draft.barcode,
+              name: draft.name,
+              status: "failed",
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
+        return {
+          total: input.drafts.length,
+          deleted: deletedResult.count,
+          created,
+          results,
+        };
+      });
+    },
     async adjustInventory(input) {
       return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const product = await tx.product.findUnique({
-          where: { id: input.productId },
+        const product = await tx.product.findFirst({
+          where: { id: input.productId, deletedAt: null },
           include: { images: { orderBy: { createdAt: "desc" } } },
         });
 

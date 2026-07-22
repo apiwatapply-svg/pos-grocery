@@ -57,6 +57,7 @@ export type ProductRecord = {
   status: ProductStatus;
   images: ProductImageRecord[];
   averageMonthlySalesQuantity?: number;
+  deletedAt?: string;
 };
 
 export type InventoryTransactionRecord = {
@@ -172,6 +173,41 @@ export type ProductUpdate = Partial<
   >
 >;
 
+/**
+ * Input สำหรับ googleSheetsSync — ดึงมาจาก Google Sheet
+ * แต่ละ draft = 1 row ใน Sheet
+ */
+export type SheetsProductDraft = {
+  rowNumber: number;
+  name: string;
+  barcode: string;
+  unit: string;
+  costPriceSatang: number;
+  salePriceSatang: number;
+  stockQuantity: number;
+};
+
+export type SheetsSyncResultItem = {
+  rowNumber: number;
+  barcode: string;
+  name: string;
+  status: "created" | "failed";
+  error?: string;
+};
+
+export type SheetsSyncSummary = {
+  total: number;
+  deleted: number;
+  created: number;
+  results: SheetsSyncResultItem[];
+};
+
+export type SheetsSyncInput = {
+  storeId: string;
+  userId: string;
+  drafts: SheetsProductDraft[];
+};
+
 export type UserRepository = {
   findUserByUsername(username: string): Promise<UserRecord | null>;
   findUserById(id: string): Promise<UserRecord | null>;
@@ -247,6 +283,15 @@ export type UserRepository = {
       direction?: "asc" | "desc";
     },
   ): Promise<PaginatedResult<SaleSummaryRecord>>;
+
+  /**
+   * Sync products from Google Sheets.
+   * - Soft-deletes all existing products in the store
+   * - Inserts new products from drafts
+   * - Preserves stockQuantity for matching barcodes (Decision: don't touch stock)
+   * - Returns per-row status
+   */
+  googleSheetsSync(input: SheetsSyncInput): Promise<SheetsSyncSummary>;
 };
 
 /** Keys the sale summary endpoint can sort by. Anything else is rejected. */
@@ -646,6 +691,71 @@ export function createInMemoryUserRepository(seed?: {
       const updatedProduct = { ...product, images: [...product.images, image] };
       products.set(product.id, updatedProduct);
       return image;
+    },
+    async googleSheetsSync(input) {
+      // Step 1: Snapshot existing stock by barcode (excluding soft-deleted)
+      const stockByBarcode = new Map<string, number>();
+      let deletedCount = 0;
+      for (const product of products.values()) {
+        if (product.storeId === input.storeId && !product.deletedAt) {
+          stockByBarcode.set(product.barcode, product.stockQuantity);
+        }
+      }
+
+      // Step 2: Soft-delete all active products in this store
+      const nowIsoString = nowIso();
+      for (const product of products.values()) {
+        if (product.storeId === input.storeId && !product.deletedAt) {
+          products.set(product.id, { ...product, deletedAt: nowIsoString });
+          deletedCount += 1;
+        }
+      }
+
+      // Step 3: Insert new products from drafts
+      const results: SheetsSyncResultItem[] = [];
+      let created = 0;
+
+      for (const draft of input.drafts) {
+        try {
+          // Preserve stock for matching barcode, else use Sheet's quantity
+          const stockQuantity = stockByBarcode.get(draft.barcode) ?? draft.stockQuantity;
+          const newProduct: ProductRecord = {
+            id: createId("product"),
+            storeId: input.storeId,
+            name: draft.name,
+            barcode: draft.barcode,
+            unit: draft.unit,
+            costPriceSatang: draft.costPriceSatang,
+            salePriceSatang: draft.salePriceSatang,
+            stockQuantity,
+            status: "active",
+            images: [],
+          };
+          products.set(newProduct.id, newProduct);
+          created += 1;
+          results.push({
+            rowNumber: draft.rowNumber,
+            barcode: draft.barcode,
+            name: draft.name,
+            status: "created",
+          });
+        } catch (error) {
+          results.push({
+            rowNumber: draft.rowNumber,
+            barcode: draft.barcode,
+            name: draft.name,
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      return {
+        total: input.drafts.length,
+        deleted: deletedCount,
+        created,
+        results,
+      };
     },
     async adjustInventory(input) {
       const product = products.get(input.productId);
