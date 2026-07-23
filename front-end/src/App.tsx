@@ -26,6 +26,15 @@ function defaultRouteForCurrentUser() {
   if (role === 'super_admin') {
     return '/settings/store'
   }
+  if (role === 'cashier') {
+    return '/pos'
+  }
+  if (role === 'stock') {
+    return '/inventory'
+  }
+  if (role === 'store_admin') {
+    return '/dashboard'
+  }
 
   return '/login'
 }

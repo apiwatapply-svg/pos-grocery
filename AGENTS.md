@@ -84,50 +84,80 @@ Image storage:
 
 ## Role-Based Access Control
 
-The system uses four roles to lock down the in-app surface and to scope
-write access to a single store or to all stores.
+The system uses four roles. `super_admin` is locked down to the two system
+management pages. The other three roles keep their original store-scoped
+permissions and only open the pages they need.
 
 ### Roles
 
 - `super_admin` — manages **every store** and every user in the system.
-  This is the only role that can reach the store settings page and the
-  user management page. This replaces the old `admin` role.
-- `store_admin` — manages a single store and its users. Replaces the old
-  `owner` role. In the current locked-down UI the store admin cannot
-  reach any in-app page; the login form is the only screen the store
-  admin can open.
-- `cashier` — front-of-house staff. Cannot reach any in-app page in the
-  current locked-down UI; the login form is the only screen they can
-  open.
-- `stock` — warehouse/inventory staff. Same restriction as `cashier`.
+  After login the only in-app page they can open is `/settings/store`
+  (store management). They can also open `/settings/users` (user
+  management). This replaces the old `admin` role.
+- `store_admin` — manages a single store and its users. After login the
+  default page is `/dashboard`. The store admin can open every
+  store-scoped page (`/dashboard`, `/pos`, `/customer-display`,
+  `/receipts`, `/receipt-detail`, `/products`, `/product-create`,
+  `/product-edit`, `/inventory`, `/inventory-receiving`,
+  `/stock-counting`, `/sales-report`) **and** `/settings/users` for the
+  users inside their own store. This replaces the old `owner` role.
+- `cashier` — front-of-house staff. After login the default page is
+  `/pos`. The cashier can open `/pos`, `/customer-display`, `/receipts`,
+  `/receipt-detail`, and the read-only `/products` list.
+- `stock` — warehouse/inventory staff. After login the default page is
+  `/inventory`. The stock role can open `/dashboard`, `/products`,
+  `/inventory`, `/inventory-receiving`, and `/stock-counting`.
 
 ### Frontend page rules
 
 - The **Login** page (`/login`) is the only page every user can open
   before authentication.
-- After login, only `super_admin` can reach any in-app page. The two
-  pages allowed for `super_admin` are:
-  - `/settings/store` (store management)
-  - `/settings/users` (user management)
-- Every other role is redirected back to the Login page after login and
-  any session they previously had is cleared. The
-  `App.tsx > defaultRouteForCurrentUser` helper and the
-  `lib/auth/permissions.ts > routePermissions` map are the single source
-  of truth for this rule. If you add a new page, add it to
-  `routePermissions` and decide which roles may open it; an empty array
-  means "no one".
+- After login, the user is redirected to their role's default page
+  (see the role list above). The redirect lives in
+  `App.tsx > defaultRouteForCurrentUser` and in
+  `features/auth/LoginPage.tsx > defaultPathForRole` and both helpers
+  must stay in sync.
+- Every in-app route is guarded by `<RequireAuth routeId>`. The guard
+  uses `lib/auth/permissions.ts > routePermissions` to decide which
+  roles may open the page. The same map is the single source of truth
+  for the sidebar (`AppShell.tsx`) and the page guard, so adding a new
+  page means adding it to `routePermissions` and picking the role list
+  that should see it. An empty array means "no one".
+- If a user opens a URL directly that their role cannot access, the
+  guard renders the `AccessDeniedPage` instead of redirecting back to
+  the login screen.
 
 ### Backend authorization rules
 
-- All write endpoints (POST/PATCH/DELETE) under `/api/products`,
-  `/api/sales`, `/api/inventory`, `/api/users`, and `/api/store` require
-  `super_admin` in the current access model.
-- Read endpoints (GET) accept any authenticated user. The repository
-  layer is still responsible for filtering by `storeId` so a
-  `store_admin` only ever sees their own store's data.
+- **All `/api/store` write endpoints** (POST/PATCH/DELETE) require
+  `super_admin`. Read endpoints (`GET /api/store/current` and
+  `GET /api/store`) accept any authenticated user, with the repository
+  layer still responsible for filtering by `storeId`.
+- **User management** (`/api/users`) accepts `super_admin` and
+  `store_admin`. `super_admin` can list and manage every user in the
+  system and pick a target `storeId` on create. `store_admin` is pinned
+  to their own `storeId`; any attempt to write into a different store
+  is silently redirected to the admin's own store, and updates or
+  deletes targeting a user from a different store are rejected by
+  `user.controller.ts > canManageUser`.
+- **Product write endpoints** (`POST /api/products`, `PATCH
+  /api/products/:id`, `POST /api/products/:id/images`) accept
+  `super_admin` and `store_admin`. Read endpoints accept any
+  authenticated user.
+- **Sales** — checkout (`POST /api/sales/checkout`) accepts
+  `super_admin`, `store_admin`, and `cashier`. Cancel and activate
+  (`POST /api/sales/:id/cancel`, `POST /api/sales/:id/activate`)
+  require `super_admin` or `store_admin`.
+- **Inventory** — receive and count endpoints (`POST
+  /api/inventory/receive`, `POST /api/inventory/count`) and the
+  transactions list (`GET /api/inventory/transactions`) accept
+  `super_admin`, `store_admin`, and `stock`. Read endpoints accept any
+  authenticated user.
 - JWT tokens carry `role` and `storeId`. `auth.middleware.ts >
   tokenRole()` whitelists the four valid roles. Any unknown role in a
-  token raises `INVALID_TOKEN`.
+  token raises `INVALID_TOKEN`, and `apiPost` in the frontend clears
+  the saved session on a `401` response so the user is bounced back to
+  the login screen.
 - `user.controller.ts > resolveWritableStoreId` and `canManageUser`
   only relax store scoping for `super_admin`. Every other role is
   pinned to its own `storeId`.
@@ -136,8 +166,8 @@ write access to a single store or to all stores.
 
 ### Migrations
 
-- The migration `20260722110000_rename_user_roles` (plus any later
-  Prisma-generated companion migration) renames the historical roles:
+- The migration `20260722110000_rename_user_roles` renames the
+  historical roles:
   - `admin` → `super_admin`
   - `owner` → `store_admin`
 - Do not introduce new role names without updating `UserRole` in
@@ -145,8 +175,9 @@ write access to a single store or to all stores.
   `userRoleSchema` in `user.schemas.ts`, the `tokenRole()` whitelist in
   `auth.middleware.ts`, the prisma mapper in
   `prisma-user.repository.ts`, the frontend `Role` union in
-  `lib/auth/permissions.ts`, and the role labels rendered by
-  `UserManagementPage`.
+  `lib/auth/permissions.ts`, the role labels rendered by
+  `UserManagementPage`, and the `routePermissions` map that drives the
+  sidebar and the page guards.
 
 ## Routing
 

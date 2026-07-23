@@ -24,12 +24,27 @@ const superAdminSession: Session = {
   },
 }
 
+const storeAdminSession: Session = {
+  ...superAdminSession,
+  user: { ...superAdminSession.user, id: 'store-admin-1', role: 'store_admin' },
+}
+
+const cashierSession: Session = {
+  ...superAdminSession,
+  user: { ...superAdminSession.user, id: 'cashier-1', role: 'cashier' },
+}
+
+const stockSession: Session = {
+  ...superAdminSession,
+  user: { ...superAdminSession.user, id: 'stock-1', role: 'stock' },
+}
+
 afterEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
 })
 
-function renderShell(session = superAdminSession) {
+function renderShell(session: Session = superAdminSession) {
   saveSession(session)
   return render(
     <MemoryRouter>
@@ -48,6 +63,41 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'ผู้ใช้ระบบ' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'ขายสินค้า' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
+  })
+
+  it('shows POS, products, inventory, and user management for store_admin', () => {
+    renderShell(storeAdminSession)
+
+    expect(screen.getByRole('link', { name: 'ขายสินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'สินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'รับของเข้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ตรวจนับ stock' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ผู้ใช้ระบบ' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'ข้อมูลร้าน' })).not.toBeInTheDocument()
+  })
+
+  it('shows only POS, products, and receipts for cashier', () => {
+    renderShell(cashierSession)
+
+    expect(screen.getByRole('link', { name: 'ขายสินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'สินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ใบเสร็จ' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'สินค้าคงคลัง' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'ผู้ใช้ระบบ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
+  })
+
+  it('shows only dashboard, products, and inventory for stock', () => {
+    renderShell(stockSession)
+
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'สินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'รับของเข้า' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'ตรวจนับ stock' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'ขายสินค้า' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'ใบเสร็จ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'ผู้ใช้ระบบ' })).not.toBeInTheDocument()
   })
 
   it('shows the user info and logout in the sidebar footer and keeps page content visible', () => {

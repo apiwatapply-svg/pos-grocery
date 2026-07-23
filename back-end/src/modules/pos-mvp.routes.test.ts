@@ -20,11 +20,19 @@ async function createFixture() {
     username: "owner",
     passwordHash: await hashPassword("admin"),
     displayName: "Owner",
-    role: "super_admin",
+    role: "store_admin",
+    status: "active",
+  });
+  const cashier = await repository.createUser({
+    storeId: store.id,
+    username: "cashier",
+    passwordHash: await hashPassword("cashier"),
+    displayName: "Cashier",
+    role: "cashier",
     status: "active",
   });
 
-  return { app: createApp({ repository, jwtSecret }), repository, store, owner };
+  return { app: createApp({ repository, jwtSecret }), repository, store, owner, cashier };
 }
 
 function authHeader(user: UserRecord) {
@@ -73,18 +81,18 @@ describe("POS Grocery MVP API", () => {
       .post("/api/users")
       .set("Authorization", authHeader(owner))
       .send({
-        username: "cashier",
-        password: "cashier123",
-        displayName: "Cashier One",
-        role: "cashier",
+        username: "second-user",
+        password: "user1234",
+        displayName: "Second User",
+        role: "stock",
         status: "active",
       });
 
     expect(created.status).toBe(201);
     expect(created.body.data).toMatchObject({
-      username: "cashier",
-      displayName: "Cashier One",
-      role: "cashier",
+      username: "second-user",
+      displayName: "Second User",
+      role: "stock",
       status: "active",
     });
     expect(created.body.data.passwordHash).toBeUndefined();
@@ -93,17 +101,17 @@ describe("POS Grocery MVP API", () => {
 
     expect(listed.status).toBe(200);
     expect(listed.body.data).toEqual(
-      expect.arrayContaining([expect.objectContaining({ username: "cashier" })]),
+      expect.arrayContaining([expect.objectContaining({ username: "second-user" })]),
     );
 
     const updated = await request(app)
       .patch(`/api/users/${created.body.data.id}`)
       .set("Authorization", authHeader(owner))
-      .send({ displayName: "Cashier Updated", status: "inactive" });
+      .send({ displayName: "Second User Updated", status: "inactive" });
 
     expect(updated.status).toBe(200);
     expect(updated.body.data).toMatchObject({
-      displayName: "Cashier Updated",
+      displayName: "Second User Updated",
       status: "inactive",
     });
 
@@ -615,5 +623,63 @@ describe("POS Grocery MVP API", () => {
       .set("Authorization", authHeader(owner));
     expect(lowestTotalFirst.status).toBe(200);
     expect(lowestTotalFirst.body.data.items[0].totalSatang).toBe(2000);
+  });
+
+  it("lets a cashier check out a sale but only store_admin can cancel or activate it", async () => {
+    const { app, owner, cashier } = await createFixture();
+
+    const product = await request(app)
+      .post("/api/products")
+      .set("Authorization", authHeader(owner))
+      .send({
+        name: "Cashier Water",
+        barcode: "8850007000017",
+        unit: "bottle",
+        costPriceSatang: 400,
+        salePriceSatang: 700,
+        status: "active",
+      });
+    await request(app)
+      .post("/api/inventory/receive")
+      .set("Authorization", authHeader(owner))
+      .send({ productId: product.body.data.id, quantity: 5, unitCostSatang: 400 });
+
+    const sale = await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(cashier))
+      .send({
+        barcodeItems: [{ barcode: "8850007000017", quantity: 1 }],
+        cashReceivedSatang: 1000,
+        paymentMethod: "cash",
+        soldAt: "2026-07-15T03:00:00.000Z",
+      });
+    expect(sale.status).toBe(201);
+    const saleId = sale.body.data.id;
+
+    const cancelledByCashier = await request(app)
+      .post(`/api/sales/${saleId}/cancel`)
+      .set("Authorization", authHeader(cashier))
+      .send({});
+    expect(cancelledByCashier.status).toBe(403);
+
+    const cancelledByStoreAdmin = await request(app)
+      .post(`/api/sales/${saleId}/cancel`)
+      .set("Authorization", authHeader(owner))
+      .send({});
+    expect(cancelledByStoreAdmin.status).toBe(200);
+    expect(cancelledByStoreAdmin.body.data.status).toBe("void");
+
+    const activatedByCashier = await request(app)
+      .post(`/api/sales/${saleId}/activate`)
+      .set("Authorization", authHeader(cashier))
+      .send({});
+    expect(activatedByCashier.status).toBe(403);
+
+    const activatedByStoreAdmin = await request(app)
+      .post(`/api/sales/${saleId}/activate`)
+      .set("Authorization", authHeader(owner))
+      .send({});
+    expect(activatedByStoreAdmin.status).toBe(200);
+    expect(activatedByStoreAdmin.body.data.status).toBe("completed");
   });
 });

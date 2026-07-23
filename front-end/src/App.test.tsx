@@ -41,6 +41,9 @@ function sessionForRole(role: Role): Session {
 
 const superAdminOnlyRoutes: Array<{ path: string; heading: string }> = [
   { path: '/settings/store', heading: 'จัดการร้านค้า' },
+]
+
+const userManagementRoutes: Array<{ path: string; heading: string }> = [
   { path: '/settings/users', heading: 'ผู้ใช้ระบบ' },
 ]
 
@@ -58,7 +61,7 @@ describe('App routes', () => {
   })
 
   it('blocks forbidden direct route access for non-super-admin users', () => {
-    renderApp('/settings/users', sessionForRole('cashier'))
+    renderApp('/settings/store', sessionForRole('cashier'))
 
     expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
   })
@@ -75,7 +78,29 @@ describe('App routes', () => {
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
   })
 
-  it('keeps every other role out of the management pages', () => {
+  it.each(userManagementRoutes)('lets super_admin and store_admin open $path', ({ path, heading }) => {
+    renderApp(path, sessionForRole('super_admin'))
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+
+    cleanup()
+    localStorage.clear()
+    renderApp(path, sessionForRole('store_admin'))
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+  })
+
+  it('blocks cashier and stock from the user management page', () => {
+    const forbiddenRoles = ['cashier', 'stock'] as const
+
+    forbiddenRoles.forEach((role) => {
+      cleanup()
+      localStorage.clear()
+      renderApp('/settings/users', sessionForRole(role))
+
+      expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
+    })
+  })
+
+  it('keeps every role except super_admin out of the store settings page', () => {
     const forbiddenRoles = roles.filter((role) => role !== 'super_admin')
 
     forbiddenRoles.forEach((role) => {
@@ -85,5 +110,65 @@ describe('App routes', () => {
 
       expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
     })
+  })
+
+  it('lets store_admin open the store-scoped pages they own', () => {
+    const storeAdminPages: Array<{ path: string; heading: string }> = [
+      { path: '/dashboard', heading: 'Dashboard' },
+      { path: '/pos', heading: 'Checkout' },
+      { path: '/products', heading: 'สินค้า' },
+      { path: '/inventory', heading: 'สินค้า' },
+      { path: '/reports/sales', heading: 'รายงานยอดขาย' },
+    ]
+
+    storeAdminPages.forEach(({ path, heading }) => {
+      cleanup()
+      localStorage.clear()
+      renderApp(path, sessionForRole('store_admin'))
+
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+  })
+
+  it('lets cashier open POS, products, and receipts but blocks the rest', () => {
+    const allowedPages: Array<{ path: string; heading: string }> = [
+      { path: '/pos', heading: 'Checkout' },
+      { path: '/products', heading: 'สินค้า' },
+      { path: '/receipts', heading: 'ประวัติใบเสร็จ' },
+    ]
+
+    allowedPages.forEach(({ path, heading }) => {
+      cleanup()
+      localStorage.clear()
+      renderApp(path, sessionForRole('cashier'))
+
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+
+    cleanup()
+    localStorage.clear()
+    renderApp('/inventory', sessionForRole('cashier'))
+    expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
+  })
+
+  it('lets stock open inventory and products but blocks the rest', () => {
+    const allowedPages: Array<{ path: string; heading: string }> = [
+      { path: '/inventory', heading: 'สินค้า' },
+      { path: '/products', heading: 'สินค้า' },
+      { path: '/dashboard', heading: 'Dashboard' },
+    ]
+
+    allowedPages.forEach(({ path, heading }) => {
+      cleanup()
+      localStorage.clear()
+      renderApp(path, sessionForRole('stock'))
+
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    })
+
+    cleanup()
+    localStorage.clear()
+    renderApp('/pos', sessionForRole('stock'))
+    expect(screen.getByRole('heading', { name: 'ไม่มีสิทธิ์เข้าหน้านี้' })).toBeInTheDocument()
   })
 })

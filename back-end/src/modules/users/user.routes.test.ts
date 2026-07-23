@@ -42,7 +42,7 @@ async function createMultiStoreFixture() {
     role: "store_admin",
     status: "active",
   });
-  await repository.createUser({
+  const secondStoreCashier = await repository.createUser({
     storeId: secondStore.id,
     username: "second-cashier",
     passwordHash: await hashPassword("cashier123"),
@@ -51,7 +51,7 @@ async function createMultiStoreFixture() {
     status: "active",
   });
 
-  return { repository, firstStore, secondStore, systemAdmin, storeAdmin };
+  return { repository, firstStore, secondStore, systemAdmin, storeAdmin, secondStoreCashier };
 }
 
 describe("user routes", () => {
@@ -87,26 +87,86 @@ describe("user routes", () => {
     });
   });
 
-  it("forbids store-admin from listing or managing users", async () => {
+  it("lets a store admin list and create users in their own store only", async () => {
     const { repository, firstStore, secondStore, storeAdmin } = await createMultiStoreFixture();
     const app = createApp({ repository, jwtSecret });
 
     const listed = await request(app).get("/api/users").set("Authorization", authHeader(storeAdmin));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data).toEqual([
+      expect.objectContaining({ username: "system-admin", storeId: firstStore.id }),
+      expect.objectContaining({ username: "main-store-admin", storeId: firstStore.id }),
+    ]);
+
     const created = await request(app)
       .post("/api/users")
       .set("Authorization", authHeader(storeAdmin))
       .send({
-        storeId: secondStore.id,
-        username: "wrong-store-cashier",
+        username: "new-cashier",
         password: "cashier123",
-        displayName: "Wrong Store Cashier",
+        displayName: "New Cashier",
         role: "cashier",
       });
 
-    expect(listed.status).toBe(403);
-    expect(created.status).toBe(403);
-    // Even though the store-admin already exists for firstStore, the user
-    // management API is reserved for super_admin in the current access model.
-    expect(firstStore.id).toBe(storeAdmin.storeId);
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      storeId: firstStore.id,
+      username: "new-cashier",
+      role: "cashier",
+      status: "active",
+    });
+
+    // Trying to write into another store pins the new user to the admin's own store.
+    const wrongStoreCreated = await request(app)
+      .post("/api/users")
+      .set("Authorization", authHeader(storeAdmin))
+      .send({
+        storeId: secondStore.id,
+        username: "wrong-store-user",
+        password: "cashier123",
+        displayName: "Wrong Store User",
+        role: "cashier",
+      });
+
+    expect(wrongStoreCreated.status).toBe(201);
+    expect(wrongStoreCreated.body.data.storeId).toBe(firstStore.id);
+  });
+
+  it("forbids cashier and stock from listing or managing users", async () => {
+    const { repository, firstStore, storeAdmin } = await createMultiStoreFixture();
+    const app = createApp({ repository, jwtSecret });
+    const storeAdminUserId = storeAdmin.id;
+
+    for (const role of ["cashier", "stock"] as const) {
+      const restrictedUser = await repository.createUser({
+        storeId: firstStore.id,
+        username: `restricted-${role}`,
+        passwordHash: await hashPassword("user123"),
+        displayName: `Restricted ${role}`,
+        role,
+        status: "active",
+      });
+
+      const listed = await request(app)
+        .get("/api/users")
+        .set("Authorization", authHeader(restrictedUser));
+      const created = await request(app)
+        .post("/api/users")
+        .set("Authorization", authHeader(restrictedUser))
+        .send({
+          username: `attempted-${role}`,
+          password: "user123",
+          displayName: `Attempted ${role}`,
+          role: "cashier",
+        });
+      const updated = await request(app)
+        .patch(`/api/users/${storeAdminUserId}`)
+        .set("Authorization", authHeader(restrictedUser))
+        .send({ displayName: "Updated" });
+
+      expect(listed.status).toBe(403);
+      expect(created.status).toBe(403);
+      expect(updated.status).toBe(403);
+    }
   });
 });

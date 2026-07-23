@@ -16,11 +16,19 @@ export function createInventoryRouter(deps?: {
   const router = Router();
 
   router.use(requireAuth(deps));
-  router.post("/receive", requireRole(["super_admin"]), receiveInventoryController(deps));
-  router.post("/count", requireRole(["super_admin"]), countInventoryController(deps));
+  router.post(
+    "/receive",
+    requireRole(["super_admin", "store_admin", "stock"]),
+    receiveInventoryController(deps),
+  );
+  router.post(
+    "/count",
+    requireRole(["super_admin", "store_admin", "stock"]),
+    countInventoryController(deps),
+  );
   router.get(
     "/transactions",
-    requireRole(["super_admin"]),
+    requireRole(["super_admin", "store_admin", "stock"]),
     readCacheMiddleware(),
     listInventoryTransactionsController(deps),
   );

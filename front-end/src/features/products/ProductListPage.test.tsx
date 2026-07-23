@@ -1,4 +1,4 @@
-﻿import '@testing-library/jest-dom/vitest'
+﻿﻿import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Swal from 'sweetalert2'
@@ -78,6 +78,11 @@ const superAdminSession: Session = {
   },
 }
 
+const storeAdminSession: Session = {
+  ...superAdminSession,
+  user: { ...superAdminSession.user, id: 'store-admin-1', role: 'store_admin' },
+}
+
 const cashierSession: Session = {
   token: 'token-cashier',
   user: {
@@ -117,13 +122,21 @@ afterEach(() => {
 })
 
 describe('ProductListPage', () => {
-  it('hides every product management action in the locked-down UI', async () => {
+  it('hides every product management action for super_admin', async () => {
     renderPage(superAdminSession)
 
     expect(await screen.findByText('SQL Product')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'เพิ่มสินค้า' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'แก้ไข SQL Product' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'ปิดขาย SQL Product' })).not.toBeInTheDocument()
+  })
+
+  it('shows product management actions for store_admin', async () => {
+    renderPage(storeAdminSession)
+
+    expect(await screen.findByText('SQL Product')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'เพิ่มสินค้า' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'แก้ไข SQL Product' })).toBeInTheDocument()
   })
 
   it('also keeps product management actions hidden for cashier sessions', async () => {

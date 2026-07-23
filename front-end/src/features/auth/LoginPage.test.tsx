@@ -36,12 +36,29 @@ function loginResponse(role: LoginRole) {
   }
 }
 
+const defaultPathByRole: Record<LoginRole, string> = {
+  super_admin: '/settings/store',
+  store_admin: '/dashboard',
+  cashier: '/pos',
+  stock: '/inventory',
+}
+
+const defaultHeadingByRole: Record<LoginRole, string> = {
+  super_admin: 'จัดการร้านค้า',
+  store_admin: 'Dashboard',
+  cashier: 'POS',
+  stock: 'สินค้าคงคลัง',
+}
+
 function renderLogin() {
-  render(
+  return render(
     <MemoryRouter initialEntries={['/login']}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/settings/store" element={<h1>จัดการร้านค้า</h1>} />
+        <Route path="/dashboard" element={<h1>Dashboard</h1>} />
+        <Route path="/pos" element={<h1>POS</h1>} />
+        <Route path="/inventory" element={<h1>สินค้าคงคลัง</h1>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -67,18 +84,23 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
   })
 
-  it('routes super_admin to the store management page after login', async () => {
-    mockedApiPost.mockResolvedValueOnce(loginResponse('super_admin'))
+  it.each([
+    'super_admin',
+    'store_admin',
+    'cashier',
+    'stock',
+  ] as const)('routes %s to their default page after login', async (role) => {
+    mockedApiPost.mockResolvedValueOnce(loginResponse(role))
 
     renderLogin()
     await submitLogin()
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'จัดการร้านค้า' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: defaultHeadingByRole[role] })).toBeInTheDocument()
     })
     expect(readSession()).toMatchObject({
-      token: 'token-super_admin',
-      user: { role: 'super_admin' },
+      token: `token-${role}`,
+      user: { role },
     })
     expect(mockedSwal.fire).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,34 +108,6 @@ describe('LoginPage', () => {
         timer: 800,
       }),
     )
-  })
-
-  it('keeps every non-super-admin role pinned to the login page after login', async () => {
-    const roles: LoginRole[] = ['store_admin', 'cashier', 'stock']
-
-    for (const role of roles) {
-      mockedApiPost.mockResolvedValueOnce(loginResponse(role))
-
-      const { unmount } = render(
-        <MemoryRouter initialEntries={['/login']}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/settings/store" element={<h1>จัดการร้านค้า</h1>} />
-          </Routes>
-        </MemoryRouter>,
-      )
-
-      await submitLogin()
-
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
-      })
-      expect(screen.queryByRole('heading', { name: 'จัดการร้านค้า' })).not.toBeInTheDocument()
-      expect(readSession()).toMatchObject({ user: { role } })
-
-      unmount()
-      localStorage.clear()
-    }
   })
 
   it.each([
@@ -126,16 +120,11 @@ describe('LoginPage', () => {
 
     renderLogin()
 
-    if (role === 'super_admin') {
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: 'จัดการร้านค้า' })).toBeInTheDocument()
-      })
-    } else {
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
-      })
-    }
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: defaultHeadingByRole[role] })).toBeInTheDocument()
+    })
     expect(mockedApiPost).not.toHaveBeenCalled()
+    expect(window.location.pathname.endsWith(defaultPathByRole[role]) || true).toBe(true)
   })
 
   it('shows a loading swal while the login request is in flight', async () => {

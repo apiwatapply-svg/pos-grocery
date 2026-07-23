@@ -17,9 +17,9 @@ export function createProductRouter(deps?: {
 
   router.use(requireAuth(deps));
   router.get("/", readCacheMiddleware(), listProductsController(deps));
-  router.post("/", requireRole(["super_admin"]), createProductController(deps));
-  router.patch("/:id", requireRole(["super_admin"]), updateProductController(deps));
-  router.post("/:id/images", requireRole(["super_admin"]), uploadProductImageController(deps));
+  router.post("/", requireRole(["super_admin", "store_admin"]), createProductController(deps));
+  router.patch("/:id", requireRole(["super_admin", "store_admin"]), updateProductController(deps));
+  router.post("/:id/images", requireRole(["super_admin", "store_admin"]), uploadProductImageController(deps));
 
   return router;
 }
