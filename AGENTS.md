@@ -331,13 +331,19 @@ store has 385 products, all of which have a product image (100% coverage).
 #### Barcode padding rule
 
 `google-sheets.mapper.ts > normalizeBarcode` zero-pads any barcode that has
-**1 or 2 digits** to a 13-digit EAN-13 placeholder (for example `7` becomes
-`0000000000007`). This is for V2 rows where the user typed a running number
+**1 or 2 digits** to a **8-digit EAN-8 placeholder** (for example `7` becomes
+`00000007`). This is for V2 rows where the user typed a running number
 (`2`, `3`, `7`, `12`, …) into the barcode column and will add the real
-barcode later. Barcodes with 3 or more digits are kept as-is, so real EAN-8,
-UPC-A, and EAN-13 codes pass through unchanged. The padded values do not
-match any real product in Open Food Facts, so the image sync falls back to
-the Cloudinary text-overlay placeholder for them.
+barcode later. Barcodes that are already 3+ digits (EAN-8, UPC-A, EAN-13)
+are kept as-is, so real product barcodes pass through unchanged. The padded
+values do not match any real product in Open Food Facts, so the image sync
+falls back to the Cloudinary text-overlay placeholder for them.
+
+> **History note:** Phase 12 originally padded to 13 digits, but the user
+> later asked to use 8 digits instead. The 39 already-padded products were
+> rewritten with the new rule via
+> `back-end/scripts/migrate-padded-barcodes-13-to-8.mjs`. Use that script as
+> a template if the padding rule changes again.
 
 #### Sync flow when the user wants to refresh the catalog
 

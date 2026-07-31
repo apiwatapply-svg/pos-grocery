@@ -156,18 +156,18 @@ describe("mapRowToDraft", () => {
     expect(draft?.stockQuantity).toBe(5);
   });
 
-  it("pads 1-digit barcodes to 13 digits (EAN-13 placeholder rule)", () => {
+  it("pads 1-digit barcodes to 8 digits (EAN-8 placeholder rule)", () => {
     const row = [...fullRow];
     row[4] = "7";
     const draft = mapRowToDraft(row, 10);
-    expect(draft?.barcode).toBe("0000000000007");
+    expect(draft?.barcode).toBe("00000007");
   });
 
-  it("pads 2-digit barcodes to 13 digits (EAN-13 placeholder rule)", () => {
+  it("pads 2-digit barcodes to 8 digits (EAN-8 placeholder rule)", () => {
     const row = [...fullRow];
     row[4] = "12";
     const draft = mapRowToDraft(row, 11);
-    expect(draft?.barcode).toBe("0000000000012");
+    expect(draft?.barcode).toBe("00000012");
   });
 
   it("keeps 3+ digit barcodes unchanged", () => {
