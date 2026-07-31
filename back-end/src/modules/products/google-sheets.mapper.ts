@@ -137,6 +137,23 @@ function rowCellsContainAll(row: string[], expectedLength: number) {
   }
 }
 
+/**
+ * Normalize a raw barcode from the sheet.
+ *
+ * Project rule: rows whose barcode is 1-2 digits are placeholders from the
+ * user (running numbers such as 2, 3, 7). They are zero-padded to 13 digits
+ * so they satisfy the EAN-13 length expectation and match the format used
+ * by POS scanners. Barcodes that are already 3+ digits (EAN-8, UPC-A,
+ * EAN-13) are kept as-is.
+ */
+function normalizeBarcode(rawBarcode: string): string {
+  const trimmed = rawBarcode.trim();
+  if (/^\d{1,2}$/.test(trimmed)) {
+    return trimmed.padStart(13, "0");
+  }
+  return trimmed;
+}
+
 function validateRowData(
   name: string,
   barcode: string,
@@ -234,7 +251,7 @@ export function mapRowToDraft(
   }
 
   const trimmedName = name.trim();
-  const trimmedBarcode = barcode.trim();
+  const trimmedBarcode = normalizeBarcode(barcode);
   const trimmedUnit = unit.trim();
   const costPriceSatang = roundToSatang(parseNumber(costPriceRaw));
   const salePriceSatang = roundToSatang(parseNumber(salePriceRaw));

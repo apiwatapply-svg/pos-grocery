@@ -322,6 +322,44 @@ The product catalog can be populated from a public Google Sheet that the user
 shares with "Anyone with the link = Editor". Sync is **ADDITIVE ONLY** — it
 never overwrites or removes existing products.
 
+### Phase 12 — V2 sheet (gid=906341798)
+
+The V2 sheet has 387 rows (383 with barcode, 4 without). The current target
+store is **POS Grocery** (`cmr2tjdd80000lw2psbxx4pq8`). After Phase 12 the
+store has 385 products, all of which have a product image (100% coverage).
+
+#### Barcode padding rule
+
+`google-sheets.mapper.ts > normalizeBarcode` zero-pads any barcode that has
+**1 or 2 digits** to a 13-digit EAN-13 placeholder (for example `7` becomes
+`0000000000007`). This is for V2 rows where the user typed a running number
+(`2`, `3`, `7`, `12`, …) into the barcode column and will add the real
+barcode later. Barcodes with 3 or more digits are kept as-is, so real EAN-8,
+UPC-A, and EAN-13 codes pass through unchanged. The padded values do not
+match any real product in Open Food Facts, so the image sync falls back to
+the Cloudinary text-overlay placeholder for them.
+
+#### Sync flow when the user wants to refresh the catalog
+
+1. Confirm with the user that a `db:clear` is wanted (it deletes sales,
+   inventory, and images). Do not assume or skip this step.
+2. `npm run db:clear`
+3. `npm run sync:sheets`
+4. `npm run sync:images`
+
+If the user only wants to add new products, skip step 1 and run only steps
+3 and 4. Existing products and their images will be left as-is. The sync
+script always targets the store passed on the CLI (`npm run sync:sheets
+<storeId>`) or the first available store.
+
+#### Required env (back-end `.env`)
+
+```
+GOOGLE_SHEETS_CSV_URL=https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=906341798
+```
+
+The URL must be the public CSV export endpoint, not the regular `/edit` URL.
+
 ### Hard rules
 
 - **ถ้าตัวไหนเคยเพิ่มแล้ว ไม่ต้องไปแตะ ให้เพิ่มเฉพาะตัวใหม่** — the sync inserts
@@ -338,14 +376,6 @@ never overwrites or removes existing products.
 - If a row has no product name, skip it.
 - `npm run db:clear` exists for the rare case the user explicitly wants a
   full wipe. **Do not invoke it automatically.**
-
-### Required env (back-end `.env`)
-
-```
-GOOGLE_SHEETS_CSV_URL=https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=0
-```
-
-The URL must be the public CSV export endpoint, not the regular `/edit` URL.
 
 ### CLI scripts (back-end)
 

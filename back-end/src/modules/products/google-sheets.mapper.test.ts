@@ -155,6 +155,34 @@ describe("mapRowToDraft", () => {
     const draft = mapRowToDraft(row, 8);
     expect(draft?.stockQuantity).toBe(5);
   });
+
+  it("pads 1-digit barcodes to 13 digits (EAN-13 placeholder rule)", () => {
+    const row = [...fullRow];
+    row[4] = "7";
+    const draft = mapRowToDraft(row, 10);
+    expect(draft?.barcode).toBe("0000000000007");
+  });
+
+  it("pads 2-digit barcodes to 13 digits (EAN-13 placeholder rule)", () => {
+    const row = [...fullRow];
+    row[4] = "12";
+    const draft = mapRowToDraft(row, 11);
+    expect(draft?.barcode).toBe("0000000000012");
+  });
+
+  it("keeps 3+ digit barcodes unchanged", () => {
+    const row = [...fullRow];
+    row[4] = "8850999000001";
+    const draft = mapRowToDraft(row, 12);
+    expect(draft?.barcode).toBe("8850999000001");
+  });
+
+  it("keeps 8-digit barcodes unchanged (EAN-8)", () => {
+    const row = [...fullRow];
+    row[4] = "12345678";
+    const draft = mapRowToDraft(row, 13);
+    expect(draft?.barcode).toBe("12345678");
+  });
 });
 
 describe("parseSheetsCsv", () => {
