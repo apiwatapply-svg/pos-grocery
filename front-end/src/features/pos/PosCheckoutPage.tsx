@@ -1497,6 +1497,43 @@ export function PosCheckoutPage() {
                   ยอดรวม {baht(cartTotal)} บาท
                   <span className="total-line-meta"> ({formatNumber(cartItemCount)} ชิ้น)</span>
                 </p>
+                <div className="total-line-actions">
+                  <button
+                    aria-label="พักบิลปัจจุบัน"
+                    className="hold-bill-button"
+                    data-keep-focus="allow"
+                    disabled={!hasCartItems}
+                    type="button"
+                    onClick={() => void holdBill()}
+                  >
+                    พักบิล
+                  </button>
+                  <button
+                    aria-label="เปิดรายการบิลที่พัก"
+                    className="resume-bill-button"
+                    data-keep-focus="allow"
+                    disabled={heldBills.length === 0}
+                    type="button"
+                    onClick={openHeldBillsModal}
+                  >
+                    เรียกบิล
+                    {heldBills.length > 0 ? (
+                      <span className="held-bill-badge" aria-label={`มี ${heldBills.length} บิลที่พัก`}>
+                        {heldBills.length}
+                      </span>
+                    ) : null}
+                  </button>
+                  <button
+                    aria-label="ลบสินค้าทั้งหมดในตะกร้า"
+                    className="clear-cart-button"
+                    data-keep-focus="allow"
+                    disabled={!hasCartItems}
+                    type="button"
+                    onClick={() => void clearCart()}
+                  >
+                    ลบทั้งหมด
+                  </button>
+                </div>
               </div>
               <div className="payment-input-row">
                 <div className="payment-summary-cell payment-summary-cash">
@@ -1533,43 +1570,6 @@ export function PosCheckoutPage() {
                   <strong>{baht(Math.abs(changeDue))} บาท</strong>
                 </div>
               </div>
-            </div>
-            <div className="total-line-actions">
-              <button
-                aria-label="พักบิลปัจจุบัน"
-                className="hold-bill-button"
-                data-keep-focus="allow"
-                disabled={!hasCartItems}
-                type="button"
-                onClick={() => void holdBill()}
-              >
-                พักบิล
-              </button>
-              <button
-                aria-label="เปิดรายการบิลที่พัก"
-                className="resume-bill-button"
-                data-keep-focus="allow"
-                disabled={heldBills.length === 0}
-                type="button"
-                onClick={openHeldBillsModal}
-              >
-                เรียกบิล
-                {heldBills.length > 0 ? (
-                  <span className="held-bill-badge" aria-label={`มี ${heldBills.length} บิลที่พัก`}>
-                    {heldBills.length}
-                  </span>
-                ) : null}
-              </button>
-              <button
-                aria-label="ลบสินค้าทั้งหมดในตะกร้า"
-                className="clear-cart-button"
-                data-keep-focus="allow"
-                disabled={!hasCartItems}
-                type="button"
-                onClick={() => void clearCart()}
-              >
-                ลบทั้งหมด
-              </button>
             </div>
             <div className="payment-box">
               <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด" data-keep-focus="allow">

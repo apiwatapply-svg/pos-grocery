@@ -3435,8 +3435,10 @@ th[aria-sort] {
   border-radius: 10px;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr);
-  padding: 10px 12px;
+  /* Total cell ขยายเป็น 1.55fr เพื่อให้ Total + bill actions
+   * (พักบิล/เรียกบิล/ลบทั้งหมด) พอดีในแถวเดียวกัน */
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
+  padding: 8px 12px;
 }
 
 .pos-checkout-footer .payment-summary-cell {
@@ -3445,6 +3447,20 @@ th[aria-sort] {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+}
+
+/*
+ * payment-summary-total ใช้ flex row เพื่อให้ Total + bill actions
+ * (พักบิล/เรียกบิล/ลบทั้งหมด) อยู่ในแถวเดียวกัน
+ * - flex-wrap: wrap เพื่อให้ actions wrap ลงใต้ Total เมื่อพื้นที่ไม่พอ
+ * - gap: row column เพื่อรักษาระยะห่างทั้ง 2 แกน
+ */
+.pos-checkout-footer .payment-summary-total {
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  justify-content: space-between;
 }
 
 .pos-checkout-footer .payment-summary-total .total-line {
@@ -3460,8 +3476,10 @@ th[aria-sort] {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: baseline;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   gap: 6px 10px;
+  min-width: 0;
 }
 
 .pos-checkout-footer .payment-summary-total .total-line .total-line-amount {
@@ -3579,14 +3597,15 @@ th[aria-sort] {
 }
 
 /*
- * Bill action buttons (พักบิล / เรียกบิล / ลบทั้งหมด) — แถวแยก
- * อยู่ใต้ Hero Payment Summary เพื่อไม่ให้แย่งพื้นที่กับ 3 ค่าทางการเงิน
+ * Bill action buttons (พักบิล / เรียกบิล / ลบทั้งหมด) — อยู่ใน Total cell
+ * ใช้ flex-shrink: 0 เพื่อไม่ให้ปุ่มหดเมื่อ Total ใช้พื้นที่ flex: 1 1 auto
  */
 .pos-checkout-footer .total-line-actions {
   align-items: center;
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 
@@ -3785,60 +3804,11 @@ th[aria-sort] {
 }
 
 /*
- * Hero Payment Row — Cash Received (ซ้าย) และ Change Due (ขวา)
- * โครงสร้าง .payment-input-row คงเดิมเพื่อไม่กระทบ test
- * ที่ใช้ .cash-received-input.closest('.payment-input-row')
+ * CSS สำหรับ .payment-input-row และ .change-summary ถูกย้ายไปอยู่
+ * ภายใต้ .pos-checkout-footer แล้ว (ดู Hero Payment Summary ด้านบน)
+ * เพื่อให้ specificity สูงพอที่จะ override defaults และเพื่อให้แน่ใจ
+ * ว่า class เดิมเหล่านี้ไม่ถูกใช้นอก PosCheckoutPage โดยไม่ตั้งใจ
  */
-.payment-input-row {
-  align-items: stretch;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr);
-}
-
-.payment-input-row .field,
-.payment-input-row .change-summary,
-.payment-input-row .cash-received-input {
-  min-width: 0;
-}
-
-/*
- * Hero Cash Input — ตัวอักษร 26px, กรอบหนา อ่านง่าย
- * ใช้ font-variant-numeric: tabular-nums เพื่อให้ตัวเลข
- * แต่ละหลักมีความกว้างเท่ากัน ป้องกันตัวเลขขยับเวลาแก้ไข
- */
-.payment-input-row .cash-received-input {
-  background: #fbfcfa;
-  border: 2px solid #cbd4ca;
-  border-radius: 8px;
-  color: #17201b;
-  font-size: 26px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
-  min-height: 56px;
-  padding: 10px 14px;
-  text-align: right;
-  width: 100%;
-}
-
-/*
- * Visual highlight เมื่อ cash received ถูก pre-fill ด้วยยอดรวมตะกร้า
- * (จ่ายพอดี) — แคชเชียร์เห็นชัดว่าตัวเลขปัจจุบันคือ "จ่ายพอดี" และพร้อม
- * พิมพ์ทับด้วยจำนวนเงินที่ลูกค้าจ่ายจริง หรือกด Enter เพื่อ checkout
- * ทันที. transition เบาๆ เพื่อไม่ให้กระตุกตาเวลา value เปลี่ยน.
- */
-.payment-input-row .cash-received-input[data-cash-covered='exact'] {
-  background: #ecfdf5;
-  border-color: #6ee7b7;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22);
-  color: #065f46;
-  transition:
-    background-color 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    color 0.18s ease;
-}
 
 .quick-cash-grid {
   display: grid;
@@ -3871,57 +3841,10 @@ th[aria-sort] {
 }
 
 /*
- * Hero Change Summary — Hero Number ที่ใหญ่ที่สุด (32px)
- * โครงสร้าง .change-summary คงเดิมเพื่อไม่กระทบ test
- * ที่ใช้ .change-summary.closest('.payment-input-row') และ
- * role="status" / aria-label="${paymentStatusLabel} ${baht} บาท"
+ * .change-summary ถูกย้ายไปอยู่ภายใต้ .pos-checkout-footer แล้ว
+ * (ดู Hero Payment Summary ด้านบน) — class เดิมเหล่านี้ลบออก
+ * เพราะ CSS เก่ามี specificity ต่ำกว่าและจะ override ค่าใหม่
  */
-.change-summary {
-  align-items: center;
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  justify-content: center;
-  min-height: 56px;
-  padding: 8px 14px;
-  text-align: right;
-}
-
-.change-summary span {
-  align-self: flex-end;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-
-.change-summary strong {
-  align-self: flex-end;
-  font-size: 32px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-
-.change-summary.positive {
-  background: #dcfce7;
-  border: 1px solid #86efac;
-  color: #14532d;
-}
-
-.change-summary.idle {
-  background: #dbeafe;
-  border: 1px solid #93c5fd;
-  color: #1e3a8a;
-}
-
-.change-summary.negative {
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  color: #7f1d1d;
-}
 
 .empty-hint {
   color: #66746b;
