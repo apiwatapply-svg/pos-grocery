@@ -1253,6 +1253,14 @@ export function PosCheckoutPage() {
     try {
       setIsCheckoutSubmitting(true)
       const soldCart = cart
+      console.log('[checkout] submit', {
+        cashReceived,
+        cartTotal,
+        changeDue,
+        cashReceivedSatang: Math.round(cashReceived * 100),
+        inputValue: cashReceivedInputRef.current?.value,
+        itemCount: cart.length,
+      })
       const sale = await apiPost<ApiSale>('/sales/checkout', {
         barcodeItems: soldCart.map((item) => ({
           barcode: item.barcode,

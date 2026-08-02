@@ -119,7 +119,31 @@ export function checkoutController(deps?: { repository?: UserRepository }): Requ
         throw new AppError(400, "VALIDATION_ERROR", "Checkout data is invalid.");
       }
 
+      // Sanity guard: reject cash values that would overflow Prisma's Int32
+      // when deserialized. 1_000_000_000 satang == 10 million baht, which is
+      // already well above anything a real POS should accept. Any value
+      // larger than this is almost certainly a frontend bug.
+      const MAX_CASH_SATANG = 1_000_000_000;
+      if (result.data.cashReceivedSatang > MAX_CASH_SATANG) {
+        console.warn(
+          `[checkout] rejected: cashReceivedSatang=${result.data.cashReceivedSatang} exceeds ${MAX_CASH_SATANG} cap`,
+          {
+            userId: user.id,
+            storeId: user.storeId,
+            body: request.body,
+          },
+        );
+        throw new AppError(
+          400,
+          "CASH_VALUE_TOO_LARGE",
+          `cashReceivedSatang must be ≤ ${MAX_CASH_SATANG} (10M baht).`,
+        );
+      }
+
       const soldAt = result.data.soldAt ?? new Date().toISOString();
+      console.log(
+        `[checkout] user=${user.username} paymentMethod=${result.data.paymentMethod} cashReceivedSatang=${result.data.cashReceivedSatang} items=${result.data.barcodeItems.length}`,
+      );
       const sale = await repository.checkoutWithInventory({
         storeId: user.storeId,
         cashierUserId: user.id,
