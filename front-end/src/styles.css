@@ -3430,15 +3430,16 @@ th[aria-sort] {
  */
 .pos-checkout-footer .payment-summary {
   align-items: stretch;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 1px solid #bae6fd;
+  /* ลบ gradient ฟ้าออก ให้แต่ละ cell แสดงสีของตัวเอง (Total=เขียว, Change=ฟ้า) */
+  background: transparent;
+  border: 0;
   border-radius: 10px;
   display: grid;
   gap: 10px;
   /* Total cell ขยายเป็น 1.55fr เพื่อให้ Total + bill actions
    * (พักบิล/เรียกบิล/ลบทั้งหมด) พอดีในแถวเดียวกัน */
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
-  padding: 8px 12px;
+  padding: 4px;
 }
 
 .pos-checkout-footer .payment-summary-cell {
@@ -3454,13 +3455,18 @@ th[aria-sort] {
  * (พักบิล/เรียกบิล/ลบทั้งหมด) อยู่ในแถวเดียวกัน
  * - flex-wrap: wrap เพื่อให้ actions wrap ลงใต้ Total เมื่อพื้นที่ไม่พอ
  * - gap: row column เพื่อรักษาระยะห่างทั้ง 2 แกน
+ * - พื้นหลังเขียว (Hero Total) — แสดงยอดรวมเด่นชัด
  */
 .pos-checkout-footer .payment-summary-total {
   align-items: center;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 6px 8px;
   justify-content: space-between;
+  padding: 6px 12px;
 }
 
 .pos-checkout-footer .payment-summary-total .total-line {
@@ -3470,7 +3476,7 @@ th[aria-sort] {
   line-height: 1.05;
   margin: 0;
   padding: 0;
-  color: #0c4a6e;
+  color: #065f46;
   letter-spacing: -0.025em;
   text-align: left;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
