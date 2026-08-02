@@ -1486,7 +1486,10 @@ export function PosCheckoutPage() {
           </div>
           <div className="pos-checkout-footer">
             <div className="total-line-row">
-              <p className="total-line">ยอดรวม {baht(cartTotal)} บาท ({formatNumber(cartItemCount)} ชิ้น)</p>
+              <p className="total-line">
+                ยอดรวม {baht(cartTotal)} บาท
+                <span className="total-line-meta"> ({formatNumber(cartItemCount)} ชิ้น)</span>
+              </p>
               <div className="total-line-actions">
                 <button
                   aria-label="พักบิลปัจจุบัน"
