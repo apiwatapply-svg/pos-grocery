@@ -1485,115 +1485,131 @@ export function PosCheckoutPage() {
             )}
           </div>
           <div className="pos-checkout-footer">
-            <div className="total-line-row">
-              <p className="total-line">
-                ยอดรวม {baht(cartTotal)} บาท
-                <span className="total-line-meta"> ({formatNumber(cartItemCount)} ชิ้น)</span>
-              </p>
-              <div className="total-line-actions">
-                <button
-                  aria-label="พักบิลปัจจุบัน"
-                  className="hold-bill-button"
-                  data-keep-focus="allow"
-                  disabled={!hasCartItems}
-                  type="button"
-                  onClick={() => void holdBill()}
+            {/*
+              Hero Payment Summary — ยอดรวม / เงินที่รับ / เงินทอน
+              อยู่ในแถวเดียวกันในทุก breakpoint (Total | Cash | Change)
+              .payment-input-row ครอบทั้ง cash + change เพื่อรักษา test
+              contract (closest('.payment-input-row') ของทั้งสองต้องชี้ไปที่ div เดียวกัน)
+            */}
+            <div className="payment-summary">
+              <div className="payment-summary-cell payment-summary-total">
+                <p className="total-line">
+                  ยอดรวม {baht(cartTotal)} บาท
+                  <span className="total-line-meta"> ({formatNumber(cartItemCount)} ชิ้น)</span>
+                </p>
+              </div>
+              <div className="payment-input-row">
+                <div className="payment-summary-cell payment-summary-cash">
+                  <input
+                    aria-label="จำนวนเงินที่รับ"
+                    className="cash-received-input"
+                    data-cash-covered={
+                      hasCartItems && displayCashReceived === cartTotal ? 'exact' : 'none'
+                    }
+                    data-keep-focus="allow"
+                    disabled={!hasCartItems}
+                    min="0"
+                    ref={cashReceivedInputRef}
+                    type="number"
+                    value={displayCashReceived > 0 ? displayCashReceived : ''}
+                    onChange={(event) => {
+                      const next = event.target.value
+                      setCashReceived(next === '' ? 0 : Number(next))
+                    }}
+                  />
+                </div>
+                <div
+                  aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
+                  className={
+                    !hasCartItems
+                      ? 'change-summary idle payment-summary-cell payment-summary-change'
+                      : changeDue >= 0
+                        ? 'change-summary positive payment-summary-cell payment-summary-change'
+                        : 'change-summary negative payment-summary-cell payment-summary-change'
+                  }
+                  role="status"
                 >
-                  พักบิล
-                </button>
-                <button
-                  aria-label="เปิดรายการบิลที่พัก"
-                  className="resume-bill-button"
-                  data-keep-focus="allow"
-                  disabled={heldBills.length === 0}
-                  type="button"
-                  onClick={openHeldBillsModal}
-                >
-                  เรียกบิล
-                  {heldBills.length > 0 ? (
-                    <span className="held-bill-badge" aria-label={`มี ${heldBills.length} บิลที่พัก`}>
-                      {heldBills.length}
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  aria-label="ลบสินค้าทั้งหมดในตะกร้า"
-                  className="clear-cart-button"
-                  data-keep-focus="allow"
-                  disabled={!hasCartItems}
-                  type="button"
-                  onClick={() => void clearCart()}
-                >
-                  ลบทั้งหมด
-                </button>
+                  <span>{paymentStatusLabel}</span>
+                  <strong>{baht(Math.abs(changeDue))} บาท</strong>
+                </div>
               </div>
             </div>
-            <div className="payment-box">
-              <div className="payment-input-row">
-              <input
-                aria-label="จำนวนเงินที่รับ"
-                className="cash-received-input"
-                data-cash-covered={
-                  hasCartItems && displayCashReceived === cartTotal ? 'exact' : 'none'
-                }
+            <div className="total-line-actions">
+              <button
+                aria-label="พักบิลปัจจุบัน"
+                className="hold-bill-button"
                 data-keep-focus="allow"
                 disabled={!hasCartItems}
-                min="0"
-                ref={cashReceivedInputRef}
-                type="number"
-                value={displayCashReceived > 0 ? displayCashReceived : ''}
-                onChange={(event) => {
-                  const next = event.target.value
-                  setCashReceived(next === '' ? 0 : Number(next))
-                }}
-              />
-              <div
-                aria-label={`${paymentStatusLabel} ${baht(Math.abs(changeDue))} บาท`}
-                className={!hasCartItems ? 'change-summary idle' : changeDue >= 0 ? 'change-summary positive' : 'change-summary negative'}
-                role="status"
+                type="button"
+                onClick={() => void holdBill()}
               >
-                <span>{paymentStatusLabel}</span>
-                <strong>{baht(Math.abs(changeDue))} บาท</strong>
-              </div>
-            </div>
-            <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด" data-keep-focus="allow">
+                พักบิล
+              </button>
               <button
-                className={hasCartItems && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
+                aria-label="เปิดรายการบิลที่พัก"
+                className="resume-bill-button"
+                data-keep-focus="allow"
+                disabled={heldBills.length === 0}
+                type="button"
+                onClick={openHeldBillsModal}
+              >
+                เรียกบิล
+                {heldBills.length > 0 ? (
+                  <span className="held-bill-badge" aria-label={`มี ${heldBills.length} บิลที่พัก`}>
+                    {heldBills.length}
+                  </span>
+                ) : null}
+              </button>
+              <button
+                aria-label="ลบสินค้าทั้งหมดในตะกร้า"
+                className="clear-cart-button"
+                data-keep-focus="allow"
                 disabled={!hasCartItems}
                 type="button"
-                onClick={() => {
-                  setCashReceived(cartTotal)
-                  focusCashReceivedInput()
-                }}
+                onClick={() => void clearCart()}
               >
-                จ่ายพอดี
+                ลบทั้งหมด
               </button>
-              {quickCashAmounts.map((amount) => (
+            </div>
+            <div className="payment-box">
+              <div className="quick-cash-grid" aria-label="เลือกจำนวนเงินสด" data-keep-focus="allow">
                 <button
-                  className={hasCartItems && cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
+                  className={hasCartItems && cashReceived === cartTotal ? 'quick-cash-button selected' : 'quick-cash-button'}
                   disabled={!hasCartItems}
-                  key={amount}
                   type="button"
                   onClick={() => {
-                    setCashReceived(amount)
+                    setCashReceived(cartTotal)
                     focusCashReceivedInput()
                   }}
                 >
-                  {formatNumber(amount)} บาท
+                  จ่ายพอดี
                 </button>
-              ))}
+                {quickCashAmounts.map((amount) => (
+                  <button
+                    className={hasCartItems && cashReceived === amount ? 'quick-cash-button selected' : 'quick-cash-button'}
+                    disabled={!hasCartItems}
+                    key={amount}
+                    type="button"
+                    onClick={() => {
+                      setCashReceived(amount)
+                      focusCashReceivedInput()
+                    }}
+                  >
+                    {formatNumber(amount)} บาท
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <button
-            ref={checkoutButtonRef}
-            className="primary-button"
-            data-keep-focus="allow"
-            disabled={!canCheckout}
-            type="button"
-            onClick={() => void checkout()}
-          >
-            {isCheckoutSubmitting ? 'กำลังบันทึก...' : 'ชำระเงิน'}
-          </button>
+            <button
+              ref={checkoutButtonRef}
+              className="primary-button"
+              data-keep-focus="allow"
+              disabled={!canCheckout}
+              type="button"
+              onClick={() => void checkout()}
+            >
+              {isCheckoutSubmitting ? 'กำลังบันทึก...' : 'ชำระเงิน'}
+            </button>
           </div>
         </section>
 
