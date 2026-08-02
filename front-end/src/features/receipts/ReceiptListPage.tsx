@@ -124,7 +124,10 @@ export function ReceiptListPage() {
   const [sortKey, setSortKey] = useState<SaleSortKey>('soldAt')
   const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('descending')
   const sales = receiptPage?.items ?? []
-  const canManageReceipt = session?.user.role === 'super_admin'
+  // ปุ่ม "ยกเลิกบิล" / "Active ใบเสร็จ" แสดงให้ทั้ง super_admin และ store_admin
+  // ให้ตรงกับ backend (sale.routes.ts requireRole(["super_admin", "store_admin"]))
+  const canManageReceipt =
+    session?.user.role === 'super_admin' || session?.user.role === 'store_admin'
 
   useEffect(() => {
     let active = true

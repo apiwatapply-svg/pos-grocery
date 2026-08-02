@@ -984,6 +984,31 @@ describe('backend connected report pages', () => {
     expect(within(voidDialog).getByText('ขายสำเร็จ')).toBeInTheDocument()
   })
 
+  it('shows the cancel bill button to store_admin (matches backend permission)', async () => {
+    // Switch the session to store_admin to verify the UI mirrors the
+    // backend allowlist in sale.routes.ts (super_admin, store_admin).
+    saveSession({
+      token: 'test-token',
+      user: {
+        id: 'store-admin-sql-1',
+        username: 'storeadmin',
+        displayName: 'SQL Store Admin',
+        role: 'store_admin',
+      },
+    })
+
+    render(<ReceiptListPage />)
+    const completedRow = await screen.findByRole('row', { name: /RC-SQL-001/ })
+
+    // เปิด modal รายละเอียดบิล
+    fireEvent.click(within(completedRow).getByRole('button', { name: 'ดูรายละเอียดบิล RC-SQL-001' }))
+    const completedDialog = await screen.findByRole('dialog', { name: 'รายละเอียดบิล RC-SQL-001' })
+
+    // store_admin ต้องเห็นปุ่ม "ยกเลิกบิล" สำหรับบิลที่ completed
+    // (เดิม UI จำกัดเฉพาะ super_admin ทำให้ store_admin ใช้งานไม่ได้ทั้งที่ API อนุญาต)
+    expect(within(completedDialog).getByRole('button', { name: 'ยกเลิกบิล RC-SQL-001' })).toBeInTheDocument()
+  })
+
   it('paginates long receipt history lists', async () => {
     mockedApiGet.mockImplementation(async (path: string) => {
       if (path.startsWith('/sales?')) {
