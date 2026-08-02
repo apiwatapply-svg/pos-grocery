@@ -3585,9 +3585,12 @@ th[aria-sort] {
 }
 
 .pos-checkout-footer .change-summary.positive {
-  background: #dcfce7;
-  border: 1px solid #86efac;
-  color: #14532d;
+  /* Change cell = เงินทอน (money out) ใช้พื้นหลังฟ้าเสมอ
+   * (เหมือน idle) เพื่อให้สอดคล้องกับ Total=เขียว
+   * Semantics: เขียว=รายรับ, ฟ้า=รายจ่าย/เงินทอน, แดง=เงินไม่พอ */
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  color: #1e3a8a;
 }
 
 .pos-checkout-footer .change-summary.idle {
