@@ -391,6 +391,12 @@ export const SearchableDropdown = forwardRef<SearchableDropdownHandle, Searchabl
       if (event.key === 'Enter') {
         if (shouldOpen && resolvedActiveIndex >= 0 && filtered[resolvedActiveIndex]) {
           event.preventDefault()
+          // WAI-ARIA combobox: เมื่อ dropdown consume Enter (เลือก option) แล้ว
+          // ต้องหยุด native event ไม่ให้ไปถึง document-level keydown handler
+          // เพื่อรักษา focus ที่ scan field ตาม flow การเลือกสินค้า
+          // (React 19: event.stopPropagation() บน synthetic event ไม่หยุด native event
+          //  ต้องเรียก stopImmediatePropagation() บน native event ตรงๆ)
+          event.nativeEvent.stopImmediatePropagation()
           selectAt(resolvedActiveIndex)
           return
         }

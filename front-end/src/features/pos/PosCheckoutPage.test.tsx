@@ -612,11 +612,24 @@ describe('PosCheckoutPage', () => {
     const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
     expect(scanInput).toHaveFocus()
 
-    // Type a partial name that produces an exact match against the
-    // loaded products (Drinking Water). This mirrors a cashier typing
-    // a product name and pressing Enter to pick the highlighted row.
-    fireEvent.change(scanInput, { target: { value: 'Drinking Water' } })
+    // Type a partial name that opens the dropdown without auto-scanning.
+    // (An exact match would auto-add the product via onChange and close
+    // the dropdown before we can press Enter on it.)
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: 'Drink' } })
 
+    // Wait for the dropdown to open with the matching product.
+    const listbox = await screen.findByRole('listbox')
+    const dropdownOptions = within(listbox).getAllByRole('option')
+    expect(dropdownOptions).toHaveLength(1)
+    expect(dropdownOptions[0]).toHaveTextContent('Drinking Water')
+
+    // Press Enter to select the highlighted product from the dropdown.
+    // This is the Enter that was previously incorrectly moving focus to
+    // the cash input via the document-level keydown handler.
+    fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+    // Wait for the product to be added to the cart.
     await waitFor(() => {
       expect(
         screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' }),
