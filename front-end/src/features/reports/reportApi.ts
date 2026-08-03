@@ -107,19 +107,30 @@ export function bahtFromSatang(value: number) {
   return formatBaht(value / 100)
 }
 
+// ตัดรอบ "วัน" ที่ 00:00 ตามเวลาประเทศไทย (Asia/Bangkok)
+// เพื่อให้ default filter ตรงกับ "วันนี้" ตามเวลาที่ user รับรู้
+// (เดิมใช้ new Date().toISOString() ซึ่งเป็น UTC → คืน "เมื่อวาน" ตอนเช้ามืด Bangkok)
 export function todayDateInputValue() {
-  return new Date().toISOString().slice(0, 10)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
 }
 
+// ส่ง date range เป็น Bangkok local datetime (offset +07:00) แทน UTC
+// เพื่อให้ backend filter soldAt ตรงกับ "วัน" ตามเวลาประเทศไทย
+// (เดิมใช้ .000Z ทำให้ filter window เลื่อนไป -7 ชั่วโมงจากที่ user คาดหวัง)
 export function dateRangeQuery(from: string, to: string) {
   const params = new URLSearchParams()
 
   if (from) {
-    params.set('from', `${from}T00:00:00.000Z`)
+    params.set('from', `${from}T00:00:00+07:00`)
   }
 
   if (to) {
-    params.set('to', `${to}T23:59:59.999Z`)
+    params.set('to', `${to}T23:59:59+07:00`)
   }
 
   const query = params.toString()

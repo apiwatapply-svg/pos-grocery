@@ -377,7 +377,7 @@ describe('backend connected report pages', () => {
         JSON.stringify({ from: '2026-06-01', to: '2026-06-28' }),
       )
       expect(mockedApiGet).toHaveBeenCalledWith(
-        '/reports/dashboard?from=2026-06-01T00%3A00%3A00.000Z&to=2026-06-28T23%3A59%3A59.999Z',
+        '/reports/dashboard?from=2026-06-01T00%3A00%3A00%2B07%3A00&to=2026-06-28T23%3A59%3A59%2B07%3A00',
       )
     })
   })
@@ -740,7 +740,7 @@ describe('backend connected report pages', () => {
 
     await waitFor(() => {
       expect(mockedApiDownload).toHaveBeenCalledWith(
-        '/reports/export.xlsx?from=2026-06-29T00%3A00%3A00.000Z&to=2026-06-29T23%3A59%3A59.999Z',
+        '/reports/export.xlsx?from=2026-06-29T00%3A00%3A00%2B07%3A00&to=2026-06-29T23%3A59%3A59%2B07%3A00',
         'sales-report.xlsx',
       )
     })
