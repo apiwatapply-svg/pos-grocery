@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import {
@@ -6,6 +6,7 @@ import {
   type SearchableDropdownHandle,
   type SearchableDropdownOption,
 } from '../../components/ui/SearchableDropdown'
+import { defaultRenderOption, highlightMatch } from '../../components/ui/searchableDropdownRender'
 import { apiGet, apiPost } from '../../lib/api/client'
 import { formatNumber } from '../../lib/format/number'
 import { confirmDeleteAction } from '../../lib/ui/confirm'
@@ -112,6 +113,11 @@ const MAX_SCAN_TIMESTAMP_BUFFER = 15
 // ใช้จัดเคสที่ heuristic เดิม (median+outlier) ไม่ผ่าน แต่ Enter มาเร็วผิดปกติ
 // (เช่น manual Enter ที่ cashier เผลอกดเร็ว หรือ burst ไม่สม่ำเสมอจน median เพี้ยน)
 const SCAN_TRAILING_ENTER_MAX_MS = 500
+
+// Threshold สำหรับ "สินค้าเหลือน้อย" ใน dropdown option
+// ถ้า "หลังขาย" ≤ ค่านี้ (แต่ไม่ใช่ 0) → แสดงสีเตือน (เหลือง/ส้ม) ในคอลัมน์ "หลังขาย"
+// ถ้า "หลังขาย" = 0 → แสดงสีแดง (out of stock)
+const LOW_STOCK_THRESHOLD = 5
 
 const posCartStorageKeyPrefix = 'pos-grocery:pos-cart'
 
@@ -548,6 +554,16 @@ export function PosCheckoutPage() {
   const canCheckout = hasCartItems && cashReceived >= cartTotal && !isCheckoutSubmitting
   const activeProducts = products.filter((product) => product.status === 'active')
 
+  // Map<productId, totalQuantityInCart> — ใช้คำนวณ "สินค้าคงเหลือหลังขาย"
+  // ใน dropdown เพื่อให้ cashier เห็นว่าถ้าเลือกสินค้านี้ stock จะเหลือเท่าไหร่
+  const cartByProduct = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const item of cart) {
+      map.set(item.productId, (map.get(item.productId) ?? 0) + item.quantity)
+    }
+    return map
+  }, [cart])
+
   function focusProductQuery() {
     // Lazy-init the AudioContext on the first focus attempt so the beep
     // can play in response to a subsequent scan (browsers reject
@@ -897,7 +913,62 @@ export function PosCheckoutPage() {
     ) : (
       <span className="dropdown-product-image dropdown-product-image-empty" aria-hidden="true" />
     ),
+    data: { product }, // เก็บ product reference เพื่อใช้ใน renderProductOption
   }))
+
+  // helper: คำนวณ "สินค้าคงเหลือหลังขาย" = stock ปัจจุบัน - จำนวนในตะกร้า
+  // ป้องกันค่าติดลบในกรณี race condition (cart มีมากกว่า stock)
+  function getStockAfter(product: Product): number {
+    const inCart = cartByProduct.get(product.id) ?? 0
+    return Math.max(0, product.stockQuantity - inCart)
+  }
+
+  // render custom สำหรับ dropdown option ในหน้า POS
+  // เพิ่มคอลัมน์ "ก่อนขาย" / "หลังขาย" เพื่อให้ cashier เห็นผลกระทบต่อ stock ก่อนเลือก
+  function renderProductOption(
+    option: SearchableDropdownOption,
+    helpers: { query: string; isActive: boolean; isExact: boolean },
+  ) {
+    const product = (option.data as { product: Product } | undefined)?.product
+    if (!product) {
+      return defaultRenderOption(option, helpers)
+    }
+
+    const before = product.stockQuantity
+    const after = getStockAfter(product)
+    const isOut = after === 0
+    const isLow = !isOut && after <= LOW_STOCK_THRESHOLD
+
+    return (
+      <div className="dropdown-option-row dropdown-product-row">
+        {option.leading ? (
+          <span className="dropdown-option-leading">{option.leading}</span>
+        ) : null}
+        <div className="dropdown-option-body">
+          <div className="dropdown-option-label">
+            {highlightMatch(option.label, helpers.query)}
+            {helpers.isExact ? <span className="dropdown-exact-tag">ตรง</span> : null}
+          </div>
+          <div className="dropdown-option-description">{product.barcode}</div>
+        </div>
+        <div
+          className={`dropdown-stock-cols ${isOut ? 'out' : ''} ${isLow ? 'low' : ''}`.trim()}
+        >
+          <div className="dropdown-stock-col">
+            <span className="dropdown-stock-label">ก่อนขาย</span>
+            <span className="dropdown-stock-value">{formatNumber(before)}</span>
+          </div>
+          <div className="dropdown-stock-col dropdown-stock-col-after">
+            <span className="dropdown-stock-label">หลังขาย</span>
+            <span className="dropdown-stock-value">{formatNumber(after)}</span>
+          </div>
+        </div>
+        {option.trailing ? (
+          <span className="dropdown-option-trailing">{option.trailing}</span>
+        ) : null}
+      </div>
+    )
+  }
 
   const isProductExactMatch = (option: SearchableDropdownOption, query: string) => {
     const product = activeProducts.find((p) => p.id === option.value)
@@ -1380,6 +1451,7 @@ export function PosCheckoutPage() {
                 isExactMatch={isProductExactMatch}
                 options={productDropdownOptions}
                 placeholder="สแกน barcode / QR หรือพิมพ์ชื่อสินค้า"
+                renderOption={renderProductOption}
                 value={productQuery}
                 onChange={handleProductQueryChange}
                 onKeyDown={(event) => {

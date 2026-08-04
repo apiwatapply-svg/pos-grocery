@@ -531,6 +531,92 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
   })
 
+  it('shows stock before/after columns in the product dropdown', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: 'Drinking' } })
+
+    const listbox = await screen.findByRole('listbox')
+    const option = within(listbox).getByRole('option', { name: /Drinking Water/ })
+    expect(option).toHaveTextContent('ก่อนขาย')
+    expect(option).toHaveTextContent('หลังขาย')
+    expect(option).toHaveTextContent('24')
+    // ก่อนเพิ่มลงตะกร้า → ก่อนขาย = หลังขาย = 24
+    const afterCells = within(option).getAllByText('24')
+    expect(afterCells.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('decreases the "after" stock column when the product is already in the cart', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    // Add 3 drinking water to the cart via exact match
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+    })
+
+    // Open dropdown again to inspect the new "หลังขาย"
+    fireEvent.focus(scanInput)
+    fireEvent.change(scanInput, { target: { value: 'Drinking' } })
+    const listbox = await screen.findByRole('listbox')
+    const option = within(listbox).getByRole('option', { name: /Drinking Water/ })
+    // "ก่อนขาย" ยังคงเป็น 24
+    expect(option).toHaveTextContent('24')
+    // "หลังขาย" = 24 - 3 = 21
+    expect(option).toHaveTextContent('21')
+  })
+
+  it('marks the dropdown option as out-of-stock when "after" is zero', async () => {
+    // Override product[0] stock = 2 แล้ว scan 2 ครั้ง เพื่อให้ "หลังขาย" = 0
+    const originalGet = mockedApiGet.getMockImplementation()
+    mockedApiGet.mockImplementation(async (path: string) => {
+      const result = await (originalGet as (p: string) => Promise<unknown>)(path)
+      if (path === '/products?view=operation' && Array.isArray(result)) {
+        return (result as Array<Record<string, unknown>>).map((product, index) =>
+          index === 0 ? { ...product, stockQuantity: 2 } : product,
+        )
+      }
+      return result
+    })
+
+    try {
+      render(<PosCheckoutPage />)
+      await waitForProductsLoaded()
+
+      const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+      // Scan 2 ครั้ง — ใช้ stock หมด
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+      await waitFor(() => {
+        expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+      })
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+      await waitFor(() => {
+        const cart = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+        // รอจนกว่า cart จะมี 2 ชิ้น (qty ในบรรทัด = 2)
+        expect(within(cart).getByText('2')).toBeInTheDocument()
+      })
+
+      // เปิด dropdown ใหม่ — "หลังขาย" = 0
+      fireEvent.focus(scanInput)
+      fireEvent.change(scanInput, { target: { value: 'Drinking' } })
+      const listbox = await screen.findByRole('listbox')
+      const option = within(listbox).getByRole('option', { name: /Drinking Water/ })
+      const stockCols = option.querySelector('.dropdown-stock-cols')
+      expect(stockCols).toHaveClass('out')
+    } finally {
+      mockedApiGet.mockImplementation(originalGet as never)
+    }
+  })
+
   it('moves focus to the cash input when Enter is pressed on the scan field after the cart has items', async () => {
     render(<PosCheckoutPage />)
     await waitForProductsLoaded()

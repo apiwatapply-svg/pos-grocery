@@ -1,4 +1,6 @@
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useId,
@@ -6,11 +8,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-  forwardRef,
 } from 'react'
+import { defaultRenderOption } from './searchableDropdownRender'
 
 export type SearchableDropdownOption = {
   /** Unique value used by parent to identify the option. */
@@ -132,52 +131,6 @@ const DEFAULT_EXACT = (option: SearchableDropdownOption, query: string) => {
     return true
   }
   return false
-}
-
-function highlightMatch(text: string, query: string): ReactNode {
-  const normalized = query.trim()
-  if (!normalized) {
-    return text
-  }
-  const lowerText = text.toLowerCase()
-  const lowerQuery = normalized.toLowerCase()
-  const index = lowerText.indexOf(lowerQuery)
-  if (index < 0) {
-    return text
-  }
-  const before = text.slice(0, index)
-  const match = text.slice(index, index + normalized.length)
-  const after = text.slice(index + normalized.length)
-  return (
-    <>
-      {before}
-      <mark className="dropdown-highlight">{match}</mark>
-      {after}
-    </>
-  )
-}
-
-function defaultRenderOption(
-  option: SearchableDropdownOption,
-  helpers: { query: string; isActive: boolean; isExact: boolean },
-): ReactNode {
-  return (
-    <div className="dropdown-option-row">
-      {option.leading ? <span className="dropdown-option-leading">{option.leading}</span> : null}
-      <div className="dropdown-option-body">
-        <div className="dropdown-option-label">
-          {highlightMatch(option.label, helpers.query)}
-          {helpers.isExact ? <span className="dropdown-exact-tag">ตรง</span> : null}
-        </div>
-        {option.description ? (
-          <div className="dropdown-option-description">
-            {highlightMatch(option.description, helpers.query)}
-          </div>
-        ) : null}
-      </div>
-      {option.trailing ? <span className="dropdown-option-trailing">{option.trailing}</span> : null}
-    </div>
-  )
 }
 
 export const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdownProps>(

@@ -5517,6 +5517,77 @@ th[aria-sort] {
   text-transform: uppercase;
 }
 
+/* POS: คอลัมน์ "ก่อนขาย" / "หลังขาย" ใน dropdown option */
+.dropdown-product-row {
+  flex-wrap: nowrap;
+}
+
+.dropdown-stock-cols {
+  align-items: stretch;
+  border-left: 1px solid #e2e8e0;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  margin-left: 4px;
+  padding-left: 10px;
+}
+
+.dropdown-stock-col {
+  align-items: center;
+  background: #f5f7f4;
+  border: 1px solid #e2e8e0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 62px;
+  padding: 4px 8px;
+}
+
+.dropdown-stock-col-after {
+  background: #ffffff;
+}
+
+.dropdown-stock-cols.low .dropdown-stock-col-after {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.dropdown-stock-cols.out .dropdown-stock-col-after {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.dropdown-stock-label {
+  color: #536259;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.dropdown-stock-cols.out .dropdown-stock-label,
+.dropdown-stock-cols.low .dropdown-stock-label {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.dropdown-stock-value {
+  color: #102017;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.dropdown-stock-cols.out .dropdown-stock-value,
+.dropdown-stock-cols.low .dropdown-stock-value {
+  color: inherit;
+}
+
 .dropdown-product-image {
   background: #f3f6f1;
   border: 1px solid #e2e8e0;
@@ -5699,6 +5770,46 @@ th[aria-sort] {
   .dropdown-option-row,
   .custom-select-option {
     min-height: 48px;
+  }
+
+  /* POS: บน tablet ให้ label ของ stock columns สั้นลง เพื่อไม่ให้ตกขอบ */
+  .dropdown-stock-col {
+    min-width: 56px;
+    padding: 3px 6px;
+  }
+
+  .dropdown-stock-label {
+    font-size: 9px;
+  }
+
+  .dropdown-stock-value {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 720px) {
+  /* POS: บน mobile — คอลัมน์ stock ย้ายไปอยู่ใต้ label/barcode */
+  .dropdown-product-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .dropdown-product-row .dropdown-option-body {
+    flex: 1 1 auto;
+  }
+
+  .dropdown-product-row .dropdown-stock-cols {
+    border-left: 0;
+    border-top: 1px solid #e2e8e0;
+    flex: 1 1 100%;
+    margin-left: 0;
+    margin-top: 4px;
+    padding-left: 0;
+    padding-top: 6px;
+  }
+
+  .dropdown-product-row .dropdown-option-trailing {
+    margin-left: auto;
   }
 }
 
