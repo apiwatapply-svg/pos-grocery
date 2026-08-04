@@ -673,6 +673,40 @@ describe('PosCheckoutPage', () => {
     expect(screen.getByLabelText('จำนวน Drinking Water')).toHaveTextContent('1')
   })
 
+  it('swallows the trailing Enter when the char-to-Enter gap is under 500ms (Rule 2 timing)', async () => {
+    // Pin Date.now so the scan-timing logic sees a predictable gap between
+    // the onChange event and the Enter keydown. Rule 1 (median+outlier) only
+    // fires for bursts with at least MIN_SCAN_CHAR_COUNT (3) timestamps, so a
+    // single onChange intentionally fails Rule 1 and forces the new
+    // trailing-Enter timing rule to be the one that swallows the Enter.
+    const realNow = Date.now
+    let mockedNow = new Date('2026-01-01T00:00:00.000Z').getTime()
+    const dateSpy = vi.spyOn(Date, 'now').mockImplementation(() => mockedNow)
+    try {
+      render(<PosCheckoutPage />)
+      await waitForProductsLoaded()
+
+      const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+      expect(scanInput).toHaveFocus()
+
+      // Single onChange → 1 timestamp (fails Rule 1 by design).
+      mockedNow = 1_000_000
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+      // Cashier presses Enter 499ms later — under the 500ms threshold so
+      // Rule 2 must swallow the Enter and keep focus on the scan field.
+      mockedNow = 1_000_499
+      fireEvent.keyDown(scanInput, { key: 'Enter' })
+
+      expect(screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })).toBeInTheDocument()
+      expect(scanInput).toHaveFocus()
+      expect(screen.getByLabelText('จำนวนเงินที่รับ')).not.toHaveFocus()
+    } finally {
+      dateSpy.mockRestore()
+      Date.now = realNow
+    }
+  })
+
   it('moves focus to the cash input when Enter is pressed long after manually typing a barcode', async () => {
     // Snapshot the current real time so we can restore Date.now() after the
     // test, and stub it to a known baseline so the scan-timing logic sees a

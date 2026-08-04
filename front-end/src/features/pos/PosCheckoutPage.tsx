@@ -108,6 +108,10 @@ const OUTLIER_THRESHOLD_MS = 100
 const MAX_OUTLIER_COUNT = 1
 const MIN_SCAN_CHAR_COUNT = 3
 const MAX_SCAN_TIMESTAMP_BUFFER = 15
+// Rule เพิ่มเติม: ถ้าตัวอักษรสุดท้ายกับ Enter ห่างกันน้อยกว่า 500ms → scanner
+// ใช้จัดเคสที่ heuristic เดิม (median+outlier) ไม่ผ่าน แต่ Enter มาเร็วผิดปกติ
+// (เช่น manual Enter ที่ cashier เผลอกดเร็ว หรือ burst ไม่สม่ำเสมอจน median เพี้ยน)
+const SCAN_TRAILING_ENTER_MAX_MS = 500
 
 const posCartStorageKeyPrefix = 'pos-grocery:pos-cart'
 
@@ -403,11 +407,18 @@ function productsAreSame(current: Product[], next: Product[]) {
  * chunks, which produces one outlier interval inside an otherwise even
  * burst. A human types much slower and with pauses, producing 2+ outliers.
  *
- * Returns true when:
- *   - the burst contains at least MIN_SCAN_CHAR_COUNT characters, AND
- *   - the number of intervals (char-to-char plus the trailing char-to-Enter
- *     gap) that deviate from the median by more than OUTLIER_THRESHOLD_MS
- *     is at most MAX_OUTLIER_COUNT.
+ * Returns true when ANY of the following holds:
+ *   - Rule 1 (median heuristic): the burst contains at least
+ *     MIN_SCAN_CHAR_COUNT characters, AND the number of intervals
+ *     (char-to-char plus the trailing char-to-Enter gap) that deviate
+ *     from the median by more than OUTLIER_THRESHOLD_MS is at most
+ *     MAX_OUTLIER_COUNT. Tolerates a single flush-pause in wireless
+ *     scanner bursts while still rejecting human typing (2+ outliers).
+ *   - Rule 2 (trailing-Enter timing): the gap between the last typed
+ *     character and the Enter is less than SCAN_TRAILING_ENTER_MAX_MS
+ *     (500ms). Catches bursts where the cadence is uneven enough that
+ *     Rule 1 fails but the Enter still arrives much faster than a human
+ *     could produce.
  */
 function medianOf(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -429,6 +440,15 @@ function countOutliers(intervals: number[], threshold: number, median: number): 
 }
 
 function isScannerBurst(timestamps: number[], now: number): boolean {
+  // Rule 2 (เพิ่ม): trailing-Enter timing — ตรวจก่อน เพราะไม่ต้องพึ่ง minimum char count
+  // ถ้าตัวอักษรสุดท้ายกับ Enter ห่างกันน้อยกว่า 500ms → scanner
+  if (timestamps.length >= 1) {
+    const trailingEnterGap = now - timestamps[timestamps.length - 1]
+    if (trailingEnterGap < SCAN_TRAILING_ENTER_MAX_MS) {
+      return true
+    }
+  }
+  // Rule 1 (เดิม): median + outlier heuristic — จัดการ wireless flush-pause
   if (timestamps.length < MIN_SCAN_CHAR_COUNT) {
     return false
   }
