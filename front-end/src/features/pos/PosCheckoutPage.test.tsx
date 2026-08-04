@@ -601,8 +601,9 @@ describe('PosCheckoutPage', () => {
       fireEvent.change(scanInput, { target: { value: '8850002000010' } })
       await waitFor(() => {
         const cart = screen.getByRole('table', { name: 'รายการสินค้าในตะกร้า' })
-        // รอจนกว่า cart จะมี 2 ชิ้น (qty ในบรรทัด = 2)
-        expect(within(cart).getByText('2')).toBeInTheDocument()
+        // รอจนกว่า cart จะมี 2 ชิ้น (qty ในบรรทัด = 2) — ใช้ .cart-quantity-value เพื่อไม่ให้ชนกับ cell "ก่อนขาย" ที่เพิ่งเพิ่ม
+        const row = within(cart).getByText('Drinking Water').closest('tr')
+        expect(within(row!).getByLabelText('จำนวน Drinking Water')).toHaveTextContent('2')
       })
 
       // เปิด dropdown ใหม่ — "หลังขาย" = 0
@@ -612,6 +613,81 @@ describe('PosCheckoutPage', () => {
       const option = within(listbox).getByRole('option', { name: /Drinking Water/ })
       const stockCols = option.querySelector('.dropdown-stock-cols')
       expect(stockCols).toHaveClass('out')
+    } finally {
+      mockedApiGet.mockImplementation(originalGet as never)
+    }
+  })
+
+  it('shows stock before/after columns in the cart table', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+    const cart = await screen.findByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+    // ตรวจ header "ก่อนขาย" / "หลังขาย"
+    expect(within(cart).getByRole('columnheader', { name: 'ก่อนขาย' })).toBeInTheDocument()
+    expect(within(cart).getByRole('columnheader', { name: 'หลังขาย' })).toBeInTheDocument()
+
+    // row แรก: stock=24, qty=1 → ก่อนขาย=24, หลังขาย=23
+    const row = within(cart).getByText('Drinking Water').closest('tr')
+    expect(row).not.toBeNull()
+    const beforeCell = row!.querySelector('.cart-stock-before')
+    const afterCell = row!.querySelector('.cart-stock-after')
+    expect(beforeCell).toHaveTextContent('24')
+    expect(afterCell).toHaveTextContent('23')
+  })
+
+  it('decreases the "after" stock cell in the cart row when quantity increases', async () => {
+    render(<PosCheckoutPage />)
+    await waitForProductsLoaded()
+
+    const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+    // scan 3 ครั้ง
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+    fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+    const cart = await screen.findByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+    const row = within(cart).getByText('Drinking Water').closest('tr')
+    const beforeCell = row!.querySelector('.cart-stock-before')
+    const afterCell = row!.querySelector('.cart-stock-after')
+    // ก่อนขาย ยังเป็น stock ดิบ (24), หลังขาย = 24 - 3 = 21
+    expect(beforeCell).toHaveTextContent('24')
+    expect(afterCell).toHaveTextContent('21')
+  })
+
+  it('marks the cart row stock as out-of-stock when "after" is zero', async () => {
+    // override product[0] stock = 2 แล้ว scan 2 ครั้ง เพื่อให้ "หลังขาย" = 0
+    const originalGet = mockedApiGet.getMockImplementation()
+    mockedApiGet.mockImplementation(async (path: string) => {
+      const result = await (originalGet as (p: string) => Promise<unknown>)(path)
+      if (path === '/products?view=operation' && Array.isArray(result)) {
+        return (result as Array<Record<string, unknown>>).map((product, index) =>
+          index === 0 ? { ...product, stockQuantity: 2 } : product,
+        )
+      }
+      return result
+    })
+
+    try {
+      render(<PosCheckoutPage />)
+      await waitForProductsLoaded()
+
+      const scanInput = screen.getByLabelText('สแกนหรือค้นหาสินค้า')
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+      fireEvent.change(scanInput, { target: { value: '8850002000010' } })
+
+      const cart = await screen.findByRole('table', { name: 'รายการสินค้าในตะกร้า' })
+      await waitFor(() => {
+        const row = within(cart).getByText('Drinking Water').closest('tr')
+        const afterCell = row!.querySelector('.cart-stock-after')
+        expect(afterCell).toHaveTextContent('0')
+      })
+      const row = within(cart).getByText('Drinking Water').closest('tr')
+      const afterCell = row!.querySelector('.cart-stock-after')
+      expect(afterCell).toHaveClass('out')
     } finally {
       mockedApiGet.mockImplementation(originalGet as never)
     }

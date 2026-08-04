@@ -1497,6 +1497,8 @@ export function PosCheckoutPage() {
                   <col className="col-price" />
                   <col className="col-quantity" />
                   <col className="col-total" />
+                  <col className="col-stock-before" />
+                  <col className="col-stock-after" />
                   <col className="col-action" />
                 </colgroup>
                 <thead>
@@ -1507,6 +1509,8 @@ export function PosCheckoutPage() {
                     <th scope="col">ราคา</th>
                     <th scope="col">จำนวน</th>
                     <th scope="col">ราคารวม</th>
+                    <th scope="col">ก่อนขาย</th>
+                    <th scope="col">หลังขาย</th>
                     <th scope="col">จัดการ</th>
                   </tr>
                 </thead>
@@ -1514,6 +1518,15 @@ export function PosCheckoutPage() {
                   {cart.map((item, index) => {
                     const product = products.find((currentProduct) => currentProduct.id === item.productId)
                     const maxQuantity = product?.stockQuantity ?? item.quantity
+                    const stockBefore = product?.stockQuantity
+                    const stockAfter = product ? getStockAfter(product) : undefined
+                    const stockAfterClass = stockAfter === undefined
+                      ? ''
+                      : stockAfter === 0
+                        ? 'out'
+                        : stockAfter <= LOW_STOCK_THRESHOLD
+                          ? 'low'
+                          : ''
 
                     return (
                       <tr key={item.productId}>
@@ -1556,6 +1569,12 @@ export function PosCheckoutPage() {
                           </div>
                         </td>
                         <td>{baht(item.quantity * item.unitPrice)}</td>
+                        <td className="cart-stock-before">
+                          {stockBefore === undefined ? '—' : formatNumber(stockBefore)}
+                        </td>
+                        <td className={`cart-stock-after ${stockAfterClass}`.trim()}>
+                          {stockAfter === undefined ? '—' : formatNumber(stockAfter)}
+                        </td>
                         <td>
                           <button
                             aria-label={`เอา ${item.productName} ออกจากตะกร้า`}

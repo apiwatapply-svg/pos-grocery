@@ -3257,6 +3257,11 @@ th[aria-sort] {
   width: 76px;
 }
 
+.cart-table col.col-stock-before,
+.cart-table col.col-stock-after {
+  width: 84px;
+}
+
 .cart-table th,
 .cart-table td {
   border-bottom: 1px solid #edf0eb;
@@ -3277,6 +3282,23 @@ th[aria-sort] {
   text-transform: uppercase;
   top: 0;
   z-index: 1;
+}
+
+.cart-table td.cart-stock-before,
+.cart-table td.cart-stock-after {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.cart-table td.cart-stock-after.low {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.cart-table td.cart-stock-after.out {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .cart-table td:nth-child(1),
@@ -6476,6 +6498,11 @@ th[aria-sort] {
     width: 68px;
   }
 
+  .cart-table col.col-stock-before,
+  .cart-table col.col-stock-after {
+    width: 72px;
+  }
+
   .cart-table th,
   .cart-table td {
     padding: 8px 6px;
@@ -6616,6 +6643,15 @@ th[aria-sort] {
 
   .cart-table col.col-action {
     width: 60px;
+  }
+
+  .cart-table col.col-stock-before {
+    /* ซ่อนคอลัมน์ "ก่อนขาย" บน mobile — เหลือแค่ "หลังขาย" เพื่อประหยัดพื้นที่ */
+    display: none;
+  }
+
+  .cart-table col.col-stock-after {
+    width: 64px;
   }
 
   .cart-table th,
