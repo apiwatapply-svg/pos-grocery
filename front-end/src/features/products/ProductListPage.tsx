@@ -154,6 +154,9 @@ function dayEndIso(dateKey: string) {
   return `${dateKey}T23:59:59.999Z`
 }
 
+// Threshold สำหรับ "สินค้าเหลือน้อย" — ใช้ทั้ง pill color, low stock filter, summary card
+const LOW_STOCK_THRESHOLD = 5
+
 function productSalesHistoryPath(productId: string, filter: ProductSalesHistoryFilter) {
   const params = new URLSearchParams({
     from: dayStartIso(filter.from),
@@ -248,8 +251,33 @@ function stockStatus(product: Product) {
   if (product.stockQuantity <= 0) {
     return 'หมดสต็อก'
   }
-
+  if (product.stockQuantity <= LOW_STOCK_THRESHOLD) {
+    return 'เหลือน้อย'
+  }
   return 'พร้อมขาย'
+}
+
+type StockStatusVariant = 'out' | 'low' | 'ok'
+
+function stockStatusVariant(product: Product): StockStatusVariant {
+  if (product.stockQuantity <= 0) {
+    return 'out'
+  }
+  if (product.stockQuantity <= LOW_STOCK_THRESHOLD) {
+    return 'low'
+  }
+  return 'ok'
+}
+
+function stockStatusPriority(product: Product): number {
+  // ใช้สำหรับ sort: out (0) ก่อน, low (1) กลาง, ok (2) หลัง
+  if (product.stockQuantity <= 0) {
+    return 0
+  }
+  if (product.stockQuantity <= LOW_STOCK_THRESHOLD) {
+    return 1
+  }
+  return 2
 }
 
 function productStatusLabel(product: Product) {
@@ -554,7 +582,7 @@ export function ProductListPage() {
       } else if (productSort.key === 'stockQuantity') {
         comparison = leftProduct.stockQuantity - rightProduct.stockQuantity
       } else if (productSort.key === 'stockStatus') {
-        comparison = compareText(stockStatus(leftProduct), stockStatus(rightProduct))
+        comparison = stockStatusPriority(leftProduct) - stockStatusPriority(rightProduct)
       } else {
         comparison = compareText(productStatusLabel(leftProduct), productStatusLabel(rightProduct))
       }
@@ -598,7 +626,7 @@ export function ProductListPage() {
       : 0
   const expectedProfitPercentLabel = formatPercent(expectedProfitPercent, 1)
   const lowStockProducts = [...products]
-    .filter((product) => product.stockQuantity < 5)
+    .filter((product) => product.stockQuantity <= LOW_STOCK_THRESHOLD)
     .sort((leftProduct, rightProduct) => {
       const quantityComparison = leftProduct.stockQuantity - rightProduct.stockQuantity
       if (quantityComparison !== 0) {
@@ -1111,7 +1139,11 @@ export function ProductListPage() {
                         <td>{product.barcode}</td>
                         <td>{product.unit ?? '-'}</td>
                         <td>{formatNumber(product.stockQuantity)} ชิ้น</td>
-                        <td>{stockStatus(product)}</td>
+                        <td>
+                          <span className={`stock-status-pill stock-status-pill-${stockStatusVariant(product)}`}>
+                            {stockStatus(product)}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1533,7 +1565,11 @@ export function ProductListPage() {
                 <td><span className="profit-margin-pill">{profitMarginPercent(product)}</span></td>
                 <td>{monthlySalesLabel(product)}</td>
                 <td>{formatNumber(product.stockQuantity)}</td>
-                <td>{stockStatus(product)}</td>
+                <td>
+                  <span className={`stock-status-pill stock-status-pill-${stockStatusVariant(product)}`}>
+                    {stockStatus(product)}
+                  </span>
+                </td>
                 <td>{productStatusLabel(product)}</td>
                 <td>
                   {canManageProductStatus ? (

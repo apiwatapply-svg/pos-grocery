@@ -2850,6 +2850,36 @@ th[aria-sort] {
   padding: 4px 8px;
 }
 
+.stock-status-pill {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: center;
+  min-width: 78px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.stock-status-pill-ok {
+  background: #dff7e7;
+  border-color: #a7e3bb;
+  color: #0f6b3b;
+}
+
+.stock-status-pill-low {
+  background: #fff4d8;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.stock-status-pill-out {
+  background: #fee4e2;
+  border-color: #fca5a5;
+  color: #912018;
+}
+
 .history-button {
   background: #7c3aed;
   border: 0;

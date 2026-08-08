@@ -1,4 +1,4 @@
-﻿﻿import '@testing-library/jest-dom/vitest'
+﻿import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Swal from 'sweetalert2'
@@ -222,6 +222,94 @@ describe('ProductListPage', () => {
       within(dialog).getByRole('row', { name: /Filtered Product SQL-002 pack 0 ชิ้น หมดสต็อก/ }),
     ).toBeInTheDocument()
     expect(within(dialog).queryByText('SQL Product')).not.toBeInTheDocument()
+  })
+
+  it('applies color class to stock status pill based on stock level', async () => {
+    // product out (stock=0), low (stock=3), ok (stock=9)
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/products')) {
+        return [
+          {
+            id: 'product-out',
+            name: 'Out Of Stock Item',
+            barcode: 'OUT-001',
+            unit: 'box',
+            images: [],
+            costPriceSatang: 100,
+            salePriceSatang: 200,
+            stockQuantity: 0,
+            minimumStockQuantity: 5,
+            status: 'active',
+            averageMonthlySalesQuantity: 0,
+          },
+          {
+            id: 'product-low',
+            name: 'Low Stock Item',
+            barcode: 'LOW-001',
+            unit: 'pack',
+            images: [],
+            costPriceSatang: 100,
+            salePriceSatang: 200,
+            stockQuantity: 3,
+            minimumStockQuantity: 5,
+            status: 'active',
+            averageMonthlySalesQuantity: 0,
+          },
+          {
+            id: 'product-ok',
+            name: 'OK Stock Item',
+            barcode: 'OK-001',
+            unit: 'box',
+            images: [],
+            costPriceSatang: 100,
+            salePriceSatang: 200,
+            stockQuantity: 50,
+            minimumStockQuantity: 5,
+            status: 'active',
+            averageMonthlySalesQuantity: 0,
+          },
+        ]
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    renderPage(superAdminSession)
+    expect(await screen.findByText('Out Of Stock Item')).toBeInTheDocument()
+
+    const outPill = screen.getByText('หมดสต็อก').closest('.stock-status-pill')
+    const lowPill = screen.getByText('เหลือน้อย').closest('.stock-status-pill')
+    const okPill = screen.getByText('พร้อมขาย').closest('.stock-status-pill')
+
+    expect(outPill).toHaveClass('stock-status-pill-out')
+    expect(lowPill).toHaveClass('stock-status-pill-low')
+    expect(okPill).toHaveClass('stock-status-pill-ok')
+  })
+
+  it('sorts the product table by stock status with out first, then low, then ok', async () => {
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/products')) {
+        return [
+          { ...apiProducts[0], id: 'ok-1', name: 'OK Product', stockQuantity: 20 },
+          { ...apiProducts[1], id: 'low-1', name: 'Low Product', stockQuantity: 3, minimumStockQuantity: 5 },
+          { ...apiProducts[1], id: 'out-1', name: 'Out Product', stockQuantity: 0, minimumStockQuantity: 5 },
+        ]
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    renderPage(superAdminSession)
+    expect(await screen.findByText('OK Product')).toBeInTheDocument()
+
+    // เปิด sort menu บนคอลัมน์ "สถานะสต็อก" แล้วกด ascending
+    const stockStatusHeader = screen.getByRole('columnheader', { name: /สถานะสต็อก/ })
+    fireEvent.click(within(stockStatusHeader).getByRole('button', { name: /สถานะสต็อก · เรียงลำดับ/ }))
+
+    const productColumn = screen.getByRole('columnheader', { name: 'สินค้า' })
+    const productColumnParent = productColumn.closest('table')!
+    const rows = within(productColumnParent).getAllByRole('row')
+    // ข้าม header row แล้วอ่านชื่อสินค้า
+    const dataRowNames = rows.slice(1).map((row) => within(row).getAllByRole('cell')[2].textContent)
+    expect(dataRowNames).toEqual(['Out Product', 'Low Product', 'OK Product'])
   })
 
   it('sorts the product table by stock quantity in both directions', async () => {
