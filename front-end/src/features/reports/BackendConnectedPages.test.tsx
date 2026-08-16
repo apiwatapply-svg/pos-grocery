@@ -1113,9 +1113,11 @@ describe('backend connected report pages', () => {
     fireEvent.click(detailButtons[0])
 
     const dialog = await screen.findByRole('dialog')
-    // หน้า 1 มี 20 รายการ (pageSize = 20)
+    // หน้า 1 มี 20 รายการ (pageSize = 20) — ตรวจ page input ค่า "1"
+    const pageInput = within(dialog).getByLabelText('ไปยังหน้า') as HTMLInputElement
     await waitFor(() => {
-      expect(within(dialog).getByText(/หน้า 1 \/ 2 \(25 บิล\)/)).toBeInTheDocument()
+      expect(pageInput.value).toBe('1')
+      expect(pageInput.max).toBe('2') // 25 / 20 = 2 หน้า
     })
     // ปุ่ม "ก่อนหน้า" disabled ที่หน้า 1
     expect(within(dialog).getByRole('button', { name: '‹ ก่อนหน้า' })).toBeDisabled()
@@ -1124,10 +1126,18 @@ describe('backend connected report pages', () => {
     // คลิกถัดไป → หน้า 2
     fireEvent.click(within(dialog).getByRole('button', { name: 'ถัดไป ›' }))
     await waitFor(() => {
-      expect(within(dialog).getByText(/หน้า 2 \/ 2 \(25 บิล\)/)).toBeInTheDocument()
+      expect((within(dialog).getByLabelText('ไปยังหน้า') as HTMLInputElement).value).toBe('2')
     })
     expect(within(dialog).getByRole('button', { name: '‹ ก่อนหน้า' })).not.toBeDisabled()
     expect(within(dialog).getByRole('button', { name: 'ถัดไป ›' })).toBeDisabled()
+
+    // กรอกเลขหน้าใน input แล้วกด Enter → กระโดดไปหน้านั้น
+    const pageInputAgain = within(dialog).getByLabelText('ไปยังหน้า') as HTMLInputElement
+    fireEvent.change(pageInputAgain, { target: { value: '1' } })
+    fireEvent.keyDown(pageInputAgain, { key: 'Enter' })
+    await waitFor(() => {
+      expect((within(dialog).getByLabelText('ไปยังหน้า') as HTMLInputElement).value).toBe('1')
+    })
 
     // ปิด modal
     fireEvent.click(within(dialog).getByRole('button', { name: 'ปิด' }))
@@ -1141,8 +1151,8 @@ describe('backend connected report pages', () => {
 
     const dialog2 = await screen.findByRole('dialog')
     await waitFor(() => {
-      // Other Product ไม่มีบิลเลย → total=0 → ไม่แสดง pagination
-      expect(within(dialog2).queryByText(/หน้า/)).not.toBeInTheDocument()
+      // Other Product ไม่มีบิลเลย → total=0 → ไม่แสดง pagination input
+      expect(within(dialog2).queryByLabelText('ไปยังหน้า')).not.toBeInTheDocument()
     })
   })
 

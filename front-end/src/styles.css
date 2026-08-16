@@ -2342,7 +2342,7 @@ button.table-action-link {
 }
 
 .sales-report-detail-modal {
-  max-width: 920px;
+  max-width: 1200px;
   width: 100%;
 }
 
@@ -2379,14 +2379,6 @@ button.table-action-link {
   border-top: 1px solid #e5e7eb;
 }
 
-.sales-report-detail-pagination-info {
-  color: #4a5a50;
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 180px;
-  text-align: center;
-}
-
 .sales-report-detail-pagination .ghost-button {
   /* iPad touch target: ปุ่มต้องสูงอย่างน้อย 44px */
   min-height: 44px;
@@ -2399,13 +2391,58 @@ button.table-action-link {
   opacity: 0.5;
 }
 
+.sales-report-detail-pagination-info {
+  align-items: center;
+  color: #4a5a50;
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  justify-content: center;
+}
+
+.sales-report-detail-page-input {
+  background: #ffffff;
+  border: 1px solid #c5d0c8;
+  border-radius: 6px;
+  color: #1f2a24;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 6px 8px;
+  text-align: center;
+  width: 64px;
+  -moz-appearance: textfield;
+}
+
+.sales-report-detail-page-input:focus {
+  border-color: #1d6f42;
+  outline: 2px solid rgba(29, 111, 66, 0.25);
+  outline-offset: 1px;
+}
+
+.sales-report-detail-page-input::-webkit-outer-spin-button,
+.sales-report-detail-page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sales-report-detail-table-wrap {
+  /* ป้องกัน column หายเมื่อ modal แคบกว่า content (iPad portrait / mobile) */
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .sales-report-detail-table {
   font-size: 13px;
+  min-width: 640px;
+  width: 100%;
 }
 
 .sales-report-detail-table th,
 .sales-report-detail-table td {
-  padding: 8px 10px;
+  padding: 8px 12px;
   white-space: nowrap;
 }
 
@@ -2419,8 +2456,14 @@ button.table-action-link {
   background: #f8faf6;
 }
 
+@media (max-width: 1280px) {
+  /* iPad / laptop: ให้ modal ใช้ความกว้างเต็มที่มากขึ้น */
+  .sales-report-detail-modal {
+    max-width: 96vw;
+  }
+}
+
 @media (max-width: 1024px) {
-  /* iPad portrait/landscape — ให้ modal ใช้ความกว้างเต็มที่มากขึ้น */
   .sales-report-detail-modal {
     max-width: 96vw;
   }
@@ -2432,6 +2475,7 @@ button.table-action-link {
   }
   .sales-report-detail-table {
     font-size: 12px;
+    min-width: 560px;
   }
   .sales-report-detail-table th,
   .sales-report-detail-table td {

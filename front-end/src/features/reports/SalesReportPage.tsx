@@ -181,6 +181,7 @@ export function SalesReportPage() {
   const [bills, setBills] = useState<ApiProductBillItem[]>([])
   const [billsTotal, setBillsTotal] = useState(0)
   const [billsPage, setBillsPage] = useState(1)
+  const [billsPageInput, setBillsPageInput] = useState('1')
   const [billsLoading, setBillsLoading] = useState(false)
   const [billsError, setBillsError] = useState('')
   const query = dateRangeQuery(from, to)
@@ -321,6 +322,7 @@ export function SalesReportPage() {
     setBills([])
     setBillsTotal(0)
     setBillsPage(1)
+    setBillsPageInput('1')
     setBillsError('')
     setBillsLoading(true)
   }
@@ -330,8 +332,26 @@ export function SalesReportPage() {
   }
 
   function changeBillsPage(nextPage: number) {
+    const clamped = Math.max(1, Math.min(billsTotalPages, nextPage))
     setBillsLoading(true)
-    setBillsPage(Math.max(1, Math.min(billsTotalPages, nextPage)))
+    setBillsPage(clamped)
+    setBillsPageInput(String(clamped))
+  }
+
+  function commitBillsPageInput(rawValue: string) {
+    const parsed = Number.parseInt(rawValue, 10)
+    if (!Number.isFinite(parsed)) {
+      setBillsPageInput(String(billsPage))
+      return
+    }
+    const clamped = Math.max(1, Math.min(billsTotalPages, parsed))
+    if (clamped === billsPage) {
+      setBillsPageInput(String(clamped))
+      return
+    }
+    setBillsLoading(true)
+    setBillsPage(clamped)
+    setBillsPageInput(String(clamped))
   }
 
   function changeSalesReportSort(key: SalesReportSortKey) {
@@ -579,7 +599,26 @@ export function SalesReportPage() {
                   ‹ ก่อนหน้า
                 </button>
                 <span className="sales-report-detail-pagination-info">
-                  หน้า {formatNumber(billsPage)} / {formatNumber(billsTotalPages)} ({formatNumber(billsTotal)} บิล)
+                  <span>หน้า</span>
+                  <input
+                    aria-label="ไปยังหน้า"
+                    className="sales-report-detail-page-input"
+                    disabled={billsLoading}
+                    inputMode="numeric"
+                    max={billsTotalPages}
+                    min={1}
+                    onBlur={(event) => commitBillsPageInput(event.target.value)}
+                    onChange={(event) => setBillsPageInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        commitBillsPageInput((event.target as HTMLInputElement).value)
+                      }
+                    }}
+                    type="number"
+                    value={billsPageInput}
+                  />
+                  <span>/ {formatNumber(billsTotalPages)} ({formatNumber(billsTotal)} บิล)</span>
                 </span>
                 <button
                   className="ghost-button compact"
