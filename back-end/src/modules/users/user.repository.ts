@@ -151,6 +151,15 @@ export type ProductSalesHistoryRecord = {
   profitMarginPercent: number;
 };
 
+export type ProductBillItem = {
+  saleId: string;
+  receiptNumber: string;
+  soldAt: string;
+  quantity: number;
+  unitPriceSatang: number;
+  totalSatang: number;
+};
+
 export type PaginatedResult<T> = {
   items: T[];
   total: number;
@@ -271,6 +280,11 @@ export type UserRepository = {
     productId: string,
     input?: { from?: string; to?: string },
   ): Promise<ProductSalesHistoryRecord[]>;
+  listProductBills(
+    storeId: string,
+    productId: string,
+    input?: { from?: string; to?: string; page?: number; pageSize?: number },
+  ): Promise<PaginatedResult<ProductBillItem>>;
   listSaleSummaries(
     storeId: string,
     input?: {
@@ -1121,6 +1135,37 @@ export function createInMemoryUserRepository(seed?: {
       }
 
       return fillProductSalesHistoryDates(rows, input);
+    },
+    async listProductBills(storeId, productId, input) {
+      const pageSize = Math.max(1, input?.pageSize ?? 20);
+      const page = Math.max(1, input?.page ?? 1);
+      const items: ProductBillItem[] = [];
+
+      const salesForProduct = Array.from(sales.values())
+        .filter((sale) => sale.storeId === storeId && sale.status === "completed" && inRange(sale.soldAt, input))
+        .filter((sale) => sale.items.some((item) => item.productId === productId))
+        .sort((left, right) => right.soldAt.localeCompare(left.soldAt));
+
+      for (const sale of salesForProduct) {
+        for (const item of sale.items.filter((saleItem) => saleItem.productId === productId)) {
+          items.push({
+            saleId: sale.id,
+            receiptNumber: sale.receiptNumber,
+            soldAt: sale.soldAt,
+            quantity: item.quantity,
+            unitPriceSatang: item.unitPriceSatang,
+            totalSatang: item.totalSatang,
+          });
+        }
+      }
+
+      const start = (page - 1) * pageSize;
+      return {
+        items: items.slice(start, start + pageSize),
+        total: items.length,
+        page,
+        pageSize,
+      };
     },
     async listSaleSummaries(storeId, input) {
       const pageSize = Math.max(1, input?.limit ?? input?.pageSize ?? 10);

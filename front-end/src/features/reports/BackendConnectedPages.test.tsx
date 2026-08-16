@@ -201,6 +201,32 @@ beforeEach(() => {
       return salesReport.sales.find((sale) => sale.id === saleId) ?? salesReport.sales[0]
     }
 
+    // Bills API สำหรับ Sales Report detail modal (เรียกเมื่อเปิด modal)
+    if (path.startsWith('/reports/products/') && path.endsWith('/bills')) {
+      // ดึงทุกบิลจาก salesReport.sales ที่ match productId
+      const match = path.match(/\/reports\/products\/([^/]+)\/bills/)
+      const productId = match ? decodeURIComponent(match[1]) : ''
+      const items = salesReport.sales
+        .filter((sale) => sale.status === 'completed')
+        .flatMap((sale) =>
+          sale.items
+            .filter((item) => item.productId === productId)
+            .map((item) => ({
+              saleId: sale.id,
+              receiptNumber: sale.receiptNumber,
+              soldAt: sale.soldAt,
+              quantity: item.quantity,
+              unitPriceSatang: item.unitPriceSatang,
+              totalSatang: item.totalSatang,
+            })),
+        )
+        .sort((a, b) => b.soldAt.localeCompare(a.soldAt))
+      return {
+        success: true,
+        data: { items, total: items.length, page: 1, pageSize: 20 },
+      }
+    }
+
     throw new Error(`Unexpected GET ${path}`)
   })
   mockedApiPost.mockImplementation(async (path: string) => {
@@ -948,6 +974,37 @@ describe('backend connected report pages', () => {
           ],
         }
       }
+
+      // Modal ดึง bills จาก API ใหม่
+      if (path.startsWith('/reports/products/sql-product-1/bills')) {
+        return {
+          success: true,
+          data: {
+            items: [
+              {
+                saleId: 'sale-1',
+                receiptNumber: 'RC-LATER',
+                soldAt: '2026-08-04T07:35:00.000Z',
+                quantity: 3,
+                unitPriceSatang: 900,
+                totalSatang: 2700,
+              },
+              {
+                saleId: 'sale-2',
+                receiptNumber: 'RC-EARLIER',
+                soldAt: '2026-08-04T01:15:00.000Z',
+                quantity: 3,
+                unitPriceSatang: 900,
+                totalSatang: 2700,
+              },
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 20,
+          },
+        }
+      }
+
       throw new Error(`Unexpected GET ${path}`)
     })
 
@@ -967,6 +1024,10 @@ describe('backend connected report pages', () => {
     const billRows = within(dialog).getAllByRole('row')
     expect(billRows[1]).toHaveTextContent('RC-LATER')
     expect(billRows[2]).toHaveTextContent('RC-EARLIER')
+    // ตรวจสอบว่าเรียก API พร้อม page และ pageSize ถูกต้อง
+    await waitFor(() => {
+      expect(mockedApiGet).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\/products\/sql-product-1\/bills\?.*page=1.*pageSize=20/))
+    })
   })
 
   it('closes the detail modal when clicking the close button', async () => {
@@ -982,6 +1043,139 @@ describe('backend connected report pages', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: /SQL Sale Product/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('paginates the sales report bill detail modal and resets to page 1 when product changes', async () => {
+    // สร้าง 25 บิลสำหรับ product เดียวกัน (มากกว่า pageSize 20)
+    const manySales = Array.from({ length: 25 }, (_, index) => ({
+      ...sqlSale,
+      id: `sale-page-${index + 1}`,
+      receiptNumber: `RC-PAGE-${String(index + 1).padStart(3, '0')}`,
+      soldAt: `2026-08-04T${String(10 + (index % 10)).padStart(2, '0')}:${String(index * 2 % 60).padStart(2, '0')}:00.000Z`,
+    }))
+
+    const manyProductsSales = [
+      {
+        ...sqlSale,
+        id: 'sale-other-1',
+        receiptNumber: 'RC-OTHER-001',
+        items: [
+          {
+            productId: 'sql-product-2',
+            productName: 'Other Product',
+            barcode: 'SQL-002',
+            quantity: 1,
+            unitPriceSatang: 500,
+            totalSatang: 500,
+          },
+        ],
+      },
+      ...manySales,
+    ]
+
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/reports/sales')) {
+        return { ...salesReport, sales: manyProductsSales }
+      }
+
+      if (path.startsWith('/reports/products/sql-product-1/bills')) {
+        // filter completed + productId
+        const queryString = path.includes('?') ? path.split('?')[1] : ''
+        const params = new URLSearchParams(queryString)
+        const page = Number(params.get('page') ?? '1')
+        const pageSize = Number(params.get('pageSize') ?? '20')
+        const allBills = manyProductsSales
+          .filter((sale) => sale.status === 'completed')
+          .flatMap((sale) =>
+            sale.items
+              .filter((item) => item.productId === 'sql-product-1')
+              .map((item) => ({
+                saleId: sale.id,
+                receiptNumber: sale.receiptNumber,
+                soldAt: sale.soldAt,
+                quantity: item.quantity,
+                unitPriceSatang: item.unitPriceSatang,
+                totalSatang: item.totalSatang,
+              })),
+          )
+          .sort((a, b) => b.soldAt.localeCompare(a.soldAt))
+        const start = (page - 1) * pageSize
+        return {
+          success: true,
+          data: {
+            items: allBills.slice(start, start + pageSize),
+            total: allBills.length,
+            page,
+            pageSize,
+          },
+        }
+      }
+
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<SalesReportPage />)
+
+    // เปิด modal สำหรับ product แรก (SQL Sale Product)
+    const detailButtons = await screen.findAllByRole('button', { name: 'ดูรายละเอียด' })
+    fireEvent.click(detailButtons[0])
+
+    const dialog = await screen.findByRole('dialog')
+    // หน้า 1 มี 20 รายการ (pageSize = 20)
+    await waitFor(() => {
+      expect(within(dialog).getByText(/หน้า 1 \/ 2 \(25 บิล\)/)).toBeInTheDocument()
+    })
+    // ปุ่ม "ก่อนหน้า" disabled ที่หน้า 1
+    expect(within(dialog).getByRole('button', { name: '‹ ก่อนหน้า' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'ถัดไป ›' })).not.toBeDisabled()
+
+    // คลิกถัดไป → หน้า 2
+    fireEvent.click(within(dialog).getByRole('button', { name: 'ถัดไป ›' }))
+    await waitFor(() => {
+      expect(within(dialog).getByText(/หน้า 2 \/ 2 \(25 บิล\)/)).toBeInTheDocument()
+    })
+    expect(within(dialog).getByRole('button', { name: '‹ ก่อนหน้า' })).not.toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'ถัดไป ›' })).toBeDisabled()
+
+    // ปิด modal
+    fireEvent.click(within(dialog).getByRole('button', { name: 'ปิด' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    // เปิด product อื่น → ต้อง reset เป็นหน้า 1
+    const detailButtonsAgain = await screen.findAllByRole('button', { name: 'ดูรายละเอียด' })
+    fireEvent.click(detailButtonsAgain[1])
+
+    const dialog2 = await screen.findByRole('dialog')
+    await waitFor(() => {
+      // Other Product ไม่มีบิลเลย → total=0 → ไม่แสดง pagination
+      expect(within(dialog2).queryByText(/หน้า/)).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows a loading state then error message when the bills API fails', async () => {
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/reports/sales')) {
+        return salesReport
+      }
+
+      if (path.startsWith('/reports/products/sql-product-1/bills')) {
+        throw new Error('network down')
+      }
+
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<SalesReportPage />)
+    const detailButton = await screen.findByRole('button', { name: 'ดูรายละเอียด' })
+    fireEvent.click(detailButton)
+
+    const dialog = await screen.findByRole('dialog', { name: /SQL Sale Product/ })
+    // แสดงข้อความ error
+    await waitFor(() => {
+      expect(within(dialog).getByText('network down')).toBeInTheDocument()
     })
   })
 

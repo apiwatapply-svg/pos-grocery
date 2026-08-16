@@ -129,6 +129,7 @@ function productSalesReportRows(sales: SaleRecord[]) {
 
       return {
         no: index + 1,
+        productId: row.productId,
         productName: row.productName,
         barcode: row.barcode,
         billCount: row.billIds.size,
@@ -349,6 +350,45 @@ export function dashboardController(deps?: { repository?: UserRepository }): Req
           bestProfitProducts: bestProfitProducts(sales),
           bestTimeSlots: bestTimeSlots(sales),
           hourlySales: hourlySales(sales),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export function productBillsController(deps?: { repository?: UserRepository }): RequestHandler {
+  const repository = deps?.repository ?? defaultUserRepository;
+
+  return async (request, response, next) => {
+    try {
+      const user = requireLocalUser(response);
+      const productId = Array.isArray(request.params.productId) ? request.params.productId[0] : request.params.productId;
+      const product = productId ? await repository.findProductById(productId) : null;
+
+      if (!product || product.storeId !== user.storeId) {
+        throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+      }
+
+      const range = dateRange(request);
+      const page = Math.max(1, Number(request.query.page) || 1);
+      const pageSize = Math.max(1, Math.min(100, Number(request.query.pageSize) || 20));
+
+      const result = await repository.listProductBills(user.storeId, product.id, {
+        from: range.from,
+        to: range.to,
+        page,
+        pageSize,
+      });
+
+      response.json({
+        success: true,
+        data: {
+          items: result.items,
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize,
         },
       });
     } catch (error) {

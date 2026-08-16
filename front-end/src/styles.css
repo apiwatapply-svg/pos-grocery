@@ -2356,6 +2356,49 @@ button.table-action-link {
   margin: 8px 0 0;
 }
 
+.sales-report-detail-loading,
+.sales-report-detail-error {
+  color: #4a5a50;
+  font-size: 14px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.sales-report-detail-error {
+  color: #b91c1c;
+}
+
+.sales-report-detail-pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.sales-report-detail-pagination-info {
+  color: #4a5a50;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 180px;
+  text-align: center;
+}
+
+.sales-report-detail-pagination .ghost-button {
+  /* iPad touch target: ปุ่มต้องสูงอย่างน้อย 44px */
+  min-height: 44px;
+  min-width: 100px;
+  padding: 10px 16px;
+}
+
+.sales-report-detail-pagination .ghost-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .sales-report-detail-table {
   font-size: 13px;
 }
@@ -2376,6 +2419,13 @@ button.table-action-link {
   background: #f8faf6;
 }
 
+@media (max-width: 1024px) {
+  /* iPad portrait/landscape — ให้ modal ใช้ความกว้างเต็มที่มากขึ้น */
+  .sales-report-detail-modal {
+    max-width: 96vw;
+  }
+}
+
 @media (max-width: 720px) {
   .sales-report-detail-modal {
     max-width: 100%;
@@ -2386,6 +2436,19 @@ button.table-action-link {
   .sales-report-detail-table th,
   .sales-report-detail-table td {
     padding: 6px 8px;
+  }
+  .sales-report-detail-pagination {
+    gap: 8px;
+  }
+  .sales-report-detail-pagination .ghost-button {
+    min-width: 88px;
+    padding: 8px 12px;
+  }
+  .sales-report-detail-pagination-info {
+    min-width: 0;
+    width: 100%;
+    order: -1;
+    margin-bottom: 4px;
   }
 }
 

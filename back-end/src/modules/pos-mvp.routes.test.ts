@@ -682,4 +682,161 @@ describe("POS Grocery MVP API", () => {
     expect(activatedByStoreAdmin.status).toBe(200);
     expect(activatedByStoreAdmin.body.data.status).toBe("completed");
   });
+
+  it("lists per-bill product sales with pagination, filters void, and scopes by store", async () => {
+    const { app, owner, repository } = await createFixture();
+
+    const product = await request(app)
+      .post("/api/products")
+      .set("Authorization", authHeader(owner))
+      .send({
+        name: "Bills Water",
+        barcode: "8850006000008",
+        unit: "bottle",
+        costPriceSatang: 400,
+        salePriceSatang: 700,
+        status: "active",
+      });
+    const productId = product.body.data.id;
+
+    // สร้าง store + product ใน store อื่น เพื่อทดสอบ cross-store 404
+    const otherStore = await repository.createStore({
+      name: "Other Store",
+      phone: "0800000099",
+      address: "Bangkok",
+      ownerName: "Other",
+      status: "active",
+    });
+    const otherProduct = await repository.createProduct({
+      storeId: otherStore.id,
+      name: "Other Product",
+      barcode: "8850006009999",
+      unit: "bottle",
+      costPriceSatang: 100,
+      salePriceSatang: 200,
+      stockQuantity: 50,
+      status: "active",
+    });
+
+    await request(app)
+      .post("/api/inventory/receive")
+      .set("Authorization", authHeader(owner))
+      .send({ productId, quantity: 100, unitCostSatang: 400 });
+
+    // บิลที่ 1: ขาย 2 ชิ้น
+    await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850006000008", quantity: 2 }],
+        cashReceivedSatang: 2000,
+        paymentMethod: "cash",
+        soldAt: "2026-07-01T03:00:00.000Z",
+      });
+
+    // บิลที่ 2: ขาย 3 ชิ้น (ล่าสุด)
+    await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850006000008", quantity: 3 }],
+        cashReceivedSatang: 2500,
+        paymentMethod: "cash",
+        soldAt: "2026-07-01T05:00:00.000Z",
+      });
+
+    // บิลที่ 3: จะถูกยกเลิก — ต้องไม่ปรากฏในผลลัพธ์
+    const cancelled = await request(app)
+      .post("/api/sales/checkout")
+      .set("Authorization", authHeader(owner))
+      .send({
+        barcodeItems: [{ barcode: "8850006000008", quantity: 4 }],
+        cashReceivedSatang: 3000,
+        paymentMethod: "cash",
+        soldAt: "2026-07-01T07:00:00.000Z",
+      });
+    await request(app)
+      .post(`/api/sales/${cancelled.body.data.id}/cancel`)
+      .set("Authorization", authHeader(owner))
+      .send({});
+
+    // 1) default page=1, pageSize=20
+    const page1 = await request(app)
+      .get(`/api/reports/products/${productId}/bills?from=2026-07-01T00:00:00.000Z&to=2026-07-01T23:59:59.999Z`)
+      .set("Authorization", authHeader(owner));
+    expect(page1.status).toBe(200);
+    expect(page1.body.data.total).toBe(2);
+    expect(page1.body.data.page).toBe(1);
+    expect(page1.body.data.pageSize).toBe(20);
+    expect(page1.body.data.items).toHaveLength(2);
+    // เรียง soldAt desc → บิลที่ 2 (05:00) มาก่อน
+    expect(page1.body.data.items[0].receiptNumber).toBeDefined();
+    expect(page1.body.data.items[1].receiptNumber).toBeDefined();
+    expect(new Date(page1.body.data.items[0].soldAt).getTime()).toBeGreaterThan(
+      new Date(page1.body.data.items[1].soldAt).getTime(),
+    );
+    // ตรวจ fields ที่ frontend ใช้
+    expect(page1.body.data.items[0]).toEqual(
+      expect.objectContaining({
+        saleId: expect.any(String),
+        receiptNumber: expect.any(String),
+        soldAt: expect.any(String),
+        quantity: expect.any(Number),
+        unitPriceSatang: expect.any(Number),
+        totalSatang: expect.any(Number),
+      }),
+    );
+    expect(page1.body.data.items[0].quantity).toBe(3);
+    expect(page1.body.data.items[0].unitPriceSatang).toBe(700);
+    expect(page1.body.data.items[0].totalSatang).toBe(2100);
+    expect(page1.body.data.items[1].quantity).toBe(2);
+    expect(page1.body.data.items[1].totalSatang).toBe(1400);
+
+    // 2) pagination — page=1, pageSize=1
+    const small = await request(app)
+      .get(
+        `/api/reports/products/${productId}/bills?from=2026-07-01T00:00:00.000Z&to=2026-07-01T23:59:59.999Z&page=1&pageSize=1`,
+      )
+      .set("Authorization", authHeader(owner));
+    expect(small.status).toBe(200);
+    expect(small.body.data.total).toBe(2);
+    expect(small.body.data.items).toHaveLength(1);
+    expect(small.body.data.items[0].quantity).toBe(3);
+
+    const page2 = await request(app)
+      .get(
+        `/api/reports/products/${productId}/bills?from=2026-07-01T00:00:00.000Z&to=2026-07-01T23:59:59.999Z&page=2&pageSize=1`,
+      )
+      .set("Authorization", authHeader(owner));
+    expect(page2.status).toBe(200);
+    expect(page2.body.data.items).toHaveLength(1);
+    expect(page2.body.data.items[0].quantity).toBe(2);
+
+    // 3) นอกช่วงวันที่ → empty
+    const outOfRange = await request(app)
+      .get(`/api/reports/products/${productId}/bills?from=2026-08-01T00:00:00.000Z&to=2026-08-31T23:59:59.999Z`)
+      .set("Authorization", authHeader(owner));
+    expect(outOfRange.status).toBe(200);
+    expect(outOfRange.body.data.total).toBe(0);
+    expect(outOfRange.body.data.items).toHaveLength(0);
+
+    // 4) product ที่อยู่อีก store → 404
+    const crossStore = await request(app)
+      .get(`/api/reports/products/${otherProduct.id}/bills`)
+      .set("Authorization", authHeader(owner));
+    expect(crossStore.status).toBe(404);
+
+    // 5) productId ที่ไม่มีอยู่จริง → 404
+    const notFound = await request(app)
+      .get("/api/reports/products/non-existent-id/bills")
+      .set("Authorization", authHeader(owner));
+    expect(notFound.status).toBe(404);
+
+    // 6) verify productId field ถูกเพิ่มใน productSales ของ /reports/sales
+    const salesReport = await request(app)
+      .get("/api/reports/sales?from=2026-07-01T00:00:00.000Z&to=2026-07-01T23:59:59.999Z")
+      .set("Authorization", authHeader(owner));
+    expect(salesReport.status).toBe(200);
+    expect(salesReport.body.data.productSales[0].productId).toBe(productId);
+  });
 });

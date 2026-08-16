@@ -5,7 +5,8 @@ import {
   bahtFromSatang,
   dateRangeQuery,
   todayDateInputValue,
-  type ApiSale,
+  type ApiProductBillItem,
+  type ApiProductBillsResponse,
   type ProductSalesReportRow,
   type SalesReport,
 } from './reportApi'
@@ -147,39 +148,6 @@ function readSalesReportDateFilter(): SalesReportDateFilter {
   }
 }
 
-type ProductBillItem = {
-  saleId: string
-  receiptNumber: string
-  soldAt: string
-  quantity: number
-  unitPriceSatang: number
-  totalSatang: number
-}
-
-// ดึงรายการบิลทั้งหมดที่ขาย product นี้ในช่วงเวลาที่กำลังดูอยู่
-// ใช้ข้อมูลจาก report.sales[] ที่ backend ส่งมาพร้อมกัน ไม่ต้องเรียก API เพิ่ม
-function productBillItems(product: ProductSalesRow, sales: ApiSale[]): ProductBillItem[] {
-  const result: ProductBillItem[] = []
-  for (const sale of sales) {
-    if (sale.status !== 'completed') continue
-    for (const item of sale.items) {
-      const itemKey = item.productId || item.barcode || item.productName
-      if (itemKey === product.productKey) {
-        result.push({
-          saleId: sale.id,
-          receiptNumber: sale.receiptNumber,
-          soldAt: sale.soldAt ?? '',
-          quantity: item.quantity,
-          unitPriceSatang: item.unitPriceSatang,
-          totalSatang: item.totalSatang,
-        })
-      }
-    }
-  }
-  // เรียงล่าสุดก่อน (soldAt desc) — ถ้า soldAt ว่างให้ตกท้าย
-  return result.sort((a, b) => b.soldAt.localeCompare(a.soldAt))
-}
-
 // Format ISO datetime → "04/08/2569 14:32" ตามเวลาประเทศไทย
 function formatBangkokDateTime(iso: string): string {
   if (!iso) return '-'
@@ -196,6 +164,8 @@ function formatBangkokDateTime(iso: string): string {
   }).format(date)
 }
 
+const BILLS_PAGE_SIZE = 20
+
 export function SalesReportPage() {
   const initialDateFilter = readSalesReportDateFilter()
   const [from, setFrom] = useState(initialDateFilter.from)
@@ -208,6 +178,11 @@ export function SalesReportPage() {
   })
   const [productFilter, setProductFilter] = useState('')
   const [detailProduct, setDetailProduct] = useState<ProductSalesRow | null>(null)
+  const [bills, setBills] = useState<ApiProductBillItem[]>([])
+  const [billsTotal, setBillsTotal] = useState(0)
+  const [billsPage, setBillsPage] = useState(1)
+  const [billsLoading, setBillsLoading] = useState(false)
+  const [billsError, setBillsError] = useState('')
   const query = dateRangeQuery(from, to)
   const sales = useMemo(() => report?.sales ?? [], [report])
   const productRows = useMemo(
@@ -264,19 +239,11 @@ export function SalesReportPage() {
     [sortedProductRows],
   )
 
-  // บิลทั้งหมดของ product ที่เปิด modal (memoized เพื่อไม่คำนวณซ้ำ 2 รอบ)
-  const detailBills = useMemo(
-    () => (detailProduct ? productBillItems(detailProduct, sales) : []),
-    [detailProduct, sales],
-  )
-  const detailTotalQuantity = useMemo(
-    () => detailBills.reduce((sum, bill) => sum + bill.quantity, 0),
-    [detailBills],
-  )
-  const detailTotalSatang = useMemo(
-    () => detailBills.reduce((sum, bill) => sum + bill.totalSatang, 0),
-    [detailBills],
-  )
+  // บิลทั้งหมดของ product ที่เปิด modal — คำนวณจาก state ที่โหลดจาก API
+  // (ไม่ใช้ useMemo เพราะ reducer บน array เล็ก ๆ และอยากให้ re-render ตาม bills จริง ๆ)
+  const detailTotalQuantity = bills.reduce((sum, bill) => sum + bill.quantity, 0)
+  const detailTotalSatang = bills.reduce((sum, bill) => sum + bill.totalSatang, 0)
+  const billsTotalPages = Math.max(1, Math.ceil(billsTotal / BILLS_PAGE_SIZE))
 
   useEffect(() => {
     localStorage.setItem(salesReportDateFilterStorageKey, JSON.stringify({ from, to }))
@@ -302,6 +269,70 @@ export function SalesReportPage() {
       active = false
     }
   }, [query])
+
+  // โหลดรายการบิลของ product ที่เปิด modal จาก API แยก
+  // (รายการบิลอาจมีจำนวนมาก → แบ่งหน้าและ scope ตาม product เพื่อ payload เล็กลง)
+  useEffect(() => {
+    if (!detailProduct) {
+      return
+    }
+
+    // detailProduct มาจาก productRows ซึ่งใช้ productKey = productId ?? productKey ?? barcode ?? productName
+    // ต้องส่ง productId ให้ backend → map กลับจาก row.productId
+    const productId = detailProduct.productKey
+    if (!productId) {
+      return
+    }
+
+    let active = true
+
+    const params = new URLSearchParams()
+    params.set('page', String(billsPage))
+    params.set('pageSize', String(BILLS_PAGE_SIZE))
+    if (from) params.set('from', `${from}T00:00:00+07:00`)
+    if (to) params.set('to', `${to}T23:59:59+07:00`)
+
+    apiGet<{ success: boolean; data: ApiProductBillsResponse }>(
+      `/reports/products/${encodeURIComponent(productId)}/bills?${params.toString()}`,
+    )
+      .then((response) => {
+        if (!active) return
+        setBills(response.data.items)
+        setBillsTotal(response.data.total)
+        setBillsError('')
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setBills([])
+        setBillsTotal(0)
+        setBillsError(error instanceof Error ? error.message : 'โหลดรายการบิลไม่สำเร็จ')
+      })
+      .finally(() => {
+        if (active) setBillsLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [detailProduct, billsPage, from, to])
+
+  function openProductDetail(product: ProductSalesRow) {
+    setDetailProduct(product)
+    setBills([])
+    setBillsTotal(0)
+    setBillsPage(1)
+    setBillsError('')
+    setBillsLoading(true)
+  }
+
+  function closeProductDetail() {
+    setDetailProduct(null)
+  }
+
+  function changeBillsPage(nextPage: number) {
+    setBillsLoading(true)
+    setBillsPage(Math.max(1, Math.min(billsTotalPages, nextPage)))
+  }
 
   function changeSalesReportSort(key: SalesReportSortKey) {
     setSalesReportSort((current) => (
@@ -456,7 +487,7 @@ export function SalesReportPage() {
                     <td>
                       <button
                         className="info-button compact"
-                        onClick={() => setDetailProduct(product)}
+                        onClick={() => openProductDetail(product)}
                         type="button"
                       >
                         ดูรายละเอียด
@@ -474,7 +505,7 @@ export function SalesReportPage() {
         )}
       </div>
       {detailProduct ? (
-        <div className="modal-backdrop" onClick={() => setDetailProduct(null)}>
+        <div className="modal-backdrop" onClick={closeProductDetail}>
           <section
             aria-labelledby="sales-detail-title"
             aria-modal="true"
@@ -488,21 +519,29 @@ export function SalesReportPage() {
                 <h2 id="sales-detail-title">{detailProduct.productName}</h2>
                 <p>barcode: {detailProduct.barcode}</p>
                 <p className="sales-report-detail-summary">
-                  <span>{formatNumber(detailBills.length)} บิล</span>
+                  <span>{formatNumber(billsTotal)} บิล</span>
                   <span>{formatNumber(detailTotalQuantity)} ชิ้น</span>
                   <span>{bahtFromSatang(detailTotalSatang)} บาท</span>
                 </p>
               </div>
               <button
                 className="ghost-button compact"
-                onClick={() => setDetailProduct(null)}
+                onClick={closeProductDetail}
                 type="button"
               >
                 ปิด
               </button>
             </div>
             <div className="table-wrap sales-report-detail-table-wrap">
-              {detailBills.length ? (
+              {billsLoading ? (
+                <p className="sales-report-detail-loading" role="status" aria-live="polite">
+                  กำลังโหลดรายการบิล...
+                </p>
+              ) : billsError ? (
+                <p className="sales-report-detail-error" role="alert">
+                  {billsError}
+                </p>
+              ) : bills.length ? (
                 <table className="sales-report-detail-table" aria-label="รายการบิลที่ขายสินค้านี้">
                   <thead>
                     <tr>
@@ -514,7 +553,7 @@ export function SalesReportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {detailBills.map((bill) => (
+                    {bills.map((bill) => (
                       <tr key={bill.saleId}>
                         <td>{bill.receiptNumber}</td>
                         <td>{formatBangkokDateTime(bill.soldAt)}</td>
@@ -529,6 +568,29 @@ export function SalesReportPage() {
                 <p>ไม่พบรายการบิลในช่วงเวลานี้</p>
               )}
             </div>
+            {billsTotal > 0 ? (
+              <div className="sales-report-detail-pagination" aria-label="แบ่งหน้ารายการบิล">
+                <button
+                  className="ghost-button compact"
+                  disabled={billsPage <= 1 || billsLoading}
+                  onClick={() => changeBillsPage(billsPage - 1)}
+                  type="button"
+                >
+                  ‹ ก่อนหน้า
+                </button>
+                <span className="sales-report-detail-pagination-info">
+                  หน้า {formatNumber(billsPage)} / {formatNumber(billsTotalPages)} ({formatNumber(billsTotal)} บิล)
+                </span>
+                <button
+                  className="ghost-button compact"
+                  disabled={billsPage >= billsTotalPages || billsLoading}
+                  onClick={() => changeBillsPage(billsPage + 1)}
+                  type="button"
+                >
+                  ถัดไป ›
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}

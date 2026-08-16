@@ -54,6 +54,22 @@ export type ProductSalesReportRow = {
   profitMarginPercent: number
 }
 
+export type ApiProductBillItem = {
+  saleId: string
+  receiptNumber: string
+  soldAt: string
+  quantity: number
+  unitPriceSatang: number
+  totalSatang: number
+}
+
+export type ApiProductBillsResponse = {
+  items: ApiProductBillItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export type SalesReport = {
   summary: {
     orderCount: number

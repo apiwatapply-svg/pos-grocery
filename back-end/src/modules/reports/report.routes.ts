@@ -4,6 +4,7 @@ import { readCacheMiddleware } from "../../shared/middleware/read-cache.middlewa
 import {
   dashboardController,
   exportSalesReportController,
+  productBillsController,
   productSalesHistoryController,
   salesReportController,
 } from "./report.controller.ts";
@@ -19,6 +20,7 @@ export function createReportRouter(deps?: {
   router.get("/sales", readCacheMiddleware(), salesReportController(deps));
   router.get("/dashboard", readCacheMiddleware(), dashboardController(deps));
   router.get("/products/:productId/sales-history", readCacheMiddleware(), productSalesHistoryController(deps));
+  router.get("/products/:productId/bills", readCacheMiddleware(), productBillsController(deps));
   router.get("/export.xlsx", exportSalesReportController(deps));
 
   return router;

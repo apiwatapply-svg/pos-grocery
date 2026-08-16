@@ -8,6 +8,8 @@ import { buildReceiptContent } from "../sales/receipt.service.ts";
 import type {
   InventoryTransactionRecord,
   InventoryTransactionWithProductRecord,
+  PaginatedResult,
+  ProductBillItem,
   ProductImageRecord,
   ProductSalesHistoryRecord,
   ProductRecord,
@@ -1785,6 +1787,66 @@ export function createPrismaUserRepository(options?: PrismaUserRepositoryOptions
       }
 
       return fillProductSalesHistoryDates(rows, input);
+    },
+    async listProductBills(storeId, productId, input): Promise<PaginatedResult<ProductBillItem>> {
+      const product = await prisma.product.findFirst({
+        where: { id: productId, storeId, deletedAt: null },
+        select: { id: true },
+      });
+
+      if (!product) {
+        return { items: [], total: 0, page: 1, pageSize: input?.pageSize ?? 20 };
+      }
+
+      const pageSize = Math.max(1, input?.pageSize ?? 20);
+      const page = Math.max(1, input?.page ?? 1);
+      const fromDate = input?.from ? new Date(input.from) : undefined;
+      const toDate = input?.to ? new Date(input.to) : undefined;
+
+      const where = {
+        storeId,
+        status: "completed" as const,
+        soldAt: {
+          ...(fromDate ? { gte: fromDate } : {}),
+          ...(toDate ? { lte: toDate } : {}),
+        },
+        items: { some: { productId } },
+      };
+
+      const [total, sales] = await Promise.all([
+        prisma.sale.count({ where }),
+        prisma.sale.findMany({
+          where,
+          select: {
+            id: true,
+            receiptNumber: true,
+            soldAt: true,
+            items: {
+              where: { productId },
+              select: { quantity: true, unitPriceSatang: true, totalSatang: true },
+            },
+          },
+          orderBy: { soldAt: "desc" },
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+        }),
+      ]);
+
+      const items: ProductBillItem[] = [];
+      for (const sale of sales) {
+        for (const item of sale.items) {
+          items.push({
+            saleId: sale.id,
+            receiptNumber: sale.receiptNumber,
+            soldAt: sale.soldAt.toISOString(),
+            quantity: item.quantity,
+            unitPriceSatang: item.unitPriceSatang,
+            totalSatang: item.totalSatang,
+          });
+        }
+      }
+
+      return { items, total, page, pageSize };
     },
     async listSaleSummaries(storeId, input) {
       const pageSize = Math.max(1, input?.limit ?? input?.pageSize ?? 10);
