@@ -292,13 +292,13 @@ export function SalesReportPage() {
     if (from) params.set('from', `${from}T00:00:00+07:00`)
     if (to) params.set('to', `${to}T23:59:59+07:00`)
 
-    apiGet<{ success: boolean; data: ApiProductBillsResponse }>(
+    apiGet<ApiProductBillsResponse>(
       `/reports/products/${encodeURIComponent(productId)}/bills?${params.toString()}`,
     )
       .then((response) => {
         if (!active) return
-        setBills(response.data.items)
-        setBillsTotal(response.data.total)
+        setBills(response.items)
+        setBillsTotal(response.total)
         setBillsError('')
       })
       .catch((error: unknown) => {

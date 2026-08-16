@@ -221,10 +221,7 @@ beforeEach(() => {
             })),
         )
         .sort((a, b) => b.soldAt.localeCompare(a.soldAt))
-      return {
-        success: true,
-        data: { items, total: items.length, page: 1, pageSize: 20 },
-      }
+      return { items, total: items.length, page: 1, pageSize: 20 }
     }
 
     throw new Error(`Unexpected GET ${path}`)
@@ -978,30 +975,27 @@ describe('backend connected report pages', () => {
       // Modal ดึง bills จาก API ใหม่
       if (path.startsWith('/reports/products/sql-product-1/bills')) {
         return {
-          success: true,
-          data: {
-            items: [
-              {
-                saleId: 'sale-1',
-                receiptNumber: 'RC-LATER',
-                soldAt: '2026-08-04T07:35:00.000Z',
-                quantity: 3,
-                unitPriceSatang: 900,
-                totalSatang: 2700,
-              },
-              {
-                saleId: 'sale-2',
-                receiptNumber: 'RC-EARLIER',
-                soldAt: '2026-08-04T01:15:00.000Z',
-                quantity: 3,
-                unitPriceSatang: 900,
-                totalSatang: 2700,
-              },
-            ],
-            total: 2,
-            page: 1,
-            pageSize: 20,
-          },
+          items: [
+            {
+              saleId: 'sale-1',
+              receiptNumber: 'RC-LATER',
+              soldAt: '2026-08-04T07:35:00.000Z',
+              quantity: 3,
+              unitPriceSatang: 900,
+              totalSatang: 2700,
+            },
+            {
+              saleId: 'sale-2',
+              receiptNumber: 'RC-EARLIER',
+              soldAt: '2026-08-04T01:15:00.000Z',
+              quantity: 3,
+              unitPriceSatang: 900,
+              totalSatang: 2700,
+            },
+          ],
+          total: 2,
+          page: 1,
+          pageSize: 20,
         }
       }
 
@@ -1102,13 +1096,10 @@ describe('backend connected report pages', () => {
           .sort((a, b) => b.soldAt.localeCompare(a.soldAt))
         const start = (page - 1) * pageSize
         return {
-          success: true,
-          data: {
-            items: allBills.slice(start, start + pageSize),
-            total: allBills.length,
-            page,
-            pageSize,
-          },
+          items: allBills.slice(start, start + pageSize),
+          total: allBills.length,
+          page,
+          pageSize,
         }
       }
 
