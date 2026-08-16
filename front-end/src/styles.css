@@ -2335,6 +2335,60 @@ button.table-action-link {
   white-space: normal;
 }
 
+.sales-report-table td:nth-child(10),
+.sales-report-table th:nth-child(10) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.sales-report-detail-modal {
+  max-width: 920px;
+  width: 100%;
+}
+
+.sales-report-detail-summary {
+  color: #4a5a50;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+.sales-report-detail-table {
+  font-size: 13px;
+}
+
+.sales-report-detail-table th,
+.sales-report-detail-table td {
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+
+.sales-report-detail-table th {
+  background: #eef2ed;
+  color: #4a5a50;
+  font-weight: 700;
+}
+
+.sales-report-detail-table tbody tr:nth-child(even) {
+  background: #f8faf6;
+}
+
+@media (max-width: 720px) {
+  .sales-report-detail-modal {
+    max-width: 100%;
+  }
+  .sales-report-detail-table {
+    font-size: 12px;
+  }
+  .sales-report-detail-table th,
+  .sales-report-detail-table td {
+    padding: 6px 8px;
+  }
+}
+
 .sales-report-bill-button {
   background: transparent;
   border: 0;

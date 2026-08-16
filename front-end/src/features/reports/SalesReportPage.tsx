@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { apiDownload, apiGet } from '../../lib/api/client'
 import { formatNumber, formatPercent } from '../../lib/format/number'
 import {
   bahtFromSatang,
   dateRangeQuery,
   todayDateInputValue,
+  type ApiSale,
   type ProductSalesReportRow,
   type SalesReport,
 } from './reportApi'
 import { SortableTableHeader, type SortDirection } from '../shared/SortableTableHeader'
+import {
+  SearchableDropdown,
+  type SearchableDropdownOption,
+} from '../../components/ui/SearchableDropdown'
 
 type SalesReportSortKey =
   | 'rank'
@@ -142,6 +147,55 @@ function readSalesReportDateFilter(): SalesReportDateFilter {
   }
 }
 
+type ProductBillItem = {
+  saleId: string
+  receiptNumber: string
+  soldAt: string
+  quantity: number
+  unitPriceSatang: number
+  totalSatang: number
+}
+
+// ดึงรายการบิลทั้งหมดที่ขาย product นี้ในช่วงเวลาที่กำลังดูอยู่
+// ใช้ข้อมูลจาก report.sales[] ที่ backend ส่งมาพร้อมกัน ไม่ต้องเรียก API เพิ่ม
+function productBillItems(product: ProductSalesRow, sales: ApiSale[]): ProductBillItem[] {
+  const result: ProductBillItem[] = []
+  for (const sale of sales) {
+    if (sale.status !== 'completed') continue
+    for (const item of sale.items) {
+      const itemKey = item.productId || item.barcode || item.productName
+      if (itemKey === product.productKey) {
+        result.push({
+          saleId: sale.id,
+          receiptNumber: sale.receiptNumber,
+          soldAt: sale.soldAt ?? '',
+          quantity: item.quantity,
+          unitPriceSatang: item.unitPriceSatang,
+          totalSatang: item.totalSatang,
+        })
+      }
+    }
+  }
+  // เรียงล่าสุดก่อน (soldAt desc) — ถ้า soldAt ว่างให้ตกท้าย
+  return result.sort((a, b) => b.soldAt.localeCompare(a.soldAt))
+}
+
+// Format ISO datetime → "04/08/2569 14:32" ตามเวลาประเทศไทย
+function formatBangkokDateTime(iso: string): string {
+  if (!iso) return '-'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
 export function SalesReportPage() {
   const initialDateFilter = readSalesReportDateFilter()
   const [from, setFrom] = useState(initialDateFilter.from)
@@ -152,11 +206,14 @@ export function SalesReportPage() {
     key: 'totalSalesSatang',
     direction: 'descending',
   })
+  const [productFilter, setProductFilter] = useState('')
+  const [detailProduct, setDetailProduct] = useState<ProductSalesRow | null>(null)
   const query = dateRangeQuery(from, to)
-  const sales = report?.sales ?? []
-  const productRows = report?.productSales
-    ? productRowsFromReport(report.productSales)
-    : productSalesRows(sales)
+  const sales = useMemo(() => report?.sales ?? [], [report])
+  const productRows = useMemo(
+    () => (report?.productSales ? productRowsFromReport(report.productSales) : productSalesRows(sales)),
+    [report, sales],
+  )
   const productOriginalIndex = new Map(productRows.map((product, index) => [product.productKey, index]))
   const sortedProductRows = [...productRows].sort((leftProduct, rightProduct) => {
     let comparison: number
@@ -182,6 +239,44 @@ export function SalesReportPage() {
 
     return salesReportSort.direction === 'ascending' ? comparison : comparison * -1
   })
+
+  // Filter product rows by search query (name + barcode) — real-time
+  const filteredProductRows = useMemo(() => {
+    const query = productFilter.trim().toLowerCase()
+    if (!query) {
+      return sortedProductRows
+    }
+    return sortedProductRows.filter((product) =>
+      product.productName.toLowerCase().includes(query) ||
+      product.barcode.toLowerCase().includes(query),
+    )
+  }, [sortedProductRows, productFilter])
+
+  // SearchableDropdown options — ใช้ sortedProductRows (ไม่ filter) เพื่อให้เลือกได้ทั้งหมด
+  const productFilterOptions = useMemo<SearchableDropdownOption[]>(
+    () =>
+      sortedProductRows.map((product) => ({
+        value: product.productKey,
+        label: product.productName,
+        description: product.barcode,
+        trailing: <strong>{formatNumber(product.quantity)} ชิ้น</strong>,
+      })),
+    [sortedProductRows],
+  )
+
+  // บิลทั้งหมดของ product ที่เปิด modal (memoized เพื่อไม่คำนวณซ้ำ 2 รอบ)
+  const detailBills = useMemo(
+    () => (detailProduct ? productBillItems(detailProduct, sales) : []),
+    [detailProduct, sales],
+  )
+  const detailTotalQuantity = useMemo(
+    () => detailBills.reduce((sum, bill) => sum + bill.quantity, 0),
+    [detailBills],
+  )
+  const detailTotalSatang = useMemo(
+    () => detailBills.reduce((sum, bill) => sum + bill.totalSatang, 0),
+    [detailBills],
+  )
 
   useEffect(() => {
     localStorage.setItem(salesReportDateFilterStorageKey, JSON.stringify({ from, to }))
@@ -236,6 +331,19 @@ export function SalesReportPage() {
           <input aria-label="วันที่เริ่ม" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
           <input aria-label="วันที่สิ้นสุด" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
         </div>
+        <label className="search-row">
+          <span>ค้นหาสินค้า</span>
+          <SearchableDropdown
+            ariaLabel="ค้นหาสินค้าในรายงาน"
+            emptyMessage="ไม่พบสินค้าที่ค้นหา"
+            id="sales-report-product-filter"
+            maxOptions={20}
+            options={productFilterOptions}
+            placeholder="พิมพ์ชื่อสินค้า หรือ barcode"
+            value={productFilter}
+            onChange={setProductFilter}
+          />
+        </label>
         <dl className="summary-list sales-summary-cards" aria-label="การ์ดสรุปรายงานยอดขาย">
           <div className="sales-summary-card-blue">
             <dt>จำนวนบิล</dt>
@@ -262,7 +370,7 @@ export function SalesReportPage() {
             <dd>{formatPercent(report?.summary.profitMarginPercent ?? 0)}</dd>
           </div>
         </dl>
-        {productRows.length ? (
+        {filteredProductRows.length ? (
           <div className="table-wrap sales-report-table-wrap">
             <table className="sales-report-table" aria-label="ตารางยอดขายรายสินค้า">
               <thead>
@@ -330,10 +438,11 @@ export function SalesReportPage() {
                     onSort={changeSalesReportSort}
                     label="กำไร%"
                   />
+                  <th aria-label="รายละเอียดการขาย">รายละเอียด</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedProductRows.map((product, index) => (
+                {filteredProductRows.map((product, index) => (
                   <tr key={product.productKey}>
                     <td>{formatNumber(index + 1)}</td>
                     <td>{product.productName}</td>
@@ -344,15 +453,85 @@ export function SalesReportPage() {
                     <td>{bahtFromSatang(product.totalCostSatang)} บาท</td>
                     <td>{bahtFromSatang(product.profitSatang)} บาท</td>
                     <td>{formatPercent(product.profitMarginPercent)}</td>
+                    <td>
+                      <button
+                        className="info-button compact"
+                        onClick={() => setDetailProduct(product)}
+                        type="button"
+                      >
+                        ดูรายละเอียด
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : productFilter.trim() ? (
+          <p>ไม่พบสินค้าที่ตรงกับคำค้น "{productFilter}"</p>
         ) : (
           <p>{message || 'ยังไม่มียอดขายรายสินค้าในช่วงเวลานี้'}</p>
         )}
       </div>
+      {detailProduct ? (
+        <div className="modal-backdrop" onClick={() => setDetailProduct(null)}>
+          <section
+            aria-labelledby="sales-detail-title"
+            aria-modal="true"
+            className="modal-panel sales-report-detail-modal"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">รายละเอียดการขาย</p>
+                <h2 id="sales-detail-title">{detailProduct.productName}</h2>
+                <p>barcode: {detailProduct.barcode}</p>
+                <p className="sales-report-detail-summary">
+                  <span>{formatNumber(detailBills.length)} บิล</span>
+                  <span>{formatNumber(detailTotalQuantity)} ชิ้น</span>
+                  <span>{bahtFromSatang(detailTotalSatang)} บาท</span>
+                </p>
+              </div>
+              <button
+                className="ghost-button compact"
+                onClick={() => setDetailProduct(null)}
+                type="button"
+              >
+                ปิด
+              </button>
+            </div>
+            <div className="table-wrap sales-report-detail-table-wrap">
+              {detailBills.length ? (
+                <table className="sales-report-detail-table" aria-label="รายการบิลที่ขายสินค้านี้">
+                  <thead>
+                    <tr>
+                      <th>เลขที่บิล</th>
+                      <th>วันเวลา</th>
+                      <th>จำนวน</th>
+                      <th>ราคา/ชิ้น</th>
+                      <th>รวม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailBills.map((bill) => (
+                      <tr key={bill.saleId}>
+                        <td>{bill.receiptNumber}</td>
+                        <td>{formatBangkokDateTime(bill.soldAt)}</td>
+                        <td>{formatNumber(bill.quantity)} ชิ้น</td>
+                        <td>{bahtFromSatang(bill.unitPriceSatang)} บาท</td>
+                        <td>{bahtFromSatang(bill.totalSatang)} บาท</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>ไม่พบรายการบิลในช่วงเวลานี้</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   )
 }

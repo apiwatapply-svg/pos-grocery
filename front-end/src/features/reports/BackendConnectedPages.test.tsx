@@ -878,6 +878,113 @@ describe('backend connected report pages', () => {
     expect(rowsByDescendingSales[1]).toHaveTextContent('SQL Product 12')
   })
 
+  it('filters product rows by name in the sales report search', async () => {
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/reports/sales')) {
+        return {
+          ...salesReport,
+          sales: [
+            { ...sqlSale, id: 'sale-a', receiptNumber: 'RC-A' },
+            { ...sqlSale, id: 'sale-b', receiptNumber: 'RC-B', items: [{ ...sqlSale.items[0], productId: 'sql-product-2', productName: 'Noodle Pack', barcode: 'SQL-002' }] },
+          ],
+        }
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<SalesReportPage />)
+    const searchInput = await screen.findByLabelText('ค้นหาสินค้าในรายงาน')
+    expect(searchInput).toBeInTheDocument()
+
+    // initial: ทั้ง 2 row แสดง
+    expect(screen.getByText('SQL Sale Product')).toBeInTheDocument()
+    expect(screen.getByText('Noodle Pack')).toBeInTheDocument()
+
+    // filter by name
+    fireEvent.change(searchInput, { target: { value: 'Noodle' } })
+    await waitFor(() => {
+      expect(screen.queryByText('SQL Sale Product')).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('Noodle Pack')).toBeInTheDocument()
+  })
+
+  it('filters product rows by barcode in the sales report search', async () => {
+    render(<SalesReportPage />)
+    const searchInput = await screen.findByLabelText('ค้นหาสินค้าในรายงาน')
+    fireEvent.change(searchInput, { target: { value: 'SQL-001' } })
+    await waitFor(() => {
+      // มีอย่างน้อย 1 row ใน table (อาจมี dropdown option ก็ได้)
+      expect(screen.getAllByText('SQL Sale Product').length).toBeGreaterThan(0)
+    })
+    expect(screen.queryByText('ไม่พบสินค้าที่ตรงกับคำค้น')).not.toBeInTheDocument()
+  })
+
+  it('shows the not-found message when no product matches the search', async () => {
+    render(<SalesReportPage />)
+    const searchInput = await screen.findByLabelText('ค้นหาสินค้าในรายงาน')
+    fireEvent.change(searchInput, { target: { value: 'XYZ-NOT-FOUND' } })
+    expect(await screen.findByText(/ไม่พบสินค้าที่ตรงกับคำค้น/)).toBeInTheDocument()
+  })
+
+  it('opens the bill detail modal with each bill and Asia/Bangkok datetime when clicking ดูรายละเอียด', async () => {
+    // สร้าง sales 2 บิลที่มี product เดียวกัน, soldAt ต่างกัน (UTC 22:35 + 07:00 = 05:35 วันถัดไป ตาม Bangkok)
+    mockedApiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith('/reports/sales')) {
+        return {
+          ...salesReport,
+          sales: [
+            {
+              ...sqlSale,
+              id: 'sale-1',
+              receiptNumber: 'RC-LATER',
+              soldAt: '2026-08-04T07:35:00.000Z', // 14:35 Bangkok
+            },
+            {
+              ...sqlSale,
+              id: 'sale-2',
+              receiptNumber: 'RC-EARLIER',
+              soldAt: '2026-08-04T01:15:00.000Z', // 08:15 Bangkok
+            },
+          ],
+        }
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    render(<SalesReportPage />)
+    const detailButton = await screen.findByRole('button', { name: 'ดูรายละเอียด' })
+    fireEvent.click(detailButton)
+
+    const dialog = await screen.findByRole('dialog', { name: /SQL Sale Product/ })
+    expect(dialog).toBeInTheDocument()
+    // ทั้ง 2 บิลปรากฏ
+    expect(within(dialog).getByText('RC-LATER')).toBeInTheDocument()
+    expect(within(dialog).getByText('RC-EARLIER')).toBeInTheDocument()
+    // เวลา Asia/Bangkok — RC-LATER 14:35, RC-EARLIER 08:15
+    expect(within(dialog).getByText(/14:35/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/08:15/)).toBeInTheDocument()
+    // เรียงล่าสุดก่อน → RC-LATER ก่อน
+    const billRows = within(dialog).getAllByRole('row')
+    expect(billRows[1]).toHaveTextContent('RC-LATER')
+    expect(billRows[2]).toHaveTextContent('RC-EARLIER')
+  })
+
+  it('closes the detail modal when clicking the close button', async () => {
+    render(<SalesReportPage />)
+    const detailButton = await screen.findByRole('button', { name: 'ดูรายละเอียด' })
+    fireEvent.click(detailButton)
+
+    const dialog = await screen.findByRole('dialog', { name: /SQL Sale Product/ })
+    expect(dialog).toBeInTheDocument()
+
+    const closeButton = within(dialog).getByRole('button', { name: 'ปิด' })
+    fireEvent.click(closeButton)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /SQL Sale Product/ })).not.toBeInTheDocument()
+    })
+  })
+
   it('renders receipt history from the sales API', async () => {
     render(
       <MemoryRouter>
