@@ -2342,8 +2342,42 @@ button.table-action-link {
 }
 
 .sales-report-detail-modal {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 820px);
   max-width: 1200px;
+  overflow: hidden;
   width: 100%;
+}
+
+.sales-report-detail-modal .modal-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+  margin: -18px -18px 0;
+  padding: 18px;
+}
+
+.sales-report-detail-modal .sales-report-detail-table-wrap {
+  flex: 1 1 auto;
+  margin: 0 -18px;
+  max-width: none;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 18px;
+}
+
+.sales-report-detail-modal .sales-report-detail-table {
+  min-width: 640px;
+}
+
+.sales-report-detail-modal .sales-report-detail-pagination {
+  background: #ffffff;
+  border-bottom: 0;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+  margin: 0 -18px -18px;
+  padding: 12px 18px;
 }
 
 .sales-report-detail-summary {
@@ -2428,15 +2462,8 @@ button.table-action-link {
   margin: 0;
 }
 
-.sales-report-detail-table-wrap {
-  /* ป้องกัน column หายเมื่อ modal แคบกว่า content (iPad portrait / mobile) */
-  max-width: 100%;
-  overflow-x: auto;
-}
-
 .sales-report-detail-table {
   font-size: 13px;
-  min-width: 640px;
   width: 100%;
 }
 
@@ -2473,7 +2500,7 @@ button.table-action-link {
   .sales-report-detail-modal {
     max-width: 100%;
   }
-  .sales-report-detail-table {
+  .sales-report-detail-modal .sales-report-detail-table {
     font-size: 12px;
     min-width: 560px;
   }
